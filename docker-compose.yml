@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: gymholik-mongodb
+    restart: always
+    env_file:
+      - .env
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+    volumes:
+      # :z label automatically applies SELinux context for Fedora/RHEL/CentOS
+      - mongodb_data:/data/db:z
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Database port is completely unexposed to the host for security
+
+  api:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: gymholik-api
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongodb:27017/gymholik?authSource=admin
+      - JWT_SECRET=${JWT_SECRET}
+    ports:
+      # Bound to localhost only
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      # Uses the OpenAPI docs endpoint since Actuator isn't installed
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/v3/api-docs"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M # Memory limit for the Spring Boot container
+
+volumes:
+  mongodb_data:

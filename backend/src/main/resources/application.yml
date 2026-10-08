@@ -1,0 +1,44 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gym-management
+  data:
+    mongodb:
+      uri: ${MONGO_URI:mongodb://localhost:27017/gymdb?replicaSet=rs0}
+      auto-index-creation: true
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 10MB
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:supersecretkeythatisverylongandsecure32bytes}
+    access-token-expiry-ms: 1800000   # 30 minutes
+    refresh-token-expiry-days: 30
+  trial:
+    duration-days: 14
+  login:
+    max-attempts: 5
+    lockout-minutes: 15
+  upload:
+    dir: ${UPLOAD_DIR:/tmp/uploads}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+
+logging:
+  level:
+    com.gymapp: DEBUG
+    org.springframework.security: WARN

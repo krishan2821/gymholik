@@ -1,0 +1,51 @@
+# macOS
+.DS_Store
+*.pem
+
+# IDE / Editor
+.idea/
+.vscode/
+*.iml
+
+# Environment & local secrets (keep .env.example)
+.env
+.env*.local
+!.env.example
+
+# Process files & logs
+.backend.pid
+*.log
+backend.log
+logs/
+
+# Maven / Java
+target/
+backend/target/
+*.class
+
+# Node / React Native / Expo
+node_modules/
+mobile/node_modules/
+.expo/
+mobile/.expo/
+dist/
+mobile/dist/
+web-build/
+mobile/web-build/
+expo-env.d.ts
+mobile/expo-env.d.ts
+*.tsbuildinfo
+mobile/ios/
+mobile/android/
+
+# Keystores / Keys
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Debug logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
