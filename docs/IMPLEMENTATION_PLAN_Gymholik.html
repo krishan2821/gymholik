@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Implementation Plan & Roadmap - Gymholik</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="cover-page">
+    <div class="cover-tag">ENGINEERING ROADMAP &bull; V1.0</div>
+    <div class="cover-title">Implementation Plan & Roadmap</div>
+    <div class="cover-subtitle">Engineering Milestones, QA Matrix & Production Deployment Playbook</div>
+    <div class="meta-grid">
+      <div class="meta-item">
+        <span class="meta-label">Project</span>
+        <span class="meta-val">Gymholik SaaS</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Version</span>
+        <span class="meta-val">1.0.0</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Author</span>
+        <span class="meta-val">Engineering Team</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Date</span>
+        <span class="meta-val">October 2026</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="content-body">
+    
+  <h1>1. Engineering Roadmap & Milestone Timeline</h1>
+  <p>The Gymholik implementation roadmap spans 6 phased milestones designed for robust multi-tenant execution, zero financial discrepancy, and flawless mobile user experience.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Phase</th>
+        <th>Focus Area</th>
+        <th>Duration</th>
+        <th>Key Deliverables</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Phase 1</strong></td>
+        <td>Core Multi-Tenant Engine</td>
+        <td>2 Sprints</td>
+        <td>Spring Boot 3 scaffold, MongoDB multi-tenant ThreadLocal context, JWT filter, rate limiting.</td>
+        <td><span class="badge badge-owner">Complete</span></td>
+      </tr>
+      <tr>
+        <td><strong>Phase 2</strong></td>
+        <td>Member & Financial Engine</td>
+        <td>2 Sprints</td>
+        <td>Membership calculations, payment ledger in paise, dues tracking, PDF receipts, reversal locks.</td>
+        <td><span class="badge badge-owner">Complete</span></td>
+      </tr>
+      <tr>
+        <td><strong>Phase 3</strong></td>
+        <td>Mobile Foundation & Design System</td>
+        <td>2 Sprints</td>
+        <td>Expo SDK 52, Cyber-Emerald theme tokens, custom FloatingTabBar, GlassCard, micro-interactions.</td>
+        <td><span class="badge badge-owner">Complete</span></td>
+      </tr>
+      <tr>
+        <td><strong>Phase 4</strong></td>
+        <td>Strict RBAC & Navigation Guards</td>
+        <td>1 Sprint</td>
+        <td><code>tabsByRole</code> single source of truth, deep link guards, zero-flash role loading.</td>
+        <td><span class="badge badge-owner">Complete</span></td>
+      </tr>
+      <tr>
+        <td><strong>Phase 5</strong></td>
+        <td>Attendance & Personal Training</td>
+        <td>1 Sprint</td>
+        <td>QR scanning, instant manual check-in, trainer progress notes & weight progression charting.</td>
+        <td><span class="badge badge-owner">Complete</span></td>
+      </tr>
+      <tr>
+        <td><strong>Phase 6</strong></td>
+        <td>Production Hardening & App Store Release</td>
+        <td>1 Sprint</td>
+        <td>EAS Build profiles, Docker production staging, end-to-end multi-tenant penetration tests.</td>
+        <td><span class="badge badge-staff">In Progress</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h1>2. Quality Assurance & Testing Matrix</h1>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Backend Automated Testing</div>
+      <ul>
+        <li><strong>Unit Tests:</strong> JUnit 5 + Mockito covering payment calculation, membership expiry rules, and phone masking.</li>
+        <li><strong>Integration Tests:</strong> Spring <code>MockMvc</code> tests verifying <code>TenantIsolationIntegrationTest</code> and <code>TrainerAccessIntegrationTest</code>.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-title">Mobile Type & Route Testing</div>
+      <ul>
+        <li><strong>TypeScript Strict Mode:</strong> Zero compilation errors across all screens and components (<code>npx tsc --noEmit</code>).</li>
+        <li><strong>Deep-Link Testing:</strong> Verified redirection across 3 accounts (Owner, Staff, Trainer).</li>
+      </ul>
+    </div>
+  </div>
+
+  <h1>3. Production Deployment & Monitoring Architecture</h1>
+  <ol>
+    <li><strong>Backend Deployment:</strong> Containerized via Docker, hosted on cloud container service behind Nginx reverse proxy with SSL termination and Let's Encrypt certificates.</li>
+    <li><strong>Database Cluster:</strong> MongoDB Atlas replica set with automated point-in-time recovery and compound index monitoring.</li>
+    <li><strong>Mobile Distribution:</strong>
+      <ul>
+        <li>Expo Application Services (EAS) building production binaries for iOS (TestFlight) and Android (Google Play Internal Track).</li>
+        <li>Sentry error tracking integrated for real-time mobile crash analysis.</li>
+      </ul>
+    </li>
+  </ol>
+
+  </div>
+
+  <div class="footer-note">
+    <span>Gymholik Enterprise Multi-Tenant Platform &bull; Confidential</span>
+    <span>Generated Documentation</span>
+  </div>
+</body>
+</html>

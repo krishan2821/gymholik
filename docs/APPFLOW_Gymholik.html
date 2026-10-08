@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Application Navigation & User Flows - Gymholik</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="cover-page">
+    <div class="cover-tag">APPLICATION FLOW &bull; V1.0</div>
+    <div class="cover-title">Application Navigation & User Flows</div>
+    <div class="cover-subtitle">Role-Based Tab Routing, State Transitions & Journey Blueprints</div>
+    <div class="meta-grid">
+      <div class="meta-item">
+        <span class="meta-label">Project</span>
+        <span class="meta-val">Gymholik SaaS</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Version</span>
+        <span class="meta-val">1.0.0</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Author</span>
+        <span class="meta-val">Engineering Team</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Date</span>
+        <span class="meta-val">October 2026</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="content-body">
+    
+  <h1>1. Navigation Architecture & Entry Routing</h1>
+  <p>Gymholik utilizes Expo Router v4 with a hybrid stack-and-tab navigation hierarchy. User entry begins at root <code>_layout.tsx</code>, inspecting the Zustand authentication state before routing.</p>
+
+  <div class="code-block">
+[App Launch]
+     |
+     +---> [Auth Check: useAuthStore]
+                |
+                +---> Unauthenticated? -> Replace to /(auth)/login
+                |                               |
+                |                               +---> Tap 5x on Logo -> /(auth)/super-admin-login
+                |                               +---> Register Gym  -> /(auth)/register (Owner)
+                |                               +---> Register Trainer -> /(auth)/register (Trainer)
+                |
+                +---> Authenticated?
+                            |
+                            +---> Role == OWNER / STAFF -> /(tabs) (Home Dashboard)
+                            |
+                            +---> Role == TRAINER       -> /(tabs)/members (My Members)
+  </div>
+
+  <h1>2. Role-Based Tab Configuration Matrix (tabsByRole)</h1>
+  <p>The single source of truth <code>mobile/src/navigation/tabsByRole.ts</code> defines tab ordering, visibility, and redirection targets:</p>
+  <table>
+    <thead>
+      <tr>
+        <th>Role</th>
+        <th>Allowed Tabs (Exact Order)</th>
+        <th>Landing Route</th>
+        <th>Forbidden Routes (Guarded & Hidden)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="badge badge-owner">OWNER</span></td>
+        <td>1. Home &bull; 2. Members &bull; 3. Check-in (Center) &bull; 4. Payments &bull; 5. More</td>
+        <td><code>/(tabs)</code></td>
+        <td><code>notes</code>, <code>profile</code></td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-staff">STAFF</span></td>
+        <td>1. Home &bull; 2. Members &bull; 3. Check-in (Center) &bull; 4. Payments &bull; 5. More</td>
+        <td><code>/(tabs)</code></td>
+        <td><code>notes</code>, <code>profile</code></td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-trainer">TRAINER</span></td>
+        <td>1. My Members &bull; 2. Check-in (Center) &bull; 3. Notes &bull; 4. Profile</td>
+        <td><code>/(tabs)/members</code></td>
+        <td><code>index</code> (Home money), <code>payments</code>, <code>more</code>, <code>staff</code>, <code>plans</code>, <code>settings</code>, <code>subscription</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h1>3. Detailed User Journeys</h1>
+  <h2>3.1 Journey 1: Gym Owner Complete Operational Cycle</h2>
+  <ol>
+    <li><strong>Launch & Login:</strong> Enters phone, password, and gym code. System verifies OWNER role and lands on Dashboard.</li>
+    <li><strong>Financial Audit:</strong> Views Monthly Collection, Today Collection, and Outstanding Dues. Reviews 7-day trend bar graph.</li>
+    <li><strong>Staff & Plan Configuration:</strong>
+      <ul>
+        <li>Navigates to <code>More &gt; Plans</code> &rarr; Creates "3 Month Gold" with admission fee and duration.</li>
+        <li>Navigates to <code>More &gt; Staff</code> &rarr; Adds front-desk staff phone and password.</li>
+        <li>Navigates to <code>More &gt; Trainers</code> &rarr; Reviews pending trainer applications and approves with trainer specializations.</li>
+      </ul>
+    </li>
+    <li><strong>Member Admission:</strong> Taps Members tab &rarr; Taps <code>+ Add Member</code> &rarr; Uploads photo, selects plan, enters initial payment, confirms receipt.</li>
+  </ol>
+
+  <h2>3.2 Journey 2: Front-Desk Staff Check-In & Fee Collection</h2>
+  <ol>
+    <li><strong>Member Check-in:</strong>
+      <ul>
+        <li>Staff taps center raised <strong>Check-in</strong> button.</li>
+        <li>Searches member by name or phone. Debounced list surfaces member profile.</li>
+        <li>Taps check-in &rarr; System validates membership status.</li>
+        <li>If expired: Modal alert offers instant renewal. If active: Green sage pulse confirms check-in.</li>
+      </ul>
+    </li>
+    <li><strong>Dues Collection:</strong>
+      <ul>
+        <li>Staff navigates to <code>Payments &gt; Dues</code>.</li>
+        <li>Selects member with balance &rarr; Enters collected amount (CASH / UPI) &rarr; Submits payment &rarr; Generates digital PDF receipt.</li>
+      </ul>
+    </li>
+  </ol>
+
+  <h2>3.3 Journey 3: Personal Trainer Client Progression Workflow</h2>
+  <ol>
+    <li><strong>Landing:</strong> Trainer logs in &rarr; Automatically lands on <strong>My Members</strong> tab (zero access to financial dashboard).</li>
+    <li><strong>Client Oversight:</strong> Views only members assigned to their roster. Selects member to view training bio.</li>
+    <li><strong>Progress Notes & Weight Tracking:</strong>
+      <ul>
+        <li>Taps <strong>Notes</strong> tab &rarr; Selects client chip avatar.</li>
+        <li>Views chronological history (Workout, Diet, Progress, Weight logs).</li>
+        <li>Taps Floating Action Button (FAB) <code>+ Add Note</code> &rarr; Enters current weight and workout adjustments &rarr; Saves note.</li>
+        <li>Weight Progress chart dynamically updates point trajectory.</li>
+      </ul>
+    </li>
+    <li><strong>Account Management:</strong> Taps <strong>Profile</strong> tab &rarr; Views trainer specializations, gym affiliation, Change Password, and Sign Out.</li>
+  </ol>
+
+  <h1>4. Error & Edge Case Handling Flows</h1>
+  <div class="callout">
+    <div class="callout-title">Deep-Link Interception Rule</div>
+    If a Trainer clicks a deep link targeting <code>/(tabs)/payments</code> or <code>/(tabs)/more</code>, the layout guard immediately intercepts the route and executes <code>router.replace('/(tabs)/members')</code> before any UI renders.
+  </div>
+
+  </div>
+
+  <div class="footer-note">
+    <span>Gymholik Enterprise Multi-Tenant Platform &bull; Confidential</span>
+    <span>Generated Documentation</span>
+  </div>
+</body>
+</html>

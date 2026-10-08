@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Technical Requirements Document (TRD) - Gymholik</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="cover-page">
+    <div class="cover-tag">TECHNICAL ARCHITECTURE &bull; V1.0</div>
+    <div class="cover-title">Technical Requirements Document (TRD)</div>
+    <div class="cover-subtitle">System Architecture, Multi-Tenancy Engine & Security Blueprint</div>
+    <div class="meta-grid">
+      <div class="meta-item">
+        <span class="meta-label">Project</span>
+        <span class="meta-val">Gymholik SaaS</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Version</span>
+        <span class="meta-val">1.0.0</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Author</span>
+        <span class="meta-val">Engineering Team</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Date</span>
+        <span class="meta-val">October 2026</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="content-body">
+    
+  <h1>1. Architecture Overview & System Topology</h1>
+  <p>Gymholik implements a modern, decoupled client-server architecture. The mobile client is a cross-platform React Native / Expo application communicating over HTTPS with a high-performance Spring Boot 3 RESTful API backed by a scalable MongoDB document database.</p>
+
+  <div class="code-block">
++-----------------------------------------------------------------------------------+
+|                           EXPO / REACT NATIVE CLIENT                             |
+|  [Expo Router v4]  <-->  [Zustand Auth Store]  <-->  [TanStack React Query v5]     |
++-----------------------------------------------------------------------------------+
+                                         | HTTPS (JSON / REST API)
+                                         v
++-----------------------------------------------------------------------------------+
+|                           SPRING BOOT 3.x BACKEND (JAVA 21)                       |
+|  [Rate Limiter] -> [JWT Filter] -> [Tenant Context Pipeline] -> [RBAC Security]   |
+|                                        |                                          |
+|            [Service Layer (Business Logic & Transactions)]                        |
+|                                        |                                          |
+|            [Spring Data MongoDB Repository Layer (Query Criteria)]                |
++-----------------------------------------------------------------------------------+
+                                         |
+                                         v
++-----------------------------------------------------------------------------------+
+|                           MONGODB DOCUMENT STORE (v6+)                            |
+|      [gyms]   [users]   [members]   [memberships]   [payments]   [attendance]     |
++-----------------------------------------------------------------------------------+
+  </div>
+
+  <h1>2. Technology Stack Breakdown</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>Tier</th>
+        <th>Technology</th>
+        <th>Version</th>
+        <th>Architectural Rationale</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Backend Runtime</strong></td>
+        <td>Java (LTS)</td>
+        <td>21</td>
+        <td>Virtual threads (Project Loom), pattern matching, modern memory efficiency.</td>
+      </tr>
+      <tr>
+        <td><strong>Web Framework</strong></td>
+        <td>Spring Boot</td>
+        <td>3.2.x</td>
+        <td>Industry-standard enterprise DI, security integrations, rapid REST development.</td>
+      </tr>
+      <tr>
+        <td><strong>Security Engine</strong></td>
+        <td>Spring Security</td>
+        <td>6.2.x</td>
+        <td>Stateless JWT authentication, method-level <code>@PreAuthorize</code> RBAC.</td>
+      </tr>
+      <tr>
+        <td><strong>Database</strong></td>
+        <td>MongoDB</td>
+        <td>6.0+</td>
+        <td>Schema flexibility for varied gym membership models, fast document indexing.</td>
+      </tr>
+      <tr>
+        <td><strong>Mobile Runtime</strong></td>
+        <td>React Native / Expo</td>
+        <td>SDK 52</td>
+        <td>Universal iOS/Android compilation, EAS build pipeline, OTA updates.</td>
+      </tr>
+      <tr>
+        <td><strong>Mobile Routing</strong></td>
+        <td>Expo Router</td>
+        <td>v4</td>
+        <td>File-based navigation with deep-link support and dynamic tab layout shielding.</td>
+      </tr>
+      <tr>
+        <td><strong>State & Cache</strong></td>
+        <td>Zustand + TanStack Query</td>
+        <td>v5</td>
+        <td>Zero-boilerplate global auth store with automatic query caching and deduplication.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h1>3. Multi-Tenancy Architecture & Data Isolation</h1>
+  <p>Gymholik utilizes a <strong>Shared Database, Shared Schema</strong> multi-tenancy model partitioned via a required <code>gymId</code> foreign key on every tenant-scoped document.</p>
+
+  <h2>3.1 The TenantContext Pipeline</h2>
+  <ol>
+    <li>Every authenticated request carries a Bearer JWT containing <code>gymId</code>, <code>userId</code>, and <code>role</code> in its claims.</li>
+    <li><code>JwtFilter</code> parses the token, authenticates the user principal, and extracts <code>gymId</code>.</li>
+    <li><code>TenantFilter</code> establishes a ThreadLocal context via <code>TenantContext.setGymId(gymId)</code>.</li>
+    <li>Service layers query repositories with criteria pre-filtered by <code>TenantContext.getGymId()</code>.</li>
+    <li>In <code>finally</code> block of filter, <code>TenantContext.clear()</code> prevents thread reuse contamination.</li>
+  </ol>
+
+  <div class="code-block">
+public class TenantContext {
+    private static final ThreadLocal&lt;String&gt; CURRENT_GYM = new ThreadLocal&lt;&gt;();
+    public static void setGymId(String gymId) { CURRENT_GYM.set(gymId); }
+    public static String getGymId() { return CURRENT_GYM.get(); }
+    public static void clear() { CURRENT_GYM.remove(); }
+}
+  </div>
+
+  <h1>4. Security Architecture & Threat Modeling</h1>
+  <h2>4.1 Authentication & Token Lifecycle</h2>
+  <ul>
+    <li><strong>Access Token:</strong> Short-lived HMAC-SHA256 JWT (expires in 30 minutes). Contains identity and role payload.</li>
+    <li><strong>Refresh Token:</strong> Cryptographically secure UUID stored in MongoDB (expires in 30 days). Evaluates token rotation upon exchange.</li>
+    <li><strong>Brute-Force Rate Limiting:</strong> Memory-backed sliding window rate limiter (<code>LoginRateLimiter</code>) blocks IP addresses after 5 failed login attempts per minute.</li>
+  </ul>
+
+  <h2>4.2 Privacy & Data Masking</h2>
+  <p>To adhere to privacy standards and prevent competitor staff poaching:</p>
+  <ul>
+    <li>Member mobile numbers are masked for staff unless explicitly permitted by gym settings: <code>+91 98****1211</code>.</li>
+    <li>Gym secret codes are visible exclusively to verified gym owners.</li>
+  </ul>
+
+  <h1>5. CI/CD & Deployment Strategy</h1>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Backend Containerization</div>
+      <p>Packaged via multi-stage Dockerfile based on Eclipse Temurin Alpine 21. Orchestrated using Docker Compose with MongoDB container and volume persistence.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Mobile Distribution</div>
+      <p>Compiled via Expo Application Services (EAS Build). Produces optimized Android AAB for Google Play and iOS IPA for Apple TestFlight / App Store.</p>
+    </div>
+  </div>
+
+  </div>
+
+  <div class="footer-note">
+    <span>Gymholik Enterprise Multi-Tenant Platform &bull; Confidential</span>
+    <span>Generated Documentation</span>
+  </div>
+</body>
+</html>

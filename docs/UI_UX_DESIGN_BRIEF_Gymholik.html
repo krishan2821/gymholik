@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>UI/UX Design Brief & Style System - Gymholik</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="cover-page">
+    <div class="cover-tag">DESIGN SYSTEM &bull; V1.0</div>
+    <div class="cover-title">UI/UX Design Brief & Style System</div>
+    <div class="cover-subtitle">Cyber-Emerald Visual Tokens, Typography & Component Design Specifications</div>
+    <div class="meta-grid">
+      <div class="meta-item">
+        <span class="meta-label">Project</span>
+        <span class="meta-val">Gymholik SaaS</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Version</span>
+        <span class="meta-val">1.0.0</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Author</span>
+        <span class="meta-val">Engineering Team</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Date</span>
+        <span class="meta-val">October 2026</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="content-body">
+    
+  <h1>1. Brand Identity & Visual Philosophy</h1>
+  <p>Gymholik embraces a modern <strong>Cyber-Emerald & Dark Sage</strong> design philosophy. The aesthetic reflects strength, premium discipline, high contrast, and focused utility. The interface minimizes eye fatigue during low-light gym hours while providing vibrant, state-of-the-art visual accents.</p>
+
+  <h1>2. Design Tokens & Color Palette</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>Token Name</th>
+        <th>Hex / RGBA Value</th>
+        <th>Visual Role & Application</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>background</code></td>
+        <td><code>#051F20</code></td>
+        <td>Deep abyssal emerald. Base canvas background for all screens.</td>
+      </tr>
+      <tr>
+        <td><code>surface</code></td>
+        <td><code>#0B2B26</code></td>
+        <td>Solid card background, floating tab bar body, modal panels.</td>
+      </tr>
+      <tr>
+        <td><code>raised</code></td>
+        <td><code>#163832</code></td>
+        <td>Elevated interactive surfaces, active input containers, avatar rings.</td>
+      </tr>
+      <tr>
+        <td><code>primary</code></td>
+        <td><code>#8EB69B</code></td>
+        <td>High-visibility sage green accent. Primary action buttons, active tab indicators.</td>
+      </tr>
+      <tr>
+        <td><code>primaryLight</code></td>
+        <td><code>#DAF1DE</code></td>
+        <td>Pale mint. Main headings, prominent counter typography, primary icons.</td>
+      </tr>
+      <tr>
+        <td><code>text</code></td>
+        <td><code>#FFFFFF</code></td>
+        <td>High-contrast pure white. Primary titles, member names, card headers.</td>
+      </tr>
+      <tr>
+        <td><code>textMuted</code></td>
+        <td><code>#A1B5A8</code></td>
+        <td>Subdued mint-grey. Secondary labels, timestamps, field hints, tab labels.</td>
+      </tr>
+      <tr>
+        <td><code>error</code></td>
+        <td><code>#FF6B6B</code></td>
+        <td>Coral red. Overdue badges, expired warnings, reversal actions.</td>
+      </tr>
+      <tr>
+        <td><code>warning</code></td>
+        <td><code>#F4A261</code></td>
+        <td>Warm amber. Pending trainer approval badges, partial dues chips.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h1>3. Typography Hierarchy</h1>
+  <div class="card" style="margin-bottom: 15px;">
+    <div class="card-title">Primary Font Families</div>
+    <p><strong>Heading Font:</strong> <code>Space Grotesk</code> (Bold 700 / SemiBold 600 / Medium 500) &mdash; Geometric, modern athletic weight.</p>
+    <p><strong>Body Font:</strong> <code>Inter</code> (Regular 400 / Medium 500 / SemiBold 600) &mdash; High legibility on mobile screens at small sizes.</p>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Style</th>
+        <th>Font Family & Weight</th>
+        <th>Size</th>
+        <th>Line Height</th>
+        <th>Usage</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Display / H1</strong></td>
+        <td>Space Grotesk Bold</td>
+        <td>24px</td>
+        <td>32px</td>
+        <td>Dashboard greetings, screen primary titles.</td>
+      </tr>
+      <tr>
+        <td><strong>Card Title / H2</strong></td>
+        <td>Space Grotesk SemiBold</td>
+        <td>18px</td>
+        <td>24px</td>
+        <td>Section headers, profile names, metric values.</td>
+      </tr>
+      <tr>
+        <td><strong>Body Regular</strong></td>
+        <td>Inter Regular</td>
+        <td>14px</td>
+        <td>20px</td>
+        <td>Member descriptions, note paragraphs, table items.</td>
+      </tr>
+      <tr>
+        <td><strong>Caption / Micro</strong></td>
+        <td>Inter Medium</td>
+        <td>11px</td>
+        <td>14px</td>
+        <td>Tab bar labels, badge text, timestamp metadata.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h1>4. Component Architecture & Micro-Interactions</h1>
+  <h2>4.1 The Custom Floating Tab Bar</h2>
+  <ul>
+    <li><strong>Geometry:</strong> Height 64px, pill border radius 32px, left/right margins 16px, bottom offset <code>insets.bottom + 4px</code>.</li>
+    <li><strong>Background:</strong> Solid <code>#0B2B26</code> (100% opaque) with 1px border <code>rgba(218, 241, 222, 0.12)</code>.</li>
+    <li><strong>Center Raised Check-in Button:</strong> 56px circular button lifted -18px above bar horizon. Features 3px solid <code>#0B2B26</code> contour border. Active state features subtle pulse.</li>
+    <li><strong>Sliding Sage Indicator:</strong> Spring-driven horizontal pill following active tab index with opacity transitions.</li>
+  </ul>
+
+  <h2>4.2 Micro-Interactions & Haptics</h2>
+  <ul>
+    <li><strong>Button Presses:</strong> Spring scale compression to <code>0.96</code> with <code>Haptics.impactAsync(Light)</code>.</li>
+    <li><strong>Check-in Success:</strong> Sage screen pulse accompanied by <code>Haptics.notificationAsync(Success)</code>.</li>
+    <li><strong>Expired Warning:</strong> Double vibratory warning with warning banner modal.</li>
+    <li><strong>Metric Counters:</strong> Smooth 650ms ease-out count-up animation on dashboard launch.</li>
+  </ul>
+
+  <h1>5. Accessibility Compliance (WCAG 2.1 AA)</h1>
+  <ul>
+    <li>All touch targets guarantee minimum 48x48 dp physical dimension.</li>
+    <li>Text contrast ratio against <code>#051F20</code> canvas exceeds 7:1 for white and 4.8:1 for sage mint.</li>
+    <li>Full support for system <code>reduceMotion</code> setting (bypasses spring sequences for instant transitions).</li>
+  </ul>
+
+  </div>
+
+  <div class="footer-note">
+    <span>Gymholik Enterprise Multi-Tenant Platform &bull; Confidential</span>
+    <span>Generated Documentation</span>
+  </div>
+</body>
+</html>

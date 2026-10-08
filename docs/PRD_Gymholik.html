@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Product Requirements Document (PRD) - Gymholik</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="cover-page">
+    <div class="cover-tag">PRODUCT SPECIFICATION &bull; V1.0</div>
+    <div class="cover-title">Product Requirements Document (PRD)</div>
+    <div class="cover-subtitle">Comprehensive Product Specification & Feature Blueprint</div>
+    <div class="meta-grid">
+      <div class="meta-item">
+        <span class="meta-label">Project</span>
+        <span class="meta-val">Gymholik SaaS</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Version</span>
+        <span class="meta-val">1.0.0</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Author</span>
+        <span class="meta-val">Engineering Team</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Date</span>
+        <span class="meta-val">October 2026</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="content-body">
+    
+  <h1>1. Executive Summary & Vision</h1>
+  <p><strong>Gymholik</strong> is an enterprise-grade, multi-tenant Software-as-a-Service (SaaS) platform built specifically to streamline the operational, financial, and client-management lifecycles of modern fitness clubs and gyms. Operating in a high-density, multi-user environment, gym businesses require strict multi-tenant data segregation, intuitive role-specific operational interfaces, automated dues tracking, high-speed attendance check-ins, and dedicated personal training workflows.</p>
+  <p>The system eliminates manual paper logbooks, uncollected receivables, unauthorized gym access, and fractured communication between gym owners, front-desk staff, personal trainers, and gym members.</p>
+
+  <div class="callout">
+    <div class="callout-title">Core Value Proposition</div>
+    Provide gym owners with complete financial control and anti-theft guards (audit trails & payment locks), staff with frictionless member check-in & fee collection, trainers with client accountability and weight progress notes, and members with transparent digital access.
+  </div>
+
+  <h1>2. Target Personas & Stakeholder Analysis</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>Persona</th>
+        <th>Role Identifier</th>
+        <th>Primary Objectives & Responsibilities</th>
+        <th>Key Frustrations Solved</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Gym Owner</strong></td>
+        <td><span class="badge badge-owner">OWNER</span></td>
+        <td>P&L oversight, revenue tracking, fee collection, staff permissions, plan creation, trainer approval.</td>
+        <td>Cash leakage, untracked overdue memberships, staff altering financial records, inability to view audit logs.</td>
+      </tr>
+      <tr>
+        <td><strong>Front-Desk Staff</strong></td>
+        <td><span class="badge badge-staff">STAFF</span></td>
+        <td>Speedy check-in desk, searching members by phone/name, collecting dues, registering new admissions.</td>
+        <td>Slow paper check-ins, manual expiry calculation, complex software interfaces during morning/evening rushes.</td>
+      </tr>
+      <tr>
+        <td><strong>Personal Trainer</strong></td>
+        <td><span class="badge badge-trainer">TRAINER</span></td>
+        <td>Monitoring assigned client attendance, recording workout & weight progress notes, client profile management.</td>
+        <td>Losing track of client progress, lack of member assignment visibility, clunky communication.</td>
+      </tr>
+      <tr>
+        <td><strong>Super Administrator</strong></td>
+        <td><span class="badge badge-admin">SUPER_ADMIN</span></td>
+        <td>Platform health, gym tenant provisioning, subscription licensing, global system monitoring.</td>
+        <td>Manual tenant database management, multi-tenant cross-contamination risks, subscription enforcement.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h1>3. Functional Requirements & Feature Matrix</h1>
+  <h2>3.1 Multi-Tenant Gym Onboarding & Lifecycle</h2>
+  <ul>
+    <li><strong>Trial Registration:</strong> Prospective gym owners sign up with gym name, owner name, owner phone, and password. An instant 14-day free trial is activated.</li>
+    <li><strong>Unique Gym Code Generation:</strong> Each tenant receives a distinct, collision-free uppercase alphanumeric gym code (e.g., <code>TITANF4067</code>) used by staff and trainers during registration.</li>
+    <li><strong>Trial Expiration Guards:</strong> Upon trial expiry, write operations are suspended until subscription extension or payment verification by Super Admin.</li>
+  </ul>
+
+  <h2>3.2 Role-Based Access Control (RBAC) & Tab Visibility</h2>
+  <p>Navigation and access are strictly partitioned to prevent privilege escalation and unauthorized financial disclosure:</p>
+  <table>
+    <thead>
+      <tr>
+        <th>Feature / Route</th>
+        <th>Owner</th>
+        <th>Staff</th>
+        <th>Trainer</th>
+        <th>Functional Guarantee</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Financial Dashboard (Revenue, Outstanding)</td>
+        <td>Full Access</td>
+        <td>Full Access</td>
+        <td><strong>Forbidden</strong></td>
+        <td>Trainers never view gym turnover, daily collection, or dues metrics.</td>
+      </tr>
+      <tr>
+        <td>Member Directory</td>
+        <td>All Members</td>
+        <td>All Members</td>
+        <td><strong>Assigned Only</strong></td>
+        <td>Trainers only see active members officially assigned to their roster.</td>
+      </tr>
+      <tr>
+        <td>Attendance Check-In (Raised Center Tab)</td>
+        <td>Full Access</td>
+        <td>Full Access</td>
+        <td>Assigned Only</td>
+        <td>Quick check-in with expired membership warnings and sage visual pulse.</td>
+      </tr>
+      <tr>
+        <td>Payments & Dues Collection</td>
+        <td>Full Access</td>
+        <td>Collection Only</td>
+        <td><strong>Forbidden</strong></td>
+        <td>Staff can record collections; only Owner can execute payment reversals.</td>
+      </tr>
+      <tr>
+        <td>Client Progress Notes & Weight Chart</td>
+        <td>Member Detail</td>
+        <td>Member Detail</td>
+        <td><strong>Dedicated Tab</strong></td>
+        <td>Trainers have dedicated daily notes workspace with chart progression.</td>
+      </tr>
+      <tr>
+        <td>Gym Settings, Staff & Plans</td>
+        <td>Full Access</td>
+        <td><strong>Forbidden</strong></td>
+        <td><strong>Forbidden</strong></td>
+        <td>Staff and trainers cannot modify pricing, admission fees, or staff list.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3.3 Member Management & Subscription Engine</h2>
+  <ul>
+    <li><strong>Member Registration:</strong> Collects full name, phone number, gender, date of birth, emergency contact, photo, and initial membership plan.</li>
+    <li><strong>Dynamic Plan Calculation:</strong> Start date + plan duration days calculates expiry date. Admission fee + plan price equals total payable. Supports partial payment with balance dues.</li>
+    <li><strong>Membership Status Engine:</strong> Automatically derives status: <code>ACTIVE</code> (valid expiry), <code>EXPIRED</code> (expiry date in past), or <code>DUE</code> (outstanding balance).</li>
+  </ul>
+
+  <h2>3.4 Attendance & Access Control</h2>
+  <ul>
+    <li><strong>Manual Quick Check-in:</strong> Real-time debounced search by name, phone, or member code with single-tap check-in.</li>
+    <li><strong>Expired Access Interception:</strong> If an expired member attempts check-in, the system triggers audio/haptic warning and a modal prompt for renewal.</li>
+    <li><strong>QR Code Scanning:</strong> Instant camera scanner validating member ID against gym tenant.</li>
+  </ul>
+
+  <h2>3.5 Financial Ledger & Payment Reconciliation</h2>
+  <ul>
+    <li><strong>Payment Modes:</strong> Support for CASH, UPI, CREDIT/DEBIT CARD, and BANK TRANSFER.</li>
+    <li><strong>Receipt Generation:</strong> Automated branded PDF receipt generation with breakdown of admission fee, plan fees, GST, and balance.</li>
+    <li><strong>Owner Reversals:</strong> Accidental or fraudulent transactions can only be reversed by gym owners with mandatory audit reasons.</li>
+  </ul>
+
+  <h1>4. Non-Functional Requirements (NFRs)</h1>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Security & Tenant Isolation</div>
+      <p>Zero tenant cross-talk. Strict ThreadLocal context combined with MongoDB query injection ensures gym data is 100% isolated. Passwords hashed with BCrypt (strength 12).</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Latency & Responsiveness</div>
+      <p>API response time &lt; 150ms at p95. App tab switching instantaneous with client-side React Query caching and zero UI layout shifts.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Offline & Fault Resilience</div>
+      <p>Cached member directories for offline search. Background synchronization when network connection is restored.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Auditability & Compliance</div>
+      <p>Immutable audit logging for staff creations, payment reversals, plan alterations, and member status overrides.</p>
+    </div>
+  </div>
+
+  <h1>5. Success Metrics & Key Performance Indicators (KPIs)</h1>
+  <ul>
+    <li><strong>Check-in Speed:</strong> Average time from front-desk member arrival to check-in confirmation &lt; 3 seconds.</li>
+    <li><strong>Fee Recovery Rate:</strong> Reduce gym uncollected dues by &gt; 35% within 60 days of platform adoption.</li>
+    <li><strong>Platform Retention:</strong> Monthly tenant renewal rate &gt; 94% post-trial period.</li>
+  </ul>
+
+  </div>
+
+  <div class="footer-note">
+    <span>Gymholik Enterprise Multi-Tenant Platform &bull; Confidential</span>
+    <span>Generated Documentation</span>
+  </div>
+</body>
+</html>
