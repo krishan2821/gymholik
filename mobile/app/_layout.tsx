@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react';
 import { Slot, useRouter, useSegments } from 'expo-router';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, TextInput } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   useFonts,
   SpaceGrotesk_400Regular,
@@ -22,6 +23,13 @@ import { theme } from '../src/theme/theme';
 import { toastConfig } from '../src/components/Toast';
 import { queryClient } from '../src/api/queryClient';
 import { getHomeRouteForRole } from '../src/navigation/tabsByRole';
+
+// Set global text cursor and selection colour to #8EB69B across all inputs
+if ((TextInput as any).defaultProps == null) {
+  (TextInput as any).defaultProps = {};
+}
+(TextInput as any).defaultProps.cursorColor = '#8EB69B';
+(TextInput as any).defaultProps.selectionColor = '#8EB69B';
 
 export default function RootLayout() {
   const { isAuthenticated, isLoading, checkAuth } = useAuthStore();
@@ -57,27 +65,28 @@ export default function RootLayout() {
     }
   }, [isAuthenticated, isLoading, fontsLoaded, segments]);
 
-  if (isLoading || !fontsLoaded) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: theme.colors.background,
-        }}
-      >
-        <StatusBar style="light" />
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
-    );
-  }
+  const showSplash = isLoading || !fontsLoaded;
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <SafeAreaProvider style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <StatusBar style="light" />
-      <Slot />
-      <Toast config={toastConfig} />
-    </QueryClientProvider>
+      {showSplash ? (
+        <View
+          style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: theme.colors.background,
+          }}
+        >
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+        </View>
+      ) : (
+        <QueryClientProvider client={queryClient}>
+          <Slot />
+          <Toast config={toastConfig} />
+        </QueryClientProvider>
+      )}
+    </SafeAreaProvider>
   );
 }

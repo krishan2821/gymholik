@@ -151,6 +151,8 @@ export const Input = React.forwardRef<TextInput, InputProps>(
             editable={editable}
             placeholder={isFocused || !label ? placeholder : ''}
             placeholderTextColor="rgba(218, 241, 222, 0.40)"
+            cursorColor="#8EB69B"
+            selectionColor="#8EB69B"
             style={[
               styles.textInput,
               {

@@ -1,6 +1,7 @@
 # macOS
 .DS_Store
 *.pem
+*.zip
 
 # IDE / Editor
 .idea/

@@ -43,7 +43,7 @@ export default function TrainerProfileScreen() {
     ]);
   };
 
-  const displayName = currentUser?.name || 'Trainer';
+  const displayName = currentUser?.name || user?.name || 'Trainer';
   const displayRole = currentUser?.role || role || 'TRAINER';
   const gymName = currentUser?.gymName || 'Gymholik Fitness';
   const trainerTypes = currentUser?.trainerTypes || [];

@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Download, FileText, Banknote, CreditCard, Smartphone, ChevronRight } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../../src/theme/theme';
 import { usePayments, Payment, downloadAndShareReceipt, useReversePayment } from '../../../src/api/payments';
 import { useAuthStore } from '../../../src/store/useAuthStore';
-import { Screen } from '../../../src/components/Screen';
+import { Screen, getScreenBottomPadding } from '../../../src/components/Screen';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Button } from '../../../src/components/Button';
 import { Badge } from '../../../src/components/Badge';
@@ -17,6 +18,7 @@ import { PAYMENTS, ERRORS, COMMON } from '../../../src/constants/strings';
 
 export default function PaymentsHistoryScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
   const role = user?.role || useAuthStore((state) => state.role);
   const isOwner = role === 'OWNER';
@@ -207,7 +209,10 @@ export default function PaymentsHistoryScreen() {
           data={payments}
           keyExtractor={(item, index) => item?.id || `payment-${index}`}
           renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: getScreenBottomPadding(insets.bottom) },
+          ]}
           onEndReached={() => {
             if (hasNextPage && !isFetchingNextPage) fetchNextPage();
           }}

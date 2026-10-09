@@ -39,7 +39,7 @@ import {
   MemberNote,
   NoteType,
 } from '../../src/api/notes';
-import { Screen, TAB_BAR_HEIGHT } from '../../src/components/Screen';
+import { Screen, TAB_BAR_HEIGHT, getScreenBottomPadding } from '../../src/components/Screen';
 import { GlassCard } from '../../src/components/GlassCard';
 import { Badge, BadgeVariant } from '../../src/components/Badge';
 import { Button } from '../../src/components/Button';
@@ -69,10 +69,6 @@ export default function NotesScreen() {
       router.replace('/(tabs)');
     }
   }, [role, router]);
-
-  if (role && role !== 'TRAINER') {
-    return null;
-  }
 
   // 1. Fetch assigned members
   const {
@@ -206,6 +202,10 @@ export default function NotesScreen() {
     return notes.filter((n) => n.type === filterType);
   }, [notes, filterType]);
 
+  if (role && role !== 'TRAINER') {
+    return null;
+  }
+
   if (isLoadingMembers) {
     return (
       <Screen style={styles.centered}>
@@ -234,7 +234,7 @@ export default function NotesScreen() {
     );
   }
 
-  const scrollBottomPad = TAB_BAR_HEIGHT + insets.bottom + 24;
+  const scrollBottomPad = getScreenBottomPadding(insets.bottom);
 
   return (
     <Screen safeBottom={false} style={{ flex: 1 }}>

@@ -30,7 +30,7 @@ import { MORE, COMMON } from '../../../src/constants/strings';
 export default function MoreScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { role, logout, gymId, gymCode } = useAuthStore();
+  const { role, user, logout, gymId, gymCode } = useAuthStore();
   const { data: currentUser } = useCurrentUser();
   const isOwner = (currentUser?.role || role) === 'OWNER';
   const effectiveGymCode = currentUser?.gymCode || gymCode;
@@ -117,7 +117,7 @@ export default function MoreScreen() {
           <View style={styles.profileInfo}>
             <View style={styles.nameRow}>
               <Text style={styles.nameText} numberOfLines={1}>
-                {currentUser?.name || 'User'}
+                {currentUser?.name || user?.name || (isOwner ? 'Owner' : 'Staff')}
               </Text>
               <ChevronRight color={theme.colors.textMuted} size={18} />
             </View>

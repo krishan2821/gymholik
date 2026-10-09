@@ -52,7 +52,7 @@ export interface PagedAssignments {
 
 // ─── Trainer Queries ──────────────────────────────────────────────────────────
 
-export const useTrainers = (status?: string) => {
+export const useTrainers = (status?: string, options?: { enabled?: boolean }) => {
   return useQuery<Trainer[]>({
     queryKey: ['trainers', status],
     queryFn: async () => {
@@ -61,6 +61,7 @@ export const useTrainers = (status?: string) => {
       });
       return data.data;
     },
+    ...options,
   });
 };
 

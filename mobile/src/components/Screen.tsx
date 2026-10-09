@@ -23,13 +23,20 @@ export interface ScreenProps {
   onRefresh?: () => void;
   style?: StyleProp<ViewStyle>;
   contentContainerStyle?: StyleProp<ViewStyle>;
-  /** @deprecated — use contentContainerStyle paddingBottom instead */
   safeBottom?: boolean;
   safeTop?: boolean;
   keyboardAvoiding?: boolean;
 }
 
 export const TAB_BAR_HEIGHT = 64;
+
+/**
+ * Returns required bottom padding for any scrollable container so that the last card
+ * is never hidden behind the floating tab bar (bottom safe-area inset + 64 + 40).
+ */
+export function getScreenBottomPadding(insetsBottom: number = 0): number {
+  return insetsBottom + TAB_BAR_HEIGHT + 40;
+}
 
 export const Screen: React.FC<ScreenProps> = ({
   children,
@@ -46,10 +53,10 @@ export const Screen: React.FC<ScreenProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
 
-  // Top padding: insets.top + 12 so no content sits under status bar or Dynamic Island
+  // Top padding: insets.top + 12 so nothing sits under status bar or Dynamic Island
   const topPad = safeTop ? insets.top + 12 : 0;
-  // Bottom padding: tabBarHeight + insets.bottom + 24 so last card is never hidden behind floating tab bar
-  const bottomPad = safeBottom ? TAB_BAR_HEIGHT + insets.bottom + 24 : 0;
+  // Bottom padding: insets.bottom + TAB_BAR_HEIGHT (64) + 40 so last card is never hidden behind tab bar
+  const bottomPad = safeBottom ? getScreenBottomPadding(insets.bottom) : 0;
 
   const content = scrollable ? (
     <ScrollView
@@ -79,7 +86,7 @@ export const Screen: React.FC<ScreenProps> = ({
   );
 
   return (
-    // Root fills the whole screen edge-to-edge — background extends under status bar & home indicator
+    // Root fills whole screen edge-to-edge — background extends under status bar & home indicator
     <View style={styles.root}>
       <StatusBar style="light" />
       {withHeroImage && <BackgroundImage opacity={heroOpacity} />}
@@ -101,7 +108,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: theme.colors.background,
-    // No top/bottom inset here — we want background to bleed behind status bar & home indicator
   },
   content: {
     flex: 1,

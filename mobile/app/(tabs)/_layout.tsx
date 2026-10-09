@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Tabs, useRouter, useSegments } from 'expo-router';
+import { View, ActivityIndicator } from 'react-native';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import { useTrainers } from '../../src/api/trainers';
 import { FloatingTabBar } from '../../src/components/FloatingTabBar';
@@ -11,8 +12,6 @@ import {
   isRouteAllowedForRole,
 } from '../../src/navigation/tabsByRole';
 
-import { View, ActivityIndicator } from 'react-native';
-
 export default function TabLayout() {
   const router = useRouter();
   const segments = useSegments();
@@ -22,24 +21,10 @@ export default function TabLayout() {
   const role = user?.role;
   const isOwner = role === 'OWNER';
 
-  // Prevent flash of wrong tabs: do not render tabs until authenticated user role is available
-  if (!role) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: theme.colors.background,
-        }}
-      >
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
-    );
-  }
-
   // Deep-link guard: if user opens a route forbidden for their role, redirect to role's home
   useEffect(() => {
+    if (!role) return;
+
     // segments e.g. ['(tabs)'] or ['(tabs)', 'notes'] or ['(tabs)', 'payments', 'dues']
     const segs = segments as string[];
     const currentTab = segs[1] || 'index';
@@ -57,11 +42,29 @@ export default function TabLayout() {
   }, [segments, role, router]);
 
   // Badge for pending trainer requests (OWNER only)
-  const { data: pendingTrainers } = useTrainers(isOwner ? 'PENDING_APPROVAL' : undefined);
+  const { data: pendingTrainers } = useTrainers('PENDING_APPROVAL', {
+    enabled: Boolean(isOwner && role),
+  });
   const pendingCount =
     isOwner && pendingTrainers && pendingTrainers.length > 0
       ? pendingTrainers.length
       : undefined;
+
+  // Prevent flash of wrong tabs: do not render tabs until authenticated user role is available
+  if (!role) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: theme.colors.background,
+        }}
+      >
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <Tabs

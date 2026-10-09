@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -92,6 +92,7 @@ export default function EditProfileScreen() {
       keyboardAvoiding
       contentContainerStyle={styles.container}
     >
+      <Stack.Screen options={{ title: currentUser.name || 'Profile' }} />
       {/* ── Role & Gym Context Card ───────────────────────────────── */}
       <GlassCard style={styles.infoCard} contentStyle={styles.infoContent}>
         <View style={styles.avatar}>

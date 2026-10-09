@@ -10,7 +10,7 @@ import { FilterChips } from '../../../src/components/FilterChips';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { ErrorState } from '../../../src/components/ErrorState';
 import { LoadingSkeleton } from '../../../src/components/LoadingSkeleton';
-import { Screen } from '../../../src/components/Screen';
+import { Screen, getScreenBottomPadding } from '../../../src/components/Screen';
 import { theme } from '../../../src/theme/theme';
 import { MEMBERS } from '../../../src/constants/strings';
 
@@ -130,7 +130,10 @@ export default function MembersListScreen() {
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         getItemLayout={getItemLayout}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingBottom: getScreenBottomPadding(insets.bottom) },
+        ]}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
         refreshing={isRefetching}

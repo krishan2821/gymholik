@@ -1,6 +1,7 @@
 import { apiClient } from './axiosConfig';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
+import { useAuthStore } from '../store/useAuthStore';
 
 export const useAddStaff = () => {
   return useMutation({
@@ -55,8 +56,10 @@ export const useChangePassword = () => {
 };
 
 export const useGymSettings = () => {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   return useQuery({
     queryKey: ['settings'],
+    enabled: isAuthenticated,
     queryFn: async () => {
       try {
         const { data } = await apiClient.get('/api/gym');

@@ -20,6 +20,7 @@ import { Screen } from '../src/components/Screen';
 import { GymholikLogo } from '../src/components/GymholikLogo';
 import { Button } from '../src/components/Button';
 import { GlassCard } from '../src/components/GlassCard';
+import { getHomeRouteForRole } from '../src/navigation/tabsByRole';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -52,7 +53,7 @@ const INTRO_SLIDES: IntroSlide[] = [
 ];
 
 export default function SplashScreen() {
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading, user } = useAuthStore();
   const [reduceMotion, setReduceMotion] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
 
@@ -107,7 +108,8 @@ export default function SplashScreen() {
   }
 
   if (isAuthenticated) {
-    return <Redirect href="/(tabs)" />;
+    const homeRoute = getHomeRouteForRole(user?.role);
+    return <Redirect href={homeRoute as any} />;
   }
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {

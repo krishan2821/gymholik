@@ -224,10 +224,6 @@ function TrendBars7Days({
           );
         })}
       </View>
-
-      {allZero && (
-        <Text style={styles.trendZeroCaption}>No collections yet this week</Text>
-      )}
     </View>
   );
 }
@@ -350,10 +346,6 @@ export default function DashboardScreen() {
     }
   }, [role, router]);
 
-  if (role === 'TRAINER') {
-    return null;
-  }
-
   const { data, isLoading, isError, refetch, isRefetching } = useDashboardData();
   const { data: gymSettings } = useGymSettings();
 
@@ -447,6 +439,10 @@ export default function DashboardScreen() {
     );
     Linking.openURL(`https://wa.me/91${member.phone}?text=${text}`);
   };
+
+  if (role === 'TRAINER') {
+    return null;
+  }
 
   // ── Skeleton Loader ────────────────────────────────────────────────────────
   if (isLoading && !isRefetching) {
@@ -1025,7 +1021,7 @@ const styles = StyleSheet.create({
   },
   gymNameText: {
     ...theme.typography.caption,
-    color: 'rgba(142, 182, 155, 0.80)',
+    color: 'rgba(218, 241, 222, 0.80)',
     marginTop: 2,
   },
   bellBtn: {

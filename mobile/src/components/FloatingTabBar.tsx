@@ -1,12 +1,10 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  Animated,
   Platform,
-  Dimensions,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -23,8 +21,6 @@ import { theme } from '../theme/theme';
 import { useAuthStore } from '../store/useAuthStore';
 import { getTabsForRole } from '../navigation/tabsByRole';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
 const TAB_ICONS: Record<string, React.ComponentType<any>> = {
   index: Home,
   members: Users,
@@ -33,16 +29,6 @@ const TAB_ICONS: Record<string, React.ComponentType<any>> = {
   profile: User,
   payments: CreditCard,
   more: Menu,
-};
-
-const TAB_LABELS: Record<string, string> = {
-  index: 'Home',
-  members: 'Members',
-  attendance: 'Check-in',
-  notes: 'Notes',
-  profile: 'Profile',
-  payments: 'Payments',
-  more: 'More',
 };
 
 export interface FloatingTabBarProps {
@@ -60,77 +46,17 @@ export const FloatingTabBar: React.FC<FloatingTabBarProps> = ({
   const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
   const role = user?.role;
-  const allowedTabs = getTabsForRole(role);
-  const allowedNames = allowedTabs.map((t) => t.name);
 
-  // Render ONLY tabs allowed for the current role
-  const visibleRoutes = state.routes
-    .filter((route: any) => {
-      const descriptor = descriptors?.[route.key];
-      const isHrefAllowed = descriptor?.options?.href !== null;
-      const isRoleAllowed = allowedNames.length === 0 || allowedNames.includes(route.name);
-      return isHrefAllowed && isRoleAllowed;
-    })
-    .sort((a: any, b: any) => {
-      return allowedNames.indexOf(a.name) - allowedNames.indexOf(b.name);
-    });
-  const numTabs = visibleRoutes.length;
-
-  // Find index of currently focused route within visible tabs
-  const activeRoute = state.routes[state.index];
-  const activeVisibleIndex = Math.max(
-    0,
-    visibleRoutes.findIndex((r: any) => r.key === activeRoute?.key)
-  );
-
-  // Horizontal position of sliding indicator
-  const indicatorX = useRef(new Animated.Value(0)).current;
-
-  // Calculate container width & tab width
-  const containerMargin = 16;
-  const containerWidth = SCREEN_WIDTH - containerMargin * 2;
-  const tabWidth = containerWidth / (numTabs || 1);
-
-  // Icon scale animation map
-  const scaleAnims = useRef(visibleRoutes.map(() => new Animated.Value(1))).current;
-  const indicatorOpacity = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    const isCenter = visibleRoutes[activeVisibleIndex]?.name === 'attendance';
-    Animated.timing(indicatorOpacity, {
-      toValue: isCenter ? 0 : 1,
-      duration: 180,
-      useNativeDriver: true,
-    }).start();
-
-    Animated.spring(indicatorX, {
-      toValue: activeVisibleIndex * tabWidth,
-      useNativeDriver: true,
-      tension: 68,
-      friction: 10,
-    }).start();
-
-    // Scale up selected icon
-    if (scaleAnims[activeVisibleIndex]) {
-      Animated.sequence([
-        Animated.timing(scaleAnims[activeVisibleIndex], {
-          toValue: 1.2,
-          duration: 120,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnims[activeVisibleIndex], {
-          toValue: 1.05,
-          tension: 80,
-          friction: 6,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [activeVisibleIndex, tabWidth, indicatorOpacity]);
+  // Wait until role is known before rendering tab bar to prevent flashing wrong tabs
+  if (!role) {
+    return null;
+  }
 
   const currentTab = state.routes[state.index];
   const nestedState = currentTab?.state;
-  const isPushed = Boolean(nestedState && typeof nestedState.index === 'number' && nestedState.index > 0);
+  const isPushed = Boolean(
+    nestedState && typeof nestedState.index === 'number' && nestedState.index > 0
+  );
   const focusedDescriptor = descriptors && currentTab ? descriptors[currentTab.key] : null;
   const tabBarStyle = focusedDescriptor?.options?.tabBarStyle;
 
@@ -138,38 +64,29 @@ export const FloatingTabBar: React.FC<FloatingTabBarProps> = ({
     return null;
   }
 
+  // Get allowed tabs for this specific role in strict configured order
+  const allowedTabs = getTabsForRole(role);
+
   return (
     <View
       style={[
         styles.wrapper,
         {
-          bottom: Platform.OS === 'ios' ? (insets.bottom > 0 ? insets.bottom + 4 : 20) : 16,
+          bottom: (insets.bottom || 0) + 8,
         },
       ]}
       pointerEvents="box-none"
     >
       <View style={styles.container}>
-        {/* Sliding Sage Indicator (behind regular tabs) */}
-        <Animated.View
-          style={[
-            styles.indicator,
-            {
-              width: tabWidth,
-              opacity: indicatorOpacity,
-              transform: [{ translateX: indicatorX }],
-            },
-          ]}
-        >
-          <View style={styles.indicatorPill} />
-        </Animated.View>
+        {allowedTabs.map((tabConfig) => {
+          const route = state.routes.find((r: any) => r.name === tabConfig.name);
+          if (!route) return null;
 
-        {/* Tab Items */}
-        {visibleRoutes.map((route: any, index: number) => {
-          const isFocused = activeVisibleIndex === index;
-          const isCenterTab = route.name === 'attendance';
-          const Icon = TAB_ICONS[route.name] || Home;
           const descriptor = descriptors?.[route.key];
-          const label = descriptor?.options?.title || TAB_LABELS[route.name] || route.name;
+          const isFocused = currentTab?.name === tabConfig.name;
+          const isCenterTab = tabConfig.isRaisedCenter || tabConfig.name === 'attendance';
+          const Icon = TAB_ICONS[tabConfig.name] || Home;
+          const label = descriptor?.options?.title || tabConfig.title;
 
           const onPress = () => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -197,21 +114,13 @@ export const FloatingTabBar: React.FC<FloatingTabBarProps> = ({
                 accessibilityLabel="Check-in attendance"
                 accessibilityState={{ selected: isFocused }}
               >
-                <View style={[styles.raisedCenterBtn, isFocused && styles.raisedCenterBtnActive]}>
+                <View style={styles.raisedCenterBtn}>
                   <CalendarCheck
-                    color={theme.colors.textOnPrimary}
+                    color="#051F20"
                     size={26}
-                    strokeWidth={2.3}
+                    strokeWidth={2.4}
                   />
                 </View>
-                <Text
-                  style={[
-                    styles.centerLabel,
-                    isFocused && styles.centerLabelActive,
-                  ]}
-                >
-                  {label}
-                </Text>
               </TouchableOpacity>
             );
           }
@@ -223,23 +132,16 @@ export const FloatingTabBar: React.FC<FloatingTabBarProps> = ({
             <TouchableOpacity
               key={route.key}
               onPress={onPress}
-              activeOpacity={0.8}
+              activeOpacity={0.75}
               style={styles.tabItem}
               accessibilityRole="button"
               accessibilityLabel={label}
               accessibilityState={{ selected: isFocused }}
             >
-              <Animated.View
-                style={[
-                  styles.iconWrap,
-                  {
-                    transform: [{ scale: scaleAnims[index] || 1 }],
-                  },
-                ]}
-              >
+              <View style={styles.iconWrap}>
                 <Icon
-                  color={isFocused ? theme.colors.primary : theme.colors.textMuted}
-                  size={21}
+                  color={isFocused ? '#DAF1DE' : 'rgba(218, 241, 222, 0.55)'}
+                  size={22}
                   strokeWidth={isFocused ? 2.3 : 1.8}
                 />
                 {Boolean(badge) && (
@@ -249,16 +151,22 @@ export const FloatingTabBar: React.FC<FloatingTabBarProps> = ({
                     </Text>
                   </View>
                 )}
-              </Animated.View>
+              </View>
               <Text
                 style={[
                   styles.tabLabel,
-                  isFocused && styles.tabLabelActive,
+                  isFocused ? styles.tabLabelActive : styles.tabLabelInactive,
                 ]}
                 numberOfLines={1}
               >
                 {label}
               </Text>
+              {/* Small sage dot indicator for active tab */}
+              {isFocused ? (
+                <View style={styles.activeDot} />
+              ) : (
+                <View style={styles.dotPlaceholder} />
+              )}
             </TouchableOpacity>
           );
         })}
@@ -279,52 +187,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#0B2B26',
+    backgroundColor: '#0B2B26', // Solid fully opaque, no transparency
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.12)',
-    // overflow must be visible so the raised center button can protrude above the bar
-    overflow: 'visible',
+    borderColor: 'rgba(218, 241, 222, 0.14)',
+    overflow: 'visible', // Allows raised center button to sit above edge
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
     ...(Platform.OS === 'ios'
       ? {
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 8 },
+          shadowColor: '#000000',
+          shadowOffset: { width: 0, height: 6 },
           shadowOpacity: 0.35,
-          shadowRadius: 16,
+          shadowRadius: 12,
         }
       : {
-          elevation: 10,
+          elevation: 8,
         }),
-  },
-  indicator: {
-    position: 'absolute',
-    top: 6,
-    bottom: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1,
-  },
-  indicatorPill: {
-    width: '78%',
-    height: '100%',
-    borderRadius: 24,
-    backgroundColor: 'rgba(142, 182, 155, 0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(142, 182, 155, 0.30)',
   },
   tabItem: {
     flex: 1,
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 2,
-    paddingTop: 4,
+    paddingTop: 6,
   },
   iconWrap: {
-    marginBottom: 3,
+    marginBottom: 2,
     position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   badgePill: {
     position: 'absolute',
@@ -338,7 +230,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 3,
     borderWidth: 1.5,
-    borderColor: 'rgba(11, 43, 38, 0.95)',
+    borderColor: '#0B2B26',
   },
   badgeText: {
     color: '#FFFFFF',
@@ -348,55 +240,56 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontFamily: theme.fonts.headingMedium,
-    fontSize: 10,
-    color: theme.colors.textMuted,
+    fontSize: 11,
     letterSpacing: 0.2,
   },
   tabLabelActive: {
-    color: theme.colors.text,
+    color: '#DAF1DE',
     fontFamily: theme.fonts.headingBold,
   },
+  tabLabelInactive: {
+    color: 'rgba(218, 241, 222, 0.55)',
+  },
+  activeDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#8EB69B', // small sage dot indicator
+    marginTop: 3,
+  },
+  dotPlaceholder: {
+    width: 4,
+    height: 4,
+    marginTop: 3,
+    backgroundColor: 'transparent',
+  },
 
-  // Raised Center Button
+  // Raised Center Button (60px circle in sage #8EB69B, dark icon #051F20, 5px ring in #051F20)
   centerTabItem: {
     justifyContent: 'center',
     alignItems: 'center',
     paddingTop: 0,
-    // Give extra room for the button that lifts above the bar
     overflow: 'visible',
   },
   raisedCenterBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: theme.colors.primary,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#8EB69B', // Sage
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 2,
-    marginTop: -18,
-    borderWidth: 3,
-    borderColor: '#0B2B26',
+    marginTop: -30, // Sits about 30px above the bar edge
+    borderWidth: 5,
+    borderColor: '#051F20', // Screen background colour ring
     ...(Platform.OS === 'ios'
       ? {
-          shadowColor: theme.colors.primary,
-          shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: 0.55,
-          shadowRadius: 14,
+          shadowColor: '#000000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
         }
       : {
-          elevation: 10,
+          elevation: 6,
         }),
-  },
-  raisedCenterBtnActive: {
-    backgroundColor: theme.colors.primaryLight,
-  },
-  centerLabel: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 9.5,
-    color: theme.colors.textMuted,
-    letterSpacing: 0.2,
-  },
-  centerLabelActive: {
-    color: theme.colors.primary,
   },
 });
