@@ -19,3 +19,5 @@ export * from './GymholikLogo';
 export * from './FloatingTabBar';
 export * from './CheckInSuccessModal';
 export * from './MaskedPhone';
+export * from './SearchableSelect';
+export * from './StepProgress';

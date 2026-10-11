@@ -1,19 +1,16 @@
 package com.gymapp.integration;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.gymapp.common.ApiResponse;
 import com.gymapp.module.attendance.dto.CheckInRequest;
-import com.gymapp.module.auth.dto.LoginRequest;
-import com.gymapp.module.auth.dto.RegisterGymRequest;
-import com.gymapp.module.auth.dto.TokenResponse;
 import com.gymapp.module.auth.entity.Gym;
+import com.gymapp.module.auth.entity.User;
 import com.gymapp.module.auth.repository.GymRepository;
+import com.gymapp.module.auth.repository.UserRepository;
 import com.gymapp.module.member.dto.CreateMemberRequest;
 import com.gymapp.module.member.dto.MemberResponse;
 import com.gymapp.module.payment.dto.CreatePaymentRequest;
-
 import com.gymapp.module.plan.dto.PlanRequest;
-import com.gymapp.module.plan.dto.PlanResponse;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -23,8 +20,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.Map;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -42,8 +37,11 @@ public class TenantIsolationIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     private GymRepository gymRepository;
 
-    private String gymA_Code;
-    private String gymB_Code;
+    @Autowired
+    private UserRepository userRepository;
+
+    private String gymA_Id;
+    private String gymB_Id;
     private String gymA_OwnerToken;
     private String gymB_OwnerToken;
     
@@ -58,58 +56,19 @@ public class TenantIsolationIntegrationTest extends AbstractIntegrationTest {
 
     @BeforeAll
     void setup() throws Exception {
-        if (loginRateLimiter != null) {
-            loginRateLimiter.reset();
-        }
-        // 1. Register Gym A
-        RegisterGymRequest reqA = new RegisterGymRequest();
-        reqA.setGymName("Gym A");
-        reqA.setOwnerName("Owner A");
-        reqA.setOwnerPhone("9811111111");
-        reqA.setPassword("password123");
-        
-        MvcResult resA = mockMvc.perform(post("/api/auth/register-gym")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(reqA)))
-                .andExpect(status().isCreated()).andReturn();
-        gymA_Code = objectMapper.readTree(resA.getResponse().getContentAsString()).path("data").path("gymCode").asText();
+        // 1. Register Gym A + Owner A via OTP complete-registration
+        JsonNode dataA = registerGymViaOtpToken(
+                mockMvc, objectMapper, "Gym A", "Owner A", "9811111111", "ownera@gyma.com");
+        gymA_Id = dataA.path("user").path("gymId").asText();
+        gymA_OwnerToken = "Bearer " + dataA.path("accessToken").asText();
 
-        // 2. Register Gym B
-        RegisterGymRequest reqB = new RegisterGymRequest();
-        reqB.setGymName("Gym B");
-        reqB.setOwnerName("Owner B");
-        reqB.setOwnerPhone("9822222222");
-        reqB.setPassword("password123");
+        // 2. Register Gym B + Owner B via OTP complete-registration
+        JsonNode dataB = registerGymViaOtpToken(
+                mockMvc, objectMapper, "Gym B", "Owner B", "9822222222", "ownerb@gymb.com");
+        gymB_Id = dataB.path("user").path("gymId").asText();
+        gymB_OwnerToken = "Bearer " + dataB.path("accessToken").asText();
 
-        MvcResult resB = mockMvc.perform(post("/api/auth/register-gym")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(reqB)))
-                .andExpect(status().isCreated()).andReturn();
-        gymB_Code = objectMapper.readTree(resB.getResponse().getContentAsString()).path("data").path("gymCode").asText();
-
-        // 3. Login A
-        LoginRequest loginA = new LoginRequest();
-        loginA.setGymCode(gymA_Code);
-        loginA.setPhone("9811111111");
-        loginA.setPassword("password123");
-        MvcResult loginResA = mockMvc.perform(post("/api/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(loginA)))
-                .andExpect(status().isOk()).andReturn();
-        gymA_OwnerToken = "Bearer " + objectMapper.readTree(loginResA.getResponse().getContentAsString()).path("data").path("accessToken").asText();
-
-        // 4. Login B
-        LoginRequest loginB = new LoginRequest();
-        loginB.setGymCode(gymB_Code);
-        loginB.setPhone("9822222222");
-        loginB.setPassword("password123");
-        MvcResult loginResB = mockMvc.perform(post("/api/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(loginB)))
-                .andExpect(status().isOk()).andReturn();
-        gymB_OwnerToken = "Bearer " + objectMapper.readTree(loginResB.getResponse().getContentAsString()).path("data").path("accessToken").asText();
-
-        // 5. Seed Data A
+        // 3. Seed Data A
         gymA_PlanId = createPlan(gymA_OwnerToken, "Plan A");
         MemberResponse mA = createMember(gymA_OwnerToken, "Member A", "9810000000", gymA_PlanId);
         gymA_MemberId = mA.getId();
@@ -117,7 +76,7 @@ public class TenantIsolationIntegrationTest extends AbstractIntegrationTest {
         gymA_PaymentId = createPayment(gymA_OwnerToken, gymA_MemberId, gymA_MembershipId);
         checkIn(gymA_OwnerToken, gymA_MemberId);
 
-        // 6. Seed Data B
+        // 4. Seed Data B
         gymB_PlanId = createPlan(gymB_OwnerToken, "Plan B");
         MemberResponse mB = createMember(gymB_OwnerToken, "Member B", "9820000000", gymB_PlanId);
         gymB_MemberId = mB.getId();
@@ -266,19 +225,12 @@ public class TenantIsolationIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(post("/api/staff")
                 .header("Authorization", gymA_OwnerToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"Staff A\", \"phone\":\"9811111112\", \"password\":\"password123\"}"))
+                .content("{\"name\":\"Staff A\", \"phone\":\"9811111112\"}"))
                 .andExpect(status().isCreated());
 
-        // 2. Login Staff A
-        LoginRequest loginStaff = new LoginRequest();
-        loginStaff.setGymCode(gymA_Code);
-        loginStaff.setPhone("9811111112");
-        loginStaff.setPassword("password123");
-        MvcResult res = mockMvc.perform(post("/api/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(loginStaff)))
-                .andExpect(status().isOk()).andReturn();
-        String staffToken = "Bearer " + objectMapper.readTree(res.getResponse().getContentAsString()).path("data").path("accessToken").asText();
+        // 2. Issue token for Staff A via JwtUtil test helper
+        User staffUser = userRepository.findByPhone("9811111112").orElseThrow();
+        String staffToken = bearerTokenForUser(staffUser.getId(), gymA_Id, "STAFF");
 
         // 3. Staff tries to create plan (OWNER only)
         PlanRequest req = new PlanRequest();
@@ -296,14 +248,14 @@ public class TenantIsolationIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(post("/api/staff")
                 .header("Authorization", staffToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"Staff B\", \"phone\":\"9811111113\", \"password\":\"password123\"}"))
+                .content("{\"name\":\"Staff B\", \"phone\":\"9811111113\"}"))
                 .andExpect(status().isForbidden()); // 403
     }
 
     @Test
     void testSubscriptionExpiredReturns402() throws Exception {
         // Expire Gym A manually in DB
-        Gym gymA = gymRepository.findByGymCode(gymA_Code).orElseThrow();
+        Gym gymA = gymRepository.findById(gymA_Id).orElseThrow();
         gymA.setSubscriptionValidTill(LocalDate.now().minusDays(10)); // past grace period (5 days)
         gymRepository.save(gymA);
 
@@ -314,9 +266,6 @@ public class TenantIsolationIntegrationTest extends AbstractIntegrationTest {
                     .andExpect(status().isPaymentRequired())
                     .andExpect(jsonPath("$.errorCode", is("SUBSCRIPTION_EXPIRED")));
         } finally {
-            // Restore Gym A to not break other tests, although order isn't guaranteed
-            // we should be careful. Actually tests might run in any order.
-            // Let's restore immediately.
             gymA.setSubscriptionValidTill(LocalDate.now().plusDays(10));
             gymRepository.save(gymA);
         }

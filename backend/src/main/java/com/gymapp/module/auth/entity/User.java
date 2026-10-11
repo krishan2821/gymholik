@@ -2,14 +2,11 @@ package com.gymapp.module.auth.entity;
 
 import com.gymapp.common.TenantDocument;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
-
-import java.time.LocalDateTime;
-
-import lombok.experimental.SuperBuilder;
 
 @Document(collection = "users")
 @CompoundIndexes({
@@ -18,15 +15,21 @@ import lombok.experimental.SuperBuilder;
 })
 @Getter @Setter @SuperBuilder @NoArgsConstructor @AllArgsConstructor
 public class User extends TenantDocument {
+
+    public enum UserStatus {
+        ACTIVE,
+        INACTIVE
+    }
+
     private String name;
     @Indexed(unique = true)
     private String phone;
-    private String passwordHash;
+    private String email;
     private String role;
     private boolean active;
-    private String status; // ACTIVE, PENDING_APPROVAL, REJECTED, INACTIVE
+    private String status; // ACTIVE, INACTIVE
     private java.util.List<String> trainerTypeIds;
-    private int failedAttempts;
-    private LocalDateTime lockedUntil;
     private String refreshTokenHash;
+    private int tokenVersion;
 }
+

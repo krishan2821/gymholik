@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { safeBack } from '../../../../../src/utils/navigation';
 import { Search, Check, Users, IndianRupee, Dumbbell, FileText } from 'lucide-react-native';
 import { theme } from '../../../../../src/theme/theme';
 import { useAuthStore } from '../../../../../src/store/useAuthStore';
@@ -116,7 +117,7 @@ export default function AssignMembersScreen() {
                 sessionsTotal: sessionsNum,
                 notes: notes.trim() || undefined,
               });
-              router.back();
+              safeBack('/(tabs)/more');
             } catch {
               // Toast
             }

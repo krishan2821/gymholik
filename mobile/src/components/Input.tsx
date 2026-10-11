@@ -6,13 +6,11 @@ import {
   TextInput,
   TextInputProps,
   Animated,
-  TouchableOpacity,
   StyleProp,
   ViewStyle,
   TextStyle,
   Platform,
 } from 'react-native';
-import { Eye, EyeOff } from 'lucide-react-native';
 import { theme } from '../theme/theme';
 
 export interface InputProps extends Omit<TextInputProps, 'style'> {
@@ -22,7 +20,6 @@ export interface InputProps extends Omit<TextInputProps, 'style'> {
   prefix?: string;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
-  isPassword?: boolean;
   containerStyle?: StyleProp<ViewStyle>;
   inputStyle?: StyleProp<TextStyle>;
 }
@@ -36,7 +33,6 @@ export const Input = React.forwardRef<TextInput, InputProps>(
       prefix,
       leftIcon,
       rightIcon,
-      isPassword = false,
       value,
       defaultValue,
       onChangeText,
@@ -45,28 +41,27 @@ export const Input = React.forwardRef<TextInput, InputProps>(
       containerStyle,
       inputStyle,
       placeholder,
-      secureTextEntry,
       editable = true,
       ...props
     },
     ref
   ) => {
     const [isFocused, setIsFocused] = useState(false);
-    const [isPasswordVisible, setIsPasswordVisible] = useState(false);
     const hasValue = !!(value || defaultValue);
+    const isFloated = isFocused || hasValue || !!prefix;
 
     // Floating label animation
     const animatedIsFocused = useRef(
-      new Animated.Value(hasValue ? 1 : 0)
+      new Animated.Value(isFloated ? 1 : 0)
     ).current;
 
     useEffect(() => {
       Animated.timing(animatedIsFocused, {
-        toValue: isFocused || hasValue ? 1 : 0,
+        toValue: isFloated ? 1 : 0,
         duration: 180,
         useNativeDriver: false,
       }).start();
-    }, [isFocused, hasValue]);
+    }, [isFloated]);
 
     const handleFocus = (e: any) => {
       setIsFocused(true);
@@ -100,8 +95,6 @@ export const Input = React.forwardRef<TextInput, InputProps>(
       ? theme.colors.primary
       : theme.colors.border;
 
-    const isActualPassword = isPassword && !isPasswordVisible;
-
     return (
       <View style={[styles.root, containerStyle]}>
         <View
@@ -121,7 +114,7 @@ export const Input = React.forwardRef<TextInput, InputProps>(
                 top: labelTop,
                 fontSize: labelFontSize,
                 color: labelColor,
-                left: leftIcon ? 42 : prefix ? 44 : 16,
+                left: leftIcon ? 42 : 16,
               },
             ]}
             pointerEvents="none"
@@ -134,7 +127,7 @@ export const Input = React.forwardRef<TextInput, InputProps>(
 
           {/* Optional Prefix (+91, etc.) */}
           {prefix && (
-            <View style={styles.prefixContainer}>
+            <View style={[styles.prefixContainer, !editable && styles.disabledTextOpacity]}>
               <Text style={styles.prefixText}>{prefix}</Text>
             </View>
           )}
@@ -147,41 +140,24 @@ export const Input = React.forwardRef<TextInput, InputProps>(
             onChangeText={onChangeText}
             onFocus={handleFocus}
             onBlur={handleBlur}
-            secureTextEntry={isPassword ? isActualPassword : secureTextEntry}
             editable={editable}
-            placeholder={isFocused || !label ? placeholder : ''}
+            placeholder={isFloated || !label ? placeholder : ''}
             placeholderTextColor="rgba(218, 241, 222, 0.40)"
             cursorColor="#8EB69B"
             selectionColor="#8EB69B"
             style={[
               styles.textInput,
               {
-                paddingTop: isFocused || hasValue ? 20 : 0,
+                paddingTop: isFloated ? 20 : 0,
               },
+              !editable && styles.disabledTextOpacity,
               inputStyle,
             ]}
             {...props}
           />
 
-          {/* Password Show/Hide Toggle */}
-          {isPassword && (
-            <TouchableOpacity
-              onPress={() => setIsPasswordVisible(!isPasswordVisible)}
-              style={styles.rightAction}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              accessibilityRole="button"
-              accessibilityLabel={isPasswordVisible ? 'Hide password' : 'Show password'}
-            >
-              {isPasswordVisible ? (
-                <EyeOff size={20} color={theme.colors.primary} />
-              ) : (
-                <Eye size={20} color={theme.colors.textMuted} />
-              )}
-            </TouchableOpacity>
-          )}
-
           {/* Custom Right Icon */}
-          {!isPassword && rightIcon && (
+          {rightIcon && (
             <View style={styles.rightAction}>{rightIcon}</View>
           )}
         </View>
@@ -242,8 +218,10 @@ const styles = StyleSheet.create({
     }),
   },
   disabledContainer: {
-    opacity: 0.6,
     backgroundColor: theme.colors.raised,
+  },
+  disabledTextOpacity: {
+    opacity: 0.7,
   },
   floatingLabel: {
     position: 'absolute',
@@ -259,7 +237,7 @@ const styles = StyleSheet.create({
   prefixContainer: {
     marginRight: 8,
     justifyContent: 'center',
-    paddingTop: 10,
+    paddingTop: 12,
   },
   prefixText: {
     fontFamily: theme.fonts.headingBold,

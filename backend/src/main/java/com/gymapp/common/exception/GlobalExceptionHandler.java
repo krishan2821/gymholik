@@ -19,11 +19,30 @@ public class GlobalExceptionHandler {
 
     /** Handles all intentional domain errors (wrong credentials, locked, not found, etc.). */
     @ExceptionHandler(AppException.class)
-    public ResponseEntity<ApiResponse<Void>> handleAppException(AppException ex) {
+    public ResponseEntity<ApiResponse<Object>> handleAppException(AppException ex) {
         log.warn("Domain error [{}]: {}", ex.getErrorCode(), ex.getMessage());
+        if (ex.getRetryAfterSeconds() != null) {
+            return ResponseEntity
+                    .status(ex.getErrorCode().getHttpStatus())
+                    .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
+                    .body(ApiResponse.error(
+                            ex.getMessage(),
+                            ex.getErrorCode().name(),
+                            ex.getRetryAfterSeconds(),
+                            Map.of("retryAfterSeconds", ex.getRetryAfterSeconds())));
+        }
+        if (ex.getFieldErrors() != null && !ex.getFieldErrors().isEmpty()) {
+            Map<String, Object> errorMap = new LinkedHashMap<>();
+            errorMap.put("code", ex.getErrorCode().name());
+            errorMap.put("fields", ex.getFieldErrors());
+            errorMap.putAll(ex.getFieldErrors());
+            return ResponseEntity
+                    .status(ex.getErrorCode().getHttpStatus())
+                    .body(ApiResponse.error(ex.getMessage(), errorMap));
+        }
         return ResponseEntity
-                .status(ex.getErrorCode().getHttpStatus())
-                .body(ApiResponse.error(ex.getMessage(), ex.getErrorCode().name()));
+                    .status(ex.getErrorCode().getHttpStatus())
+                    .body(ApiResponse.error(ex.getMessage(), ex.getErrorCode().name()));
     }
 
     /** Converts Bean Validation errors into a field → message map. */
@@ -34,9 +53,13 @@ public class GlobalExceptionHandler {
             String field = ((FieldError) err).getField();
             fieldErrors.put(field, err.getDefaultMessage());
         });
+        Map<String, Object> errorMap = new LinkedHashMap<>();
+        errorMap.put("code", ErrorCode.VALIDATION_ERROR.name());
+        errorMap.put("fields", fieldErrors);
+        errorMap.putAll(fieldErrors);
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error(ErrorCode.VALIDATION_ERROR.getDefaultMessage(), fieldErrors));
+                .body(ApiResponse.error(ErrorCode.VALIDATION_ERROR.getDefaultMessage(), errorMap));
     }
 
     /**
@@ -50,10 +73,10 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("Access denied", ErrorCode.ACCESS_DENIED.name()));
     }
 
-    /** Handles duplicate key violations from MongoDB indexes. */
+    /** Handles duplicate key violations from MongoDB indexes without logging PII key values. */
     @ExceptionHandler(org.springframework.dao.DuplicateKeyException.class)
     public ResponseEntity<ApiResponse<Void>> handleDuplicateKey(org.springframework.dao.DuplicateKeyException ex) {
-        log.warn("Duplicate key collision: {}", ex.getMessage());
+        log.warn("Duplicate key collision on unique index");
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
                 .body(ApiResponse.error("Duplicate key collision: resource already exists", "DUPLICATE_KEY"));

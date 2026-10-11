@@ -4,6 +4,7 @@ import { TouchableOpacity, StyleSheet } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
 import { theme } from '../../../src/theme/theme';
 import { ATTENDANCE, ABSENT } from '../../../src/constants/strings';
+import { safeBack } from '../../../src/utils/navigation';
 
 export default function AttendanceLayout() {
   const router = useRouter();
@@ -28,7 +29,7 @@ export default function AttendanceLayout() {
         animation: 'slide_from_right',
         headerLeft: () => (
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => safeBack('/(tabs)/attendance')}
             style={styles.backBtn}
             accessibilityRole="button"
             accessibilityLabel="Go back"

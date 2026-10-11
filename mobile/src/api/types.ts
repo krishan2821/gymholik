@@ -4,789 +4,1643 @@
  */
 
 export interface paths {
+    "/api/trainers/{id}/types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update trainer types
+         * @description Change the assigned trainer types for a trainer
+         */
+        put: operations["updateTrainerTypes"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/trainers/{id}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Deactivate trainer
+         * @description Deactivates trainer, invalidates tokens, and auto-ends all active assignments
+         */
+        put: operations["deactivateTrainer"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/trainer-types/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get trainer type by ID
+         * @description OWNER only
+         */
+        get: operations["getById"];
+        /**
+         * Update a trainer type
+         * @description OWNER only
+         */
+        put: operations["update"];
+        post?: never;
+        /**
+         * Deactivate/delete a trainer type
+         * @description OWNER only
+         */
+        delete: operations["delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/plans/{id}": {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
         /** Get a plan by ID */
-        get: operations["getById"];
+        get: operations["getById_1"];
         /** Update a plan (OWNER only) */
-        put: operations["update"];
-        post: never;
+        put: operations["update_1"];
+        post?: never;
         /** Soft-delete a plan (OWNER only). Existing memberships are unaffected. */
-        delete: operations["delete"];
-        options: never;
-        head: never;
-        patch: never;
-        trace: never;
+        delete: operations["delete_1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/members/{memberId}/notes/{noteId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update an existing note
+         * @description TRAINER (can edit own notes for assigned member) or OWNER
+         */
+        put: operations["updateNote"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/members/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get member details */
+        get: operations["getMember"];
+        /** Update member details */
+        put: operations["updateMember"];
+        post?: never;
+        /** Soft delete a member */
+        delete: operations["deleteMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gym": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get current gym details & subscription info */
+        get: operations["getGymSettings"];
+        /** Update gym settings */
+        put: operations["updateGymSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get current logged-in user profile
+         * @description Returns current user name, phone, email, role, gym details, and trainer types
+         */
+        get: operations["getMe"];
+        /**
+         * Update current user profile
+         * @description Updates user's own name and phone number
+         */
+        put: operations["updateMe"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/trainers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List trainers
+         * @description List all trainers for this gym, optionally filter by status (ACTIVE or INACTIVE)
+         */
+        get: operations["listTrainers"];
+        put?: never;
+        /**
+         * Create a trainer
+         * @description Creates an ACTIVE TRAINER user in the owner's gym (gymId from JWT only) with required trainerTypeIds and optional immediate member assignments.
+         */
+        post: operations["createTrainer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/trainer-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List all trainer types
+         * @description OWNER only
+         */
+        get: operations["list"];
+        put?: never;
+        /**
+         * Create a trainer type
+         * @description OWNER only
+         */
+        post: operations["create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/trainer-assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List assignments
+         * @description OWNER only. Filter by trainerId, memberId, status.
+         */
+        get: operations["getAssignments"];
+        put?: never;
+        /**
+         * Assign member(s) to trainer (bulk)
+         * @description OWNER only
+         */
+        post: operations["assignMembers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/trainer-assignments/{id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End an assignment
+         * @description OWNER only
+         */
+        post: operations["endAssignment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/trainer-assignments/reassign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reassign all members from one trainer to another
+         * @description OWNER only
+         */
+        post: operations["reassignAll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
     "/api/staff": {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        get: never;
-        put: never;
+        /**
+         * List staff accounts
+         * @description OWNER only
+         */
+        get: operations["listStaff"];
+        put?: never;
         /**
          * Create a staff account
-         * @description Creates a new STAFF user scoped to the caller's gym. gymId is taken from the JWT — never from the request body. Requires OWNER role.
+         * @description Creates a new ACTIVE STAFF user scoped to the caller's gym (gymId from JWT only). Requires OWNER role.
          */
         post: operations["createStaff"];
-        delete: never;
-        options: never;
-        head: never;
-        patch: never;
-        trace: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
     "/api/plans": {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
         /** List all active plans for this gym */
         get: operations["getAll"];
-        put: never;
+        put?: never;
         /** Create a new subscription plan (OWNER only) */
-        post: operations["create"];
-        delete: never;
-        options: never;
-        head: never;
-        patch: never;
-        trace: never;
+        post: operations["create_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
     "/api/payments": {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
         /** Get paginated payments with optional date and mode filters */
         get: operations["getPayments"];
-        put: never;
+        put?: never;
         /** Record a payment */
         post: operations["createPayment"];
-        delete: never;
-        options: never;
-        head: never;
-        patch: never;
-        trace: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
     "/api/payments/{id}/reverse": {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        get: never;
-        put: never;
+        get?: never;
+        put?: never;
         /** Reverse a payment (OWNER only) */
         post: operations["reversePayment"];
-        delete: never;
-        options: never;
-        head: never;
-        patch: never;
-        trace: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
     "/api/members": {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
         /**
          * Get members
          * @description Get paginated list of active members, optionally search by name/phone
          */
         get: operations["getMembers"];
-        put: never;
+        put?: never;
         /**
          * Create a new member
          * @description Creates a member and their first membership
          */
         post: operations["createMember"];
-        delete: never;
-        options: never;
-        head: never;
-        patch: never;
-        trace: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/members/{memberId}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List notes for a member
+         * @description TRAINER (only for assigned members) or OWNER
+         */
+        get: operations["getNotes"];
+        put?: never;
+        /**
+         * Create a note for a member
+         * @description TRAINER (only for assigned members) or OWNER
+         */
+        post: operations["createNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
     "/api/members/{id}/renew": {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        get: never;
-        put: never;
+        get?: never;
+        put?: never;
         /** Renew a membership */
         post: operations["renewMembership"];
-        delete: never;
-        options: never;
-        head: never;
-        patch: never;
-        trace: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
     "/api/members/{id}/photo": {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
         /**
          * Get member photo
          * @description Serves the actual image file securely
          */
         get: operations["getPhoto"];
-        put: never;
+        put?: never;
         /** Upload member photo */
         post: operations["uploadPhoto"];
-        delete: never;
-        options: never;
-        head: never;
-        patch: never;
-        trace: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    "/api/auth/register-gym": {
+    "/api/auth/verify-otp": {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        get: never;
-        put: never;
+        get?: never;
+        put?: never;
         /**
-         * Register a new gym
-         * @description Creates a gym tenant + owner account. Starts a 14-day trial. Returns the gymCode that staff will use to log in.
+         * Verify OTP
+         * @description Verifies the 6-digit OTP. Issues access + refresh tokens for existing active users, or a short-lived REGISTER-scoped token for new users.
          */
-        post: operations["registerGym"];
-        delete: never;
-        options: never;
-        head: never;
-        patch: never;
-        trace: never;
+        post: operations["verifyOtp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/send-otp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send OTP to mobile number
+         * @description Sends a 6-digit OTP to an Indian mobile number. Always returns the same response regardless of whether the phone is registered.
+         */
+        post: operations["sendOtp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
     "/api/auth/refresh": {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        get: never;
-        put: never;
+        get?: never;
+        put?: never;
         /**
          * Refresh access token
          * @description Exchanges a valid refresh token for a new access + refresh pair (rotation).
          */
         post: operations["refresh"];
-        delete: never;
-        options: never;
-        head: never;
-        patch: never;
-        trace: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    "/api/auth/login": {
+    "/api/auth/complete-registration": {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        get: never;
-        put: never;
+        get?: never;
+        put?: never;
         /**
-         * Login
-         * @description Provide phone + password + gymCode for OWNER/STAFF. Leave gymCode blank for SUPER_ADMIN login.
+         * Complete gym-owner registration
+         * @description Requires a single-use registrationToken (scope REGISTER). Phone comes strictly from the token. Creates the Gym (14-day TRIAL, default plans, default trainer types) and the OWNER user (ACTIVE) in one transaction, then returns accessToken, refreshToken, and user.
          */
-        post: operations["login"];
-        delete: never;
-        options: never;
-        head: never;
-        patch: never;
-        trace: never;
+        post: operations["completeRegistration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
     "/api/attendance/checkin": {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        get: never;
-        put: never;
+        get?: never;
+        put?: never;
         /** Check in a member (supports QR code) */
         post: operations["checkIn"];
-        delete: never;
-        options: never;
-        head: never;
-        patch: never;
-        trace: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/gyms/{id}/suspend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Suspend a gym */
+        post: operations["suspendGym"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/gyms/{id}/reactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reactivate a suspended gym */
+        post: operations["reactivateGym"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
     "/api/admin/gyms/{id}/extend": {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        get: never;
-        put: never;
+        get?: never;
+        put?: never;
         /** Extend gym subscription */
         post: operations["extendSubscription"];
-        delete: never;
-        options: never;
-        head: never;
-        patch: never;
-        trace: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/trainers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get trainer details by ID
+         * @description OWNER only
+         */
+        get: operations["getTrainerById"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update trainer (name, types, phone, deactivate/reactivate)
+         * @description Updates trainer details. Changing phone or deactivating bumps tokenVersion and invalidates sessions; deactivating also ends all active assignments.
+         */
+        patch: operations["patchTrainer"];
+        trace?: never;
+    };
+    "/api/staff/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update staff account (deactivate/reactivate, name, phone)
+         * @description Deactivates or reactivates a staff account in the owner's gym. Deactivating bumps tokenVersion and invalidates sessions.
+         */
+        patch: operations["patchStaff"];
+        trace?: never;
     };
     "/api/payments/{id}/receipt": {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
         /** Download payment receipt as PDF */
         get: operations["getReceiptPdf"];
-        put: never;
-        post: never;
-        delete: never;
-        options: never;
-        head: never;
-        patch: never;
-        trace: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    "/api/members/{id}": {
+    "/api/payments/dues": {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
-        };
-        /** Get member details */
-        get: operations["getMember"];
-        put: never;
-        post: never;
-        /** Soft delete a member */
-        delete: operations["deleteMember"];
-        options: never;
-        head: never;
-        patch: never;
-        trace: never;
-    };
-    "/api/dues": {
-        parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
         /** Get list of members with pending dues */
         get: operations["getDues"];
-        put: never;
-        post: never;
-        delete: never;
-        options: never;
-        head: never;
-        patch: never;
-        trace: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get list of members with pending dues */
+        get: operations["getDues_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
     "/api/dashboard": {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
         /** Get dashboard metrics */
         get: operations["getDashboard"];
-        put: never;
-        post: never;
-        delete: never;
-        options: never;
-        head: never;
-        patch: never;
-        trace: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List audit logs
+         * @description Paginated audit logs for OWNER
+         */
+        get: operations["getAuditLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
     "/api/attendance": {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
         /** Get attendance for a specific date */
         get: operations["getAttendance"];
-        put: never;
-        post: never;
-        delete: never;
-        options: never;
-        head: never;
-        patch: never;
-        trace: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/attendance/members/{memberId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a member's attendance history */
+        get: operations["getMemberAttendanceHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
     "/api/attendance/absent": {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
         /** Get members absent for N or more days */
         get: operations["getAbsentMembers"];
-        put: never;
-        post: never;
-        delete: never;
-        options: never;
-        head: never;
-        patch: never;
-        trace: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
     "/api/admin/gyms": {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
         /** List all registered gyms */
         get: operations["listGyms"];
-        put: never;
-        post: never;
-        delete: never;
-        options: never;
-        head: never;
-        patch: never;
-        trace: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ApproveTrainerRequest: {
+            trainerTypeIds: string[];
+        };
+        ApiResponseTrainerResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["TrainerResponse"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
+        };
+        TrainerResponse: {
+            id?: string;
+            gymId?: string;
+            name?: string;
+            phone?: string;
+            role?: string;
+            active?: boolean;
+            status?: string;
+            trainerTypes?: components["schemas"]["TrainerTypeResponse"][];
+            /** Format: int32 */
+            activeAssignmentsCount?: number;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        TrainerTypeResponse: {
+            id?: string;
+            name?: string;
+            active?: boolean;
+        };
+        TrainerTypeRequest: {
+            name: string;
+            active?: boolean;
+        };
+        ApiResponseTrainerTypeResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["TrainerTypeResponse"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
+        };
         PlanRequest: {
             name: string;
             /** Format: int32 */
-            durationDays: number;
+            durationDays?: number;
             /** Format: int64 */
-            pricePaise: number;
+            pricePaise?: number;
         };
         ApiResponsePlanResponse: {
-            success: boolean;
-            message: string;
-            data: components["schemas"]["PlanResponse"];
-            error: Record<string, never>;
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["PlanResponse"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
         };
         PlanResponse: {
-            id: string;
-            gymId: string;
-            name: string;
+            id?: string;
+            gymId?: string;
+            name?: string;
             /** Format: int32 */
-            durationDays: number;
+            durationDays?: number;
             /** Format: int64 */
-            pricePaise: number;
-            priceFormatted: string;
+            pricePaise?: number;
+            priceFormatted?: string;
             /** Format: date-time */
-            createdAt: string;
+            createdAt?: string;
             /** Format: date-time */
-            updatedAt: string;
+            updatedAt?: string;
+        };
+        MemberNoteRequest: {
+            type: string;
+            text: string;
+            /** Format: double */
+            weightKg?: number;
+            bodyMeasurements?: {
+                [key: string]: Record<string, never>;
+            };
+        };
+        ApiResponseMemberNoteResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["MemberNoteResponse"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
+        };
+        MemberNoteResponse: {
+            id?: string;
+            memberId?: string;
+            trainerId?: string;
+            trainerName?: string;
+            type?: string;
+            text?: string;
+            /** Format: double */
+            weightKg?: number;
+            bodyMeasurements?: {
+                [key: string]: Record<string, never>;
+            };
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        UpdateMemberRequest: {
+            name: string;
+            phone: string;
+            gender?: string;
+            /** Format: date */
+            dob?: string;
+            address?: string;
+        };
+        ApiResponseMemberResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["MemberResponse"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
+        };
+        MemberResponse: {
+            id?: string;
+            gymId?: string;
+            memberCode?: string;
+            name?: string;
+            phone?: string;
+            gender?: string;
+            /** Format: date */
+            dob?: string;
+            address?: string;
+            photoUrl?: string;
+            status?: string;
+            /** Format: date */
+            currentExpiry?: string;
+            /** Format: int64 */
+            currentDuePaise?: number;
+            /** Format: date */
+            lastAttendanceDate?: string;
+            currentMembership?: components["schemas"]["MembershipResponse"];
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        MembershipResponse: {
+            id?: string;
+            gymId?: string;
+            memberId?: string;
+            planId?: string;
+            planName?: string;
+            /** Format: int64 */
+            totalPaise?: number;
+            /** Format: int64 */
+            paidPaise?: number;
+            /** Format: int64 */
+            duePaise?: number;
+            /** Format: date */
+            startDate?: string;
+            /** Format: date */
+            expiryDate?: string;
+            status?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        GymSettingsRequest: {
+            name: string;
+            address?: string;
+            logoUrl?: string;
+            allowExpiredCheckin?: boolean;
+            /** Format: int32 */
+            reminderDaysBefore?: number;
+            staffCanSeeFullPhone?: boolean;
+        };
+        ApiResponseGym: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["Gym"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
+        };
+        Gym: {
+            id?: string;
+            name?: string;
+            ownerName?: string;
+            phone?: string;
+            address?: string;
+            logoUrl?: string;
+            status?: string;
+            subscriptionPlan?: string;
+            /** Format: date */
+            subscriptionValidTill?: string;
+            allowExpiredCheckin?: boolean;
+            /** Format: int32 */
+            reminderDaysBefore?: number;
+            staffCanSeeFullPhone?: boolean;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+            /** Format: int64 */
+            version?: number;
+        };
+        UpdateMeRequest: {
+            name?: string;
+            phone?: string;
+        };
+        ApiResponseMeResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["MeResponse"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
+        };
+        MeResponse: {
+            id?: string;
+            userId?: string;
+            name?: string;
+            phone?: string;
+            email?: string;
+            role?: string;
+            gymId?: string;
+            gymName?: string;
+            active?: boolean;
+            status?: string;
+            trainerTypes?: components["schemas"]["TrainerTypeResponse"][];
+        };
+        CreateTrainerRequest: {
+            name: string;
+            phone: string;
+            trainerTypeIds: string[];
+            memberIds?: string[];
+        };
+        AssignMembersRequest: {
+            trainerId: string;
+            memberIds: string[];
+            /** Format: date */
+            startDate?: string;
+            /** Format: int64 */
+            ptFeePaise?: number;
+            /** Format: int32 */
+            sessionsTotal?: number;
+            notes?: string;
+        };
+        ApiResponseListAssignmentResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["AssignmentResponse"][];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
+        };
+        AssignmentResponse: {
+            id?: string;
+            gymId?: string;
+            trainerId?: string;
+            trainerName?: string;
+            memberId?: string;
+            memberName?: string;
+            memberCode?: string;
+            memberPhone?: string;
+            status?: string;
+            /** Format: date */
+            startDate?: string;
+            /** Format: date */
+            endDate?: string;
+            assignedBy?: string;
+            endedBy?: string;
+            /** Format: int64 */
+            ptFeePaise?: number;
+            /** Format: int32 */
+            sessionsTotal?: number;
+            notes?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        ApiResponseAssignmentResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["AssignmentResponse"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
+        };
+        ReassignTrainerRequest: {
+            fromTrainerId: string;
+            toTrainerId: string;
+            notes?: string;
+        };
+        ApiResponseVoid: {
+            success?: boolean;
+            message?: string;
+            data?: Record<string, never>;
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
         };
         CreateStaffRequest: {
             name: string;
             phone: string;
-            password: string;
         };
-        ApiResponseVoid: {
-            success: boolean;
-            message: string;
-            data: Record<string, never>;
-            error: Record<string, never>;
+        ApiResponseStaffResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["StaffResponse"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
+        };
+        StaffResponse: {
+            id?: string;
+            gymId?: string;
+            name?: string;
+            phone?: string;
+            role?: string;
+            active?: boolean;
+            status?: string;
+            /** Format: date-time */
+            createdAt?: string;
         };
         CreatePaymentRequest: {
             memberId: string;
             membershipId: string;
             /** Format: int64 */
-            memberName: string;
             amountPaise: number;
             mode: string;
             /** Format: date */
-            paymentDate: string;
-            reason: string;
+            paymentDate?: string;
+            reason?: string;
+            idempotencyKey?: string;
         };
         ApiResponsePaymentResponse: {
-            success: boolean;
-            message: string;
-            data: components["schemas"]["PaymentResponse"];
-            error: Record<string, never>;
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["PaymentResponse"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
         };
         PaymentResponse: {
-            id: string;
-            gymId: string;
-            memberId: string;
-            membershipId: string;
+            id?: string;
+            gymId?: string;
+            memberId?: string;
+            memberName?: string;
+            membershipId?: string;
             /** Format: int64 */
-            memberName: string;
-            amountPaise: number;
-            mode: string;
+            amountPaise?: number;
+            mode?: string;
             /** Format: date-time */
-            paidAt: string;
-            receiptNo: string;
-            type: string;
-            reversalOfId: string;
-            reason: string;
+            paidAt?: string;
+            receiptNo?: string;
+            type?: string;
+            reversalOfId?: string;
+            reason?: string;
             /** Format: date-time */
-            createdAt: string;
+            createdAt?: string;
         };
         CreateMemberRequest: {
             name: string;
             phone: string;
-            gender: string;
+            gender?: string;
             /** Format: date */
-            dob: string;
-            address: string;
+            dob?: string;
+            address?: string;
             planId: string;
             /** Format: date */
-            startDate: string;
-        };
-        ApiResponseMemberResponse: {
-            success: boolean;
-            message: string;
-            data: components["schemas"]["MemberResponse"];
-            error: Record<string, never>;
-        };
-        MemberResponse: {
-            id: string;
-            gymId: string;
-            memberCode: string;
-            name: string;
-            phone: string;
-            gender: string;
-            /** Format: date */
-            dob: string;
-            address: string;
-            photoUrl: string;
-            status: string;
-            /** Format: date */
-            currentExpiry: string;
-            /** Format: int64 */
-            currentDuePaise: number;
-            /** Format: date */
-            lastAttendanceDate: string;
-            currentMembership: components["schemas"]["MembershipResponse"];
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        MembershipResponse: {
-            id: string;
-            gymId: string;
-            memberId: string;
-            planId: string;
-            planName: string;
-            /** Format: int64 */
-            totalPaise: number;
-            /** Format: int64 */
-            paidPaise: number;
-            /** Format: int64 */
-            duePaise: number;
-            /** Format: date */
-            startDate: string;
-            /** Format: date */
-            expiryDate: string;
-            status: string;
-            /** Format: date-time */
-            createdAt: string;
+            startDate?: string;
         };
         RenewMembershipRequest: {
             planId: string;
             /** Format: date */
-            startDate: string;
+            startDate?: string;
         };
         ApiResponseMembershipResponse: {
-            success: boolean;
-            message: string;
-            data: components["schemas"]["MembershipResponse"];
-            error: Record<string, never>;
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["MembershipResponse"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
         };
         ApiResponseString: {
-            success: boolean;
-            message: string;
-            data: string;
-            error: Record<string, never>;
+            success?: boolean;
+            message?: string;
+            data?: string;
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
         };
-        RegisterGymRequest: {
-            gymName: string;
-            gymPhone: string;
-            gymEmail: string;
-            gymAddress: string;
-            ownerName: string;
-            ownerPhone: string;
-            password: string;
+        VerifyOtpRequest: {
+            phone: string;
+            otp: string;
         };
-        ApiResponseGymResponse: {
-            success: boolean;
-            message: string;
-            data: components["schemas"]["GymResponse"];
-            error: Record<string, never>;
+        ApiResponseVerifyOtpResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["VerifyOtpResponse"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
         };
-        GymResponse: {
-            gymId: string;
-            gymName: string;
-            gymCode: string;
-            ownerName: string;
-            ownerPhone: string;
-            /** Format: date-time */
-            trialEndsAt: string;
+        UserSummary: {
+            id?: string;
+            name?: string;
+            role?: string;
+            gymId?: string;
+            gymName?: string;
+        };
+        VerifyOtpResponse: {
+            accessToken?: string;
+            refreshToken?: string;
+            user?: components["schemas"]["UserSummary"];
+            registrationToken?: string;
+            isNewUser?: boolean;
+        };
+        SendOtpRequest: {
+            phone: string;
+        };
+        ApiResponseSendOtpResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["SendOtpResponse"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
+        };
+        SendOtpResponse: {
+            /** Format: int64 */
+            resendAfterSeconds?: number;
+            /** Format: int64 */
+            expiresInSeconds?: number;
         };
         RefreshTokenRequest: {
             refreshToken: string;
         };
         ApiResponseTokenResponse: {
-            success: boolean;
-            message: string;
-            data: components["schemas"]["TokenResponse"];
-            error: Record<string, never>;
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["TokenResponse"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
         };
         TokenResponse: {
-            accessToken: string;
-            refreshToken: string;
-            tokenType: string;
+            accessToken?: string;
+            refreshToken?: string;
+            tokenType?: string;
             /** Format: int64 */
-            expiresIn: number;
-            userId: string;
-            gymId: string;
-            role: string;
+            expiresIn?: number;
+            userId?: string;
+            gymId?: string;
+            role?: string;
         };
-        LoginRequest: {
-            phone: string;
-            password: string;
-            gymCode: string;
+        CompleteRegistrationRequest: {
+            gymName: string;
+            ownerName: string;
+            email?: string;
         };
         CheckInRequest: {
-            memberId: string;
-            memberCode: string;
+            memberId?: string;
+            memberCode?: string;
         };
         ApiResponseCheckInResponse: {
-            success: boolean;
-            message: string;
-            data: components["schemas"]["CheckInResponse"];
-            error: Record<string, never>;
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["CheckInResponse"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
         };
         CheckInResponse: {
-            id: string;
-            memberId: string;
-            memberName: string;
+            id?: string;
+            memberId?: string;
+            memberName?: string;
             /** Format: date */
-            date: string;
-            checkInTime: components["schemas"]["LocalTime"];
-            membershipExpiredWarning: boolean;
+            date?: string;
+            checkInTime?: components["schemas"]["LocalTime"];
+            membershipExpiredWarning?: boolean;
         };
         LocalTime: {
             /** Format: int32 */
-            hour: number;
+            hour?: number;
             /** Format: int32 */
-            minute: number;
+            minute?: number;
             /** Format: int32 */
-            second: number;
+            second?: number;
             /** Format: int32 */
-            nano: number;
+            nano?: number;
         };
         ExtendSubscriptionRequest: {
-            /** Format: int32 */
-            daysToAdd: number;
+            plan: string;
         };
-        ApiResponseGym: {
-            success: boolean;
-            message: string;
-            data: components["schemas"]["Gym"];
-            error: Record<string, never>;
+        UpdateTrainerRequest: {
+            name?: string;
+            phone?: string;
+            trainerTypeIds?: string[];
+            active?: boolean;
+            status?: string;
         };
-        Gym: {
-            id: string;
-            name: string;
-            ownerName: string;
-            phone: string;
-            address: string;
-            logoUrl: string;
-            gymCode: string;
-            status: string;
-            subscriptionPlan: string;
-            /** Format: date */
-            subscriptionValidTill: string;
-            allowExpiredCheckin: boolean;
-            /** Format: int32 */
-            reminderDaysBefore: number;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
+        UpdateStaffRequest: {
+            name?: string;
+            phone?: string;
+            active?: boolean;
+            status?: string;
+        };
+        ApiResponseListTrainerResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["TrainerResponse"][];
+            error?: Record<string, never>;
             /** Format: int64 */
-            version: number;
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
+        };
+        ApiResponseListTrainerTypeResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["TrainerTypeResponse"][];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
+        };
+        ApiResponsePagedResponseAssignmentResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["PagedResponseAssignmentResponse"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
+        };
+        PagedResponseAssignmentResponse: {
+            content?: components["schemas"]["AssignmentResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+            last?: boolean;
+        };
+        ApiResponseListStaffResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["StaffResponse"][];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
         };
         ApiResponseListPlanResponse: {
-            success: boolean;
-            message: string;
-            data: components["schemas"]["PlanResponse"][];
-            error: Record<string, never>;
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["PlanResponse"][];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
         };
-        ApiResponsePagedResponsePaymentResponse: {
-            success: boolean;
-            message: string;
-            data: components["schemas"]["PagedResponsePaymentResponse"];
-            error: Record<string, never>;
+        ApiResponsePaymentListResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["PaymentListResponse"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
         };
         PagedResponsePaymentResponse: {
-            content: components["schemas"]["PaymentResponse"][];
+            content?: components["schemas"]["PaymentResponse"][];
             /** Format: int32 */
-            page: number;
+            page?: number;
             /** Format: int32 */
-            size: number;
+            size?: number;
             /** Format: int64 */
-            totalElements: number;
+            totalElements?: number;
             /** Format: int32 */
-            totalPages: number;
-            last: boolean;
+            totalPages?: number;
+            last?: boolean;
         };
-        ApiResponsePagedResponseMemberResponse: {
-            success: boolean;
-            message: string;
-            data: components["schemas"]["PagedResponseMemberResponse"];
-            error: Record<string, never>;
-        };
-        PagedResponseMemberResponse: {
-            content: components["schemas"]["MemberResponse"][];
-            /** Format: int32 */
-            page: number;
-            /** Format: int32 */
-            size: number;
-            /** Format: int64 */
-            totalElements: number;
-            /** Format: int32 */
-            totalPages: number;
-            last: boolean;
+        PaymentListResponse: {
+            payments?: components["schemas"]["PagedResponsePaymentResponse"];
+            totalsByMode?: {
+                [key: string]: number;
+            };
         };
         ApiResponsePagedResponseMemberDueResponse: {
-            success: boolean;
-            message: string;
-            data: components["schemas"]["PagedResponseMemberDueResponse"];
-            error: Record<string, never>;
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["PagedResponseMemberDueResponse"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
         };
         MemberDueResponse: {
-            memberId: string;
-            memberCode: string;
-            memberName: string;
-            phone: string;
-            membershipId: string;
+            memberId?: string;
+            memberCode?: string;
+            memberName?: string;
+            phone?: string;
+            membershipId?: string;
             /** Format: int64 */
-            totalDuePaise: number;
+            totalDuePaise?: number;
         };
         PagedResponseMemberDueResponse: {
-            content: components["schemas"]["MemberDueResponse"][];
+            content?: components["schemas"]["MemberDueResponse"][];
             /** Format: int32 */
-            page: number;
+            page?: number;
             /** Format: int32 */
-            size: number;
+            size?: number;
             /** Format: int64 */
-            totalElements: number;
+            totalElements?: number;
             /** Format: int32 */
-            totalPages: number;
-            last: boolean;
+            totalPages?: number;
+            last?: boolean;
+        };
+        ApiResponsePagedResponseMemberResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["PagedResponseMemberResponse"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
+        };
+        PagedResponseMemberResponse: {
+            content?: components["schemas"]["MemberResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+            last?: boolean;
+        };
+        ApiResponseListMemberNoteResponse: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["MemberNoteResponse"][];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
         };
         ApiResponseDashboardResponse: {
-            success: boolean;
-            message: string;
-            data: components["schemas"]["DashboardResponse"];
-            error: Record<string, never>;
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["DashboardResponse"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
+        };
+        DailyCollectionResponse: {
+            /** Format: date */
+            date?: string;
+            /** Format: int64 */
+            amountPaise?: number;
         };
         DashboardResponse: {
             /** Format: int64 */
-            activeMembers: number;
+            activeMembers?: number;
             /** Format: int64 */
-            todayCollection: number;
+            todayCollection?: number;
             /** Format: int64 */
-            monthCollection: number;
+            monthCollection?: number;
             /** Format: int64 */
-            expiringSoon: number;
+            expiringSoon?: number;
             /** Format: int64 */
-            newJoinings: number;
+            newJoinings?: number;
             /** Format: int64 */
-            todayAttendance: number;
+            todayAttendance?: number;
             /** Format: int64 */
-            totalDue: number;
+            totalDue?: number;
+            expiringSoonList?: components["schemas"]["ExpiringMemberResponse"][];
+            last7DaysCollection?: components["schemas"]["DailyCollectionResponse"][];
+            /** Format: int64 */
+            subscriptionDaysRemaining?: number;
+        };
+        ExpiringMemberResponse: {
+            memberId?: string;
+            memberName?: string;
+            phone?: string;
+            /** Format: int64 */
+            daysLeft?: number;
+        };
+        ApiResponsePagedResponseAuditLog: {
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["PagedResponseAuditLog"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
+        };
+        AuditLog: {
+            id?: string;
+            gymId?: string;
+            actorId?: string;
+            actorRole?: string;
+            action?: string;
+            targetId?: string;
+            details?: string;
+            /** Format: date-time */
+            timestamp?: string;
+        };
+        PagedResponseAuditLog: {
+            content?: components["schemas"]["AuditLog"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+            last?: boolean;
         };
         ApiResponsePagedResponseAttendanceRecordResponse: {
-            success: boolean;
-            message: string;
-            data: components["schemas"]["PagedResponseAttendanceRecordResponse"];
-            error: Record<string, never>;
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["PagedResponseAttendanceRecordResponse"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
         };
         AttendanceRecordResponse: {
-            id: string;
-            memberId: string;
-            memberName: string;
-            memberCode: string;
+            id?: string;
+            memberId?: string;
+            memberName?: string;
+            memberCode?: string;
             /** Format: date */
-            date: string;
-            checkInTime: components["schemas"]["LocalTime"];
+            date?: string;
+            checkInTime?: components["schemas"]["LocalTime"];
         };
         PagedResponseAttendanceRecordResponse: {
-            content: components["schemas"]["AttendanceRecordResponse"][];
+            content?: components["schemas"]["AttendanceRecordResponse"][];
             /** Format: int32 */
-            page: number;
+            page?: number;
             /** Format: int32 */
-            size: number;
+            size?: number;
             /** Format: int64 */
-            totalElements: number;
+            totalElements?: number;
             /** Format: int32 */
-            totalPages: number;
-            last: boolean;
+            totalPages?: number;
+            last?: boolean;
         };
         AbsentMemberResponse: {
-            memberId: string;
-            memberCode: string;
-            memberName: string;
-            phone: string;
+            memberId?: string;
+            memberCode?: string;
+            memberName?: string;
+            phone?: string;
             /** Format: date */
-            lastAttendanceDate: string;
+            lastAttendanceDate?: string;
             /** Format: int64 */
-            daysAbsent: number;
+            daysAbsent?: number;
         };
         ApiResponsePagedResponseAbsentMemberResponse: {
-            success: boolean;
-            message: string;
-            data: components["schemas"]["PagedResponseAbsentMemberResponse"];
-            error: Record<string, never>;
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["PagedResponseAbsentMemberResponse"];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
         };
         PagedResponseAbsentMemberResponse: {
-            content: components["schemas"]["AbsentMemberResponse"][];
+            content?: components["schemas"]["AbsentMemberResponse"][];
             /** Format: int32 */
-            page: number;
+            page?: number;
             /** Format: int32 */
-            size: number;
+            size?: number;
             /** Format: int64 */
-            totalElements: number;
+            totalElements?: number;
             /** Format: int32 */
-            totalPages: number;
-            last: boolean;
+            totalPages?: number;
+            last?: boolean;
         };
         ApiResponseListGym: {
-            success: boolean;
-            message: string;
-            data: components["schemas"]["Gym"][];
-            error: Record<string, never>;
+            success?: boolean;
+            message?: string;
+            data?: components["schemas"]["Gym"][];
+            error?: Record<string, never>;
+            /** Format: int64 */
+            retryAfterSeconds?: number;
+            code?: Record<string, never>;
+            errorCode?: Record<string, never>;
         };
     };
     responses: never;
@@ -797,16 +1651,134 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    getById: {
+    updateTrainerTypes: {
         parameters: {
-            query: never;
-            header: never;
+            query?: never;
+            header?: never;
             path: {
                 id: string;
             };
-            cookie: never;
+            cookie?: never;
         };
-        requestBody: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveTrainerRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseTrainerResponse"];
+                };
+            };
+        };
+    };
+    deactivateTrainer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseTrainerResponse"];
+                };
+            };
+        };
+    };
+    getById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseTrainerTypeResponse"];
+                };
+            };
+        };
+    };
+    update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrainerTypeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseTrainerTypeResponse"];
+                };
+            };
+        };
+    };
+    delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    getById_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -819,14 +1791,14 @@ export interface operations {
             };
         };
     };
-    update: {
+    update_1: {
         parameters: {
-            query: never;
-            header: never;
+            query?: never;
+            header?: never;
             path: {
                 id: string;
             };
-            cookie: never;
+            cookie?: never;
         };
         requestBody: {
             content: {
@@ -845,16 +1817,16 @@ export interface operations {
             };
         };
     };
-    delete: {
+    delete_1: {
         parameters: {
-            query: never;
-            header: never;
+            query?: never;
+            header?: never;
             path: {
                 id: string;
             };
-            cookie: never;
+            cookie?: never;
         };
-        requestBody: never;
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -867,12 +1839,405 @@ export interface operations {
             };
         };
     };
+    updateNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memberId: string;
+                noteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberNoteRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberNoteResponse"];
+                };
+            };
+        };
+    };
+    getMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberResponse"];
+                };
+            };
+        };
+    };
+    updateMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMemberRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberResponse"];
+                };
+            };
+        };
+    };
+    deleteMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    getGymSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGym"];
+                };
+            };
+        };
+    };
+    updateGymSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GymSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGym"];
+                };
+            };
+        };
+    };
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMeResponse"];
+                };
+            };
+        };
+    };
+    updateMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMeResponse"];
+                };
+            };
+        };
+    };
+    listTrainers: {
+        parameters: {
+            query?: {
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListTrainerResponse"];
+                };
+            };
+        };
+    };
+    createTrainer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTrainerRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseTrainerResponse"];
+                };
+            };
+        };
+    };
+    list: {
+        parameters: {
+            query?: {
+                activeOnly?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListTrainerTypeResponse"];
+                };
+            };
+        };
+    };
+    create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrainerTypeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseTrainerTypeResponse"];
+                };
+            };
+        };
+    };
+    getAssignments: {
+        parameters: {
+            query?: {
+                trainerId?: string;
+                memberId?: string;
+                status?: string;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePagedResponseAssignmentResponse"];
+                };
+            };
+        };
+    };
+    assignMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignMembersRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListAssignmentResponse"];
+                };
+            };
+        };
+    };
+    endAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAssignmentResponse"];
+                };
+            };
+        };
+    };
+    reassignAll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReassignTrainerRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    listStaff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListStaffResponse"];
+                };
+            };
+        };
+    };
     createStaff: {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
         requestBody: {
             content: {
@@ -886,19 +2251,19 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiResponseVoid"];
+                    "*/*": components["schemas"]["ApiResponseStaffResponse"];
                 };
             };
         };
     };
     getAll: {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        requestBody: never;
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -911,12 +2276,12 @@ export interface operations {
             };
         };
     };
-    create: {
+    create_1: {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
         requestBody: {
             content: {
@@ -937,18 +2302,18 @@ export interface operations {
     };
     getPayments: {
         parameters: {
-            query: {
-                startDate: string;
-                endDate: string;
-                mode: string;
-                page: number;
-                size: number;
+            query?: {
+                startDate?: string;
+                endDate?: string;
+                mode?: string;
+                page?: number;
+                size?: number;
             };
-            header: never;
-            path: never;
-            cookie: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        requestBody: never;
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -956,17 +2321,17 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiResponsePagedResponsePaymentResponse"];
+                    "*/*": components["schemas"]["ApiResponsePaymentListResponse"];
                 };
             };
         };
     };
     createPayment: {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
         requestBody: {
             content: {
@@ -987,16 +2352,16 @@ export interface operations {
     };
     reversePayment: {
         parameters: {
-            query: {
-                notes: string;
+            query?: {
+                notes?: string;
             };
-            header: never;
+            header?: never;
             path: {
                 id: string;
             };
-            cookie: never;
+            cookie?: never;
         };
-        requestBody: never;
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -1011,16 +2376,17 @@ export interface operations {
     };
     getMembers: {
         parameters: {
-            query: {
-                search: string;
-                page: number;
-                size: number;
+            query?: {
+                search?: string;
+                status?: string;
+                page?: number;
+                size?: number;
             };
-            header: never;
-            path: never;
-            cookie: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        requestBody: never;
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -1035,10 +2401,10 @@ export interface operations {
     };
     createMember: {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
         requestBody: {
             content: {
@@ -1057,14 +2423,62 @@ export interface operations {
             };
         };
     };
+    getNotes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memberId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListMemberNoteResponse"];
+                };
+            };
+        };
+    };
+    createNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memberId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberNoteRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMemberNoteResponse"];
+                };
+            };
+        };
+    };
     renewMembership: {
         parameters: {
-            query: never;
-            header: never;
+            query?: never;
+            header?: never;
             path: {
                 id: string;
             };
-            cookie: never;
+            cookie?: never;
         };
         requestBody: {
             content: {
@@ -1085,14 +2499,14 @@ export interface operations {
     };
     getPhoto: {
         parameters: {
-            query: never;
-            header: never;
+            query?: never;
+            header?: never;
             path: {
                 id: string;
             };
-            cookie: never;
+            cookie?: never;
         };
-        requestBody: never;
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -1107,14 +2521,14 @@ export interface operations {
     };
     uploadPhoto: {
         parameters: {
-            query: never;
-            header: never;
+            query?: never;
+            header?: never;
             path: {
                 id: string;
             };
-            cookie: never;
+            cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "multipart/form-data": {
                     /** Format: binary */
@@ -1134,16 +2548,16 @@ export interface operations {
             };
         };
     };
-    registerGym: {
+    verifyOtp: {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RegisterGymRequest"];
+                "application/json": components["schemas"]["VerifyOtpRequest"];
             };
         };
         responses: {
@@ -1153,17 +2567,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiResponseGymResponse"];
+                    "*/*": components["schemas"]["ApiResponseVerifyOtpResponse"];
+                };
+            };
+        };
+    };
+    sendOtp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendOtpRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseSendOtpResponse"];
                 };
             };
         };
     };
     refresh: {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
         requestBody: {
             content: {
@@ -1182,16 +2620,16 @@ export interface operations {
             };
         };
     };
-    login: {
+    completeRegistration: {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LoginRequest"];
+                "application/json": components["schemas"]["CompleteRegistrationRequest"];
             };
         };
         responses: {
@@ -1201,17 +2639,17 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiResponseTokenResponse"];
+                    "*/*": components["schemas"]["ApiResponseVerifyOtpResponse"];
                 };
             };
         };
     };
     checkIn: {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
         requestBody: {
             content: {
@@ -1230,14 +2668,58 @@ export interface operations {
             };
         };
     };
-    extendSubscription: {
+    suspendGym: {
         parameters: {
-            query: never;
-            header: never;
+            query?: never;
+            header?: never;
             path: {
                 id: string;
             };
-            cookie: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGym"];
+                };
+            };
+        };
+    };
+    reactivateGym: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseGym"];
+                };
+            };
+        };
+    };
+    extendSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
         };
         requestBody: {
             content: {
@@ -1256,16 +2738,90 @@ export interface operations {
             };
         };
     };
-    getReceiptPdf: {
+    getTrainerById: {
         parameters: {
-            query: never;
-            header: never;
+            query?: never;
+            header?: never;
             path: {
                 id: string;
             };
-            cookie: never;
+            cookie?: never;
         };
-        requestBody: never;
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseTrainerResponse"];
+                };
+            };
+        };
+    };
+    patchTrainer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTrainerRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseTrainerResponse"];
+                };
+            };
+        };
+    };
+    patchStaff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateStaffRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseStaffResponse"];
+                };
+            };
+        };
+    };
+    getReceiptPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -1278,61 +2834,40 @@ export interface operations {
             };
         };
     };
-    getMember: {
-        parameters: {
-            query: never;
-            header: never;
-            path: {
-                id: string;
-            };
-            cookie: never;
-        };
-        requestBody: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseMemberResponse"];
-                };
-            };
-        };
-    };
-    deleteMember: {
-        parameters: {
-            query: never;
-            header: never;
-            path: {
-                id: string;
-            };
-            cookie: never;
-        };
-        requestBody: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseVoid"];
-                };
-            };
-        };
-    };
     getDues: {
         parameters: {
-            query: {
-                page: number;
-                size: number;
+            query?: {
+                page?: number;
+                size?: number;
             };
-            header: never;
-            path: never;
-            cookie: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        requestBody: never;
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePagedResponseMemberDueResponse"];
+                };
+            };
+        };
+    };
+    getDues_1: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -1347,12 +2882,12 @@ export interface operations {
     };
     getDashboard: {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        requestBody: never;
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -1365,18 +2900,68 @@ export interface operations {
             };
         };
     };
+    getAuditLogs: {
+        parameters: {
+            query?: {
+                action?: string;
+                actorId?: string;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePagedResponseAuditLog"];
+                };
+            };
+        };
+    };
     getAttendance: {
         parameters: {
-            query: {
-                date: string;
-                page: number;
-                size: number;
+            query?: {
+                date?: string;
+                page?: number;
+                size?: number;
             };
-            header: never;
-            path: never;
-            cookie: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        requestBody: never;
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePagedResponseAttendanceRecordResponse"];
+                };
+            };
+        };
+    };
+    getMemberAttendanceHistory: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                memberId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -1391,16 +2976,16 @@ export interface operations {
     };
     getAbsentMembers: {
         parameters: {
-            query: {
-                days: number;
-                page: number;
-                size: number;
+            query?: {
+                days?: number;
+                page?: number;
+                size?: number;
             };
-            header: never;
-            path: never;
-            cookie: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        requestBody: never;
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -1415,12 +3000,12 @@ export interface operations {
     };
     listGyms: {
         parameters: {
-            query: never;
-            header: never;
-            path: never;
-            cookie: never;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        requestBody: never;
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {

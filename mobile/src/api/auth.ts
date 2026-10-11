@@ -1,33 +1,11 @@
 /**
- * Auth API — field names match the backend DTOs exactly:
- *   LoginRequest        → phone, password, gymCode
- *   RegisterGymRequest  → gymName, ownerName, ownerPhone, password, city?
- *   TokenResponse       → accessToken, refreshToken, tokenType, expiresIn, userId, gymId, role
- *   GymResponse         → gymId, gymName, gymCode, ownerName, ownerPhone, trialEndsAt
- *
- * NOTE: gymPhone has been removed. The owner's mobile number (ownerPhone)
- * is now used as both the login credential and the gym's contact number.
+ * Auth API — OTP authentication and session management.
  */
 import { apiClient } from './axiosConfig';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuthStore } from '../store/useAuthStore';
 
 // ─── Request / Response types ─────────────────────────────────────────────────
-
-export interface LoginRequest {
-  phone: string;
-  password: string;
-  /** Required for OWNER/STAFF. Leave undefined for SUPER_ADMIN. */
-  gymCode?: string;
-}
-
-export interface RegisterGymRequest {
-  gymName: string;
-  ownerName: string;
-  /** The owner's mobile number — also used as the gym contact number. */
-  ownerPhone: string;
-  password: string;
-  /** Optional city / area for the gym. */
-  city?: string;
-}
 
 export interface TokenResponse {
   accessToken: string;
@@ -36,17 +14,7 @@ export interface TokenResponse {
   expiresIn: number;
   userId: string;
   gymId: string | null;
-  gymCode?: string | null;
   role: string;
-}
-
-export interface GymResponse {
-  gymId: string;
-  gymName: string;
-  gymCode: string;
-  ownerName: string;
-  ownerPhone: string;
-  trialEndsAt: string;
 }
 
 export interface TrainerTypeInfo {
@@ -60,10 +28,13 @@ export interface MeResponse {
   userId: string;
   name: string;
   phone: string;
+  email?: string | null;
   role: string;
   gymId: string | null;
   gymName: string | null;
-  gymCode: string | null;
+  gymCode?: string | null;
+  gymType?: string | null;
+  gym?: GymSummary | null;
   active: boolean;
   status: string;
   trainerTypes: TrainerTypeInfo[];
@@ -74,22 +45,96 @@ export interface UpdateMeRequest {
   phone?: string;
 }
 
-// ─── API functions ────────────────────────────────────────────────────────────
-
-export async function loginUser(req: LoginRequest): Promise<TokenResponse> {
-  const { data } = await apiClient.post<{ success: boolean; data: TokenResponse }>(
-    '/api/auth/login',
-    req
-  );
-  return data.data;
+export interface SendOtpResponse {
+  resendAfterSeconds: number;
+  expiresInSeconds: number;
 }
 
-export async function registerGym(req: RegisterGymRequest): Promise<GymResponse> {
-  const { data } = await apiClient.post<{ success: boolean; data: GymResponse }>(
-    '/api/auth/register-gym',
-    req
+export interface VerifyOtpUser {
+  id: string;
+  name: string;
+  role: string;
+  gymId: string | null;
+  gymName: string | null;
+}
+
+export interface GymSummary {
+  id: string;
+  name: string;
+  gymCode?: string;
+  gymType?: string;
+}
+
+export interface VerifyOtpResponse {
+  isNewUser?: boolean;
+  accessToken?: string;
+  refreshToken?: string;
+  user?: VerifyOtpUser;
+  gym?: GymSummary;
+  registrationToken?: string;
+}
+
+export interface GymAddressDto {
+  line1: string;
+  line2?: string;
+  state: string;
+  district: string;
+  pincode: string;
+}
+
+export interface CompleteRegistrationRequest {
+  gymName: string;
+  gymType?: string;
+  ownerName: string;
+  email?: string;
+  legalIdType?: string;
+  legalIdNumber?: string;
+  address?: GymAddressDto;
+  acceptedTerms?: boolean;
+  termsVersion?: string;
+}
+
+export interface ApiEnvelope<T> {
+  success: boolean;
+  message: string;
+  data: T;
+}
+
+// ─── API functions ────────────────────────────────────────────────────────────
+
+export async function sendOtp(phone: string): Promise<ApiEnvelope<SendOtpResponse>> {
+  const { data } = await apiClient.post<ApiEnvelope<SendOtpResponse>>(
+    '/api/auth/send-otp',
+    { phone }
   );
-  return data.data;
+  return data;
+}
+
+export async function verifyOtp(
+  phone: string,
+  otp: string
+): Promise<ApiEnvelope<VerifyOtpResponse>> {
+  const { data } = await apiClient.post<ApiEnvelope<VerifyOtpResponse>>(
+    '/api/auth/verify-otp',
+    { phone, otp }
+  );
+  return data;
+}
+
+export async function completeRegistration(
+  req: CompleteRegistrationRequest,
+  registrationToken: string
+): Promise<ApiEnvelope<VerifyOtpResponse>> {
+  const { data } = await apiClient.post<ApiEnvelope<VerifyOtpResponse>>(
+    '/api/auth/complete-registration',
+    req,
+    {
+      headers: {
+        Authorization: `Bearer ${registrationToken}`,
+      },
+    }
+  );
+  return data;
 }
 
 export async function refreshTokens(refreshToken: string): Promise<TokenResponse> {
@@ -115,27 +160,7 @@ export async function updateMe(req: UpdateMeRequest): Promise<MeResponse> {
   return data.data;
 }
 
-/**
- * Convenience: register a gym then immediately sign the owner in.
- * Returns both the GymResponse (contains gymCode) and a TokenResponse so
- * the caller can hydrate the auth store and navigate to the dashboard.
- */
-export async function registerAndLogin(
-  req: RegisterGymRequest
-): Promise<{ gym: GymResponse; tokens: TokenResponse }> {
-  const gym = await registerGym(req);
-  const tokens = await loginUser({
-    phone: req.ownerPhone,
-    password: req.password,
-    gymCode: gym.gymCode,
-  });
-  return { gym, tokens };
-}
-
 // ─── React Query Hooks ────────────────────────────────────────────────────────
-
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuthStore } from '../store/useAuthStore';
 
 export function useCurrentUser() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -149,10 +174,12 @@ export function useCurrentUser() {
           userId: data.userId || data.id,
           name: data.name,
           phone: data.phone,
+          email: data.email ?? null,
           role: data.role,
           gymId: data.gymId,
           gymName: data.gymName,
-          gymCode: data.gymCode,
+          gymCode: data.gymCode || data.gym?.gymCode || null,
+          gymType: data.gymType || data.gym?.gymType || null,
         });
       }
       return data;
@@ -173,10 +200,10 @@ export function useUpdateCurrentUser() {
           userId: updated.userId || updated.id,
           name: updated.name,
           phone: updated.phone,
+          email: updated.email ?? null,
           role: updated.role,
           gymId: updated.gymId,
           gymName: updated.gymName,
-          gymCode: updated.gymCode,
         });
       }
       queryClient.setQueryData(['me'], updated);

@@ -13,4 +13,7 @@ public interface UserRepository extends MongoRepository<User, String> {
     Optional<User> findByPhone(String phone); // Phone is globally unique for login
     boolean existsByPhone(String phone);
     Optional<User> findByPhoneAndRole(String phone, String role);
+    boolean existsByRole(String role);
+    List<User> findByRole(String role);
 }
+

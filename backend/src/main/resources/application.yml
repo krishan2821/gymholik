@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: gym-management
+  profiles:
+    default: dev
   data:
     mongodb:
       uri: ${MONGO_URI:mongodb://localhost:27017/gymdb?replicaSet=rs0}
@@ -20,15 +22,36 @@ spring:
 app:
   jwt:
     secret: ${JWT_SECRET:supersecretkeythatisverylongandsecure32bytes}
-    access-token-expiry-ms: 1800000   # 30 minutes
+    access-token-expiry-ms: 1800000          # 30 minutes
     refresh-token-expiry-days: 30
+    registration-token-expiry-ms: 1800000    # 30 minutes
+  otp:
+    pepper: ${OTP_PEPPER}
+    expiry-seconds: 300                      # 5 minutes
+    resend-cooldown-seconds: 30              # 30 seconds
+    max-attempts: 5
+    max-sends-per-phone-per-hour: 5
+    max-sends-per-ip-per-hour: 10
+    max-consecutive-invalidations: 3
+    phone-block-minutes: 30
+    dev-fixed-code: ${OTP_DEV_FIXED_CODE:}
+  sms:
+    provider: ${SMS_PROVIDER:log}
+    msg91:
+      auth-key: ${MSG91_AUTH_KEY:}
+      template-id: ${MSG91_TEMPLATE_ID:${MSG91_DLT_TEMPLATE_ID:}}
+      sender-id: ${MSG91_SENDER_ID:GYMHLK}
+      entity-id: ${MSG91_ENTITY_ID:${MSG91_DLT_ENTITY_ID:}}
+      base-url: ${MSG91_BASE_URL:https://control.msg91.com/api/v5/otp}
+      connect-timeout-ms: ${MSG91_CONNECT_TIMEOUT_MS:5000}
+      read-timeout-ms: ${MSG91_READ_TIMEOUT_MS:5000}
   trial:
     duration-days: 14
-  login:
-    max-attempts: 5
-    lockout-minutes: 15
+  super-admin:
+    phone: ${SUPER_ADMIN_PHONE:}
   upload:
     dir: ${UPLOAD_DIR:/tmp/uploads}
+
 
 springdoc:
   api-docs:

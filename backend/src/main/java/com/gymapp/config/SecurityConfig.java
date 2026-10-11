@@ -8,15 +8,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -40,10 +36,16 @@ public class SecurityConfig {
     private final ObjectMapper objectMapper;
 
     private static final String[] PUBLIC_PATHS = {
-            "/api/auth/**",
+            "/api/auth/send-otp",
+            "/api/auth/verify-otp",
+            "/api/auth/refresh",
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/v3/api-docs/**"
+    };
+
+    private static final String[] REGISTRATION_PATHS = {
+            "/api/auth/complete-registration"
     };
 
     @Bean
@@ -68,7 +70,8 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers(PUBLIC_PATHS).permitAll()
-                    .anyRequest().authenticated()
+                    .requestMatchers(REGISTRATION_PATHS).hasAuthority("SCOPE_REGISTER")
+                    .anyRequest().hasAnyRole("OWNER", "STAFF", "TRAINER", "SUPER_ADMIN")
             )
             // JWT filter runs before Spring's own username/password filter
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
@@ -87,15 +90,5 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
-
-    @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config)
-            throws Exception {
-        return config.getAuthenticationManager();
-    }
 }
+

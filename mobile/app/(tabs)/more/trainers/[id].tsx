@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,29 +13,29 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
-  User,
   Users,
   UserPlus,
   Phone,
   Trash2,
   Edit2,
-  Tag,
   X,
   Check,
   AlertTriangle,
   ArrowRightLeft,
   Calendar,
   IndianRupee,
+  Plus,
 } from 'lucide-react-native';
 import { format, parseISO } from 'date-fns';
+import Toast from 'react-native-toast-message';
 import { theme } from '../../../../src/theme/theme';
 import { useAuthStore } from '../../../../src/store/useAuthStore';
 import {
   useTrainer,
   useTrainerTypes,
+  useCreateTrainerType,
   useTrainerAssignments,
-  useUpdateTrainerTypes,
-  useDeactivateTrainer,
+  usePatchTrainer,
   useEndAssignment,
   useReassignTrainer,
   useTrainers,
@@ -46,9 +46,12 @@ import { GlassCard } from '../../../../src/components/GlassCard';
 import { Avatar } from '../../../../src/components/Avatar';
 import { Badge } from '../../../../src/components/Badge';
 import { Button } from '../../../../src/components/Button';
+import { Input } from '../../../../src/components/Input';
 import { EmptyState } from '../../../../src/components/EmptyState';
 import { ErrorState } from '../../../../src/components/ErrorState';
-import { TRAINERS, COMMON, ERRORS } from '../../../../src/constants/strings';
+import { TRAINERS, COMMON, ERRORS, VALIDATION } from '../../../../src/constants/strings';
+
+const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/;
 
 export default function TrainerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -66,7 +69,6 @@ export default function TrainerDetailScreen() {
   const {
     data: assignmentsData,
     isLoading: isAssignmentsLoading,
-    isError: isAssignmentsError,
     refetch: refetchAssignments,
     isRefetching: isRefetchingAssignments,
   } = useTrainerAssignments({
@@ -74,20 +76,37 @@ export default function TrainerDetailScreen() {
     status: 'ACTIVE',
   });
 
-  const { data: allTypes } = useTrainerTypes();
+  const { data: allTypes, refetch: refetchTypes } = useTrainerTypes(true);
   const { data: allTrainers } = useTrainers();
-  const updateTypes = useUpdateTrainerTypes();
-  const deactivateTrainer = useDeactivateTrainer();
+  const patchTrainer = usePatchTrainer();
+  const createTrainerType = useCreateTrainerType();
   const endAssignment = useEndAssignment();
   const reassignTrainer = useReassignTrainer();
 
-  // ─── Edit Types Modal ────────────────────────────────────────
-  const [typesModalVisible, setTypesModalVisible] = useState(false);
+  // ─── Edit Name & Types Modal ──────────────────────────────────
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editNameError, setEditNameError] = useState<string | undefined>();
   const [selectedTypeIds, setSelectedTypeIds] = useState<string[]>([]);
+  const [typesError, setTypesError] = useState<string | undefined>();
+
+  // ─── Add New Type Inline Modal ────────────────────────────────
+  const [newTypeModalVisible, setNewTypeModalVisible] = useState(false);
+  const [newTypeName, setNewTypeName] = useState('');
+
+  // ─── Change Mobile Number Modal ───────────────────────────────
+  const [phoneModalVisible, setPhoneModalVisible] = useState(false);
+  const [newPhone, setNewPhone] = useState('');
+  const [phoneError, setPhoneError] = useState<string | undefined>();
 
   // ─── Reassign Modal ──────────────────────────────────────────
   const [reassignModalVisible, setReassignModalVisible] = useState(false);
   const [targetTrainerId, setTargetTrainerId] = useState<string>('');
+
+  const saveLockRef = useRef(false);
+  const phoneLockRef = useRef(false);
+  const statusLockRef = useRef(false);
+  const reassignLockRef = useRef(false);
 
   if (role !== 'OWNER') {
     return (
@@ -121,50 +140,185 @@ export default function TrainerDetailScreen() {
     );
   }
 
-  const handleOpenEditTypes = () => {
+  const handleOpenEditModal = () => {
+    setEditName(trainer.name || '');
+    setEditNameError(undefined);
     setSelectedTypeIds(trainer.trainerTypes?.map((t) => t.id) || []);
-    setTypesModalVisible(true);
+    setTypesError(undefined);
+    setEditModalVisible(true);
   };
 
   const toggleTypeId = (typeId: string) => {
+    setTypesError(undefined);
     setSelectedTypeIds((prev) =>
       prev.includes(typeId) ? prev.filter((i) => i !== typeId) : [...prev, typeId]
     );
   };
 
-  const handleSaveTypes = async () => {
-    if (selectedTypeIds.length === 0) {
-      Alert.alert('Required', 'Please select at least one trainer type');
-      return;
+  const handleSaveDetails = async () => {
+    if (saveLockRef.current || patchTrainer.isPending) return;
+
+    const trimmedName = editName.trim();
+    let valid = true;
+
+    if (trimmedName.length < 2) {
+      setEditNameError(VALIDATION.MIN_LENGTH(TRAINERS.NAME_LABEL, 2));
+      valid = false;
+    } else {
+      setEditNameError(undefined);
     }
+
+    if (selectedTypeIds.length === 0) {
+      setTypesError(TRAINERS.TYPES_REQUIRED_ERROR);
+      valid = false;
+    } else {
+      setTypesError(undefined);
+    }
+
+    if (!valid) return;
+
+    saveLockRef.current = true;
     try {
-      await updateTypes.mutateAsync({
+      await patchTrainer.mutateAsync({
         id: trainer.id,
-        trainerTypeIds: selectedTypeIds,
+        payload: {
+          name: trimmedName,
+          trainerTypeIds: selectedTypeIds,
+        },
       });
-      setTypesModalVisible(false);
+      Toast.show({ type: 'success', text1: 'Trainer details updated' });
+      setEditModalVisible(false);
       refetchTrainer();
-    } catch {
-      // Handled by toast
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: COMMON.ERROR,
+        text2: error?.response?.data?.message || ERRORS.GENERIC,
+      });
+    } finally {
+      saveLockRef.current = false;
     }
   };
 
-  const handleDeactivate = () => {
+  const handleCreateNewTypeInline = async () => {
+    const trimmed = newTypeName.trim();
+    if (!trimmed || createTrainerType.isPending) return;
+    try {
+      const created = await createTrainerType.mutateAsync(trimmed);
+      setNewTypeName('');
+      setNewTypeModalVisible(false);
+      await refetchTypes();
+      if (created?.id) {
+        setSelectedTypeIds((prev) =>
+          prev.includes(created.id) ? prev : [...prev, created.id]
+        );
+        setTypesError(undefined);
+      }
+    } catch {
+      // Toast handled in hook
+    }
+  };
+
+  const handleOpenPhoneModal = () => {
+    const cleanExisting = (trainer.phone || '').replace(/^\+?91/, '').replace(/\D/g, '');
+    setNewPhone(cleanExisting);
+    setPhoneError(undefined);
+    setPhoneModalVisible(true);
+  };
+
+  const handleConfirmPhoneChange = () => {
+    if (phoneLockRef.current || patchTrainer.isPending) return;
+    const cleaned = newPhone.replace(/\D/g, '');
+    if (!INDIAN_MOBILE_REGEX.test(cleaned)) {
+      setPhoneError(VALIDATION.PHONE_INVALID);
+      return;
+    }
+
     Alert.alert(
-      TRAINERS.DEACTIVATE_CONFIRM_TITLE,
-      TRAINERS.DEACTIVATE_CONFIRM_MSG(trainer.name),
+      TRAINERS.CHANGE_PHONE_CONFIRM_TITLE,
+      TRAINERS.CHANGE_PHONE_CONFIRM_MSG(trainer.name),
       [
         { text: COMMON.CANCEL, style: 'cancel' },
         {
-          text: TRAINERS.DEACTIVATE_BTN,
+          text: COMMON.CONFIRM,
           style: 'destructive',
           onPress: async () => {
+            if (phoneLockRef.current) return;
+            phoneLockRef.current = true;
             try {
-              await deactivateTrainer.mutateAsync(trainer.id);
+              await patchTrainer.mutateAsync({
+                id: trainer.id,
+                payload: {
+                  phone: cleaned,
+                },
+              });
+              Toast.show({ type: 'success', text1: 'Mobile number updated' });
+              setPhoneModalVisible(false);
               refetchTrainer();
-              refetchAssignments();
-            } catch {
-              // Toast
+            } catch (error: any) {
+              const status = error?.response?.status;
+              const errCode =
+                error?.response?.data?.error ||
+                error?.response?.data?.code ||
+                '';
+              if (status === 409 || errCode === 'PHONE_ALREADY_REGISTERED') {
+                setPhoneError(TRAINERS.PHONE_ALREADY_REGISTERED);
+              } else {
+                Toast.show({
+                  type: 'error',
+                  text1: COMMON.ERROR,
+                  text2: error?.response?.data?.message || ERRORS.GENERIC,
+                });
+              }
+            } finally {
+              phoneLockRef.current = false;
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleToggleStatus = () => {
+    if (statusLockRef.current || patchTrainer.isPending) return;
+    const isCurrentlyActive = trainer.status === 'ACTIVE';
+
+    Alert.alert(
+      isCurrentlyActive
+        ? TRAINERS.DEACTIVATE_CONFIRM_TITLE
+        : TRAINERS.REACTIVATE_CONFIRM_TITLE,
+      isCurrentlyActive
+        ? TRAINERS.DEACTIVATE_CONFIRM_MSG(trainer.name)
+        : TRAINERS.REACTIVATE_CONFIRM_MSG(trainer.name),
+      [
+        { text: COMMON.CANCEL, style: 'cancel' },
+        {
+          text: isCurrentlyActive ? TRAINERS.DEACTIVATE_BTN : TRAINERS.REACTIVATE_BTN,
+          style: isCurrentlyActive ? 'destructive' : 'default',
+          onPress: async () => {
+            if (statusLockRef.current) return;
+            statusLockRef.current = true;
+            try {
+              await patchTrainer.mutateAsync({
+                id: trainer.id,
+                payload: {
+                  active: !isCurrentlyActive,
+                  status: isCurrentlyActive ? 'INACTIVE' : 'ACTIVE',
+                },
+              });
+              Toast.show({
+                type: 'success',
+                text1: isCurrentlyActive ? 'Trainer deactivated' : 'Trainer reactivated',
+              });
+              handleRefetchAll();
+            } catch (error: any) {
+              Toast.show({
+                type: 'error',
+                text1: COMMON.ERROR,
+                text2: error?.response?.data?.message || ERRORS.GENERIC,
+              });
+            } finally {
+              statusLockRef.current = false;
             }
           },
         },
@@ -184,8 +338,10 @@ export default function TrainerDetailScreen() {
           onPress: async () => {
             try {
               await endAssignment.mutateAsync(item.id);
+              refetchAssignments();
+              refetchTrainer();
             } catch {
-              // Toast
+              // Toast handled in hook
             }
           },
         },
@@ -194,10 +350,12 @@ export default function TrainerDetailScreen() {
   };
 
   const handleExecuteReassign = async () => {
+    if (reassignLockRef.current || reassignTrainer.isPending) return;
     if (!targetTrainerId) {
-      Alert.alert('Error', 'Please select a destination trainer.');
+      Alert.alert(COMMON.ERROR, 'Please select a destination trainer.');
       return;
     }
+    reassignLockRef.current = true;
     try {
       await reassignTrainer.mutateAsync({
         fromTrainerId: trainer.id,
@@ -207,23 +365,16 @@ export default function TrainerDetailScreen() {
       setTargetTrainerId('');
       handleRefetchAll();
     } catch {
-      // Toast
+      // Toast handled in hook
+    } finally {
+      reassignLockRef.current = false;
     }
   };
 
   const assignments = assignmentsData?.content || [];
-  const statusLabel =
-    trainer.status === 'PENDING_APPROVAL'
-      ? TRAINERS.STATUS_PENDING
-      : trainer.status === 'ACTIVE'
-      ? TRAINERS.STATUS_ACTIVE
-      : TRAINERS.STATUS_INACTIVE;
-  const badgeVariant =
-    trainer.status === 'ACTIVE'
-      ? 'success'
-      : trainer.status === 'PENDING_APPROVAL'
-      ? 'warning'
-      : 'neutral';
+  const isActive = trainer.status === 'ACTIVE';
+  const statusLabel = isActive ? TRAINERS.STATUS_ACTIVE : TRAINERS.STATUS_INACTIVE;
+  const badgeVariant = isActive ? 'success' : 'neutral';
 
   const activeOtherTrainers = (allTrainers || []).filter(
     (t) => t.status === 'ACTIVE' && t.id !== trainer.id
@@ -236,7 +387,7 @@ export default function TrainerDetailScreen() {
         formattedStart = format(parseISO(item.startDate), 'dd MMM yyyy');
       }
     } catch {
-      // keep
+      // keep raw
     }
 
     return (
@@ -262,17 +413,17 @@ export default function TrainerDetailScreen() {
           </TouchableOpacity>
         </View>
 
-        {(item.ptFeePaise || item.sessionsTotal || formattedStart) ? (
+        {item.ptFeePaise || item.sessionsTotal || formattedStart ? (
           <View style={styles.assignmentDetailsRow}>
             {formattedStart ? (
               <View style={styles.detailPill}>
-                <Calendar size={12} color={theme.colors.textMuted} style={{ marginRight: 4 }} />
+                <Calendar size={12} color={theme.colors.textMuted} style={styles.pillIcon} />
                 <Text style={styles.detailPillText}>Started {formattedStart}</Text>
               </View>
             ) : null}
             {item.ptFeePaise ? (
               <View style={styles.detailPill}>
-                <IndianRupee size={12} color={theme.colors.primary} style={{ marginRight: 2 }} />
+                <IndianRupee size={12} color={theme.colors.primary} style={styles.rupeeIcon} />
                 <Text style={styles.detailPillText}>₹{item.ptFeePaise / 100}</Text>
               </View>
             ) : null}
@@ -292,7 +443,7 @@ export default function TrainerDetailScreen() {
       {/* ── Top Header Card ────────────────────────────────────── */}
       <GlassCard style={styles.profileCard} contentStyle={styles.profileInner}>
         <View style={styles.avatarRow}>
-          <Avatar name={trainer.name} size="lg" />
+          <Avatar name={trainer.name} status={isActive ? 'active' : 'none'} size="lg" />
           <View style={styles.profileDetails}>
             <View style={styles.nameStatusRow}>
               <Text style={styles.trainerName} numberOfLines={1}>
@@ -300,26 +451,33 @@ export default function TrainerDetailScreen() {
               </Text>
               <Badge label={statusLabel} variant={badgeVariant} size="sm" />
             </View>
-            {trainer.phone ? (
+            <View style={styles.phoneActionRow}>
               <View style={styles.phoneRow}>
-                <Phone size={14} color={theme.colors.primary} style={{ marginRight: 6 }} />
-                <Text style={styles.phoneText}>{trainer.phone}</Text>
+                <Phone size={14} color={theme.colors.primary} style={styles.phoneIcon} />
+                <Text style={styles.phoneText}>{trainer.phone || '—'}</Text>
               </View>
-            ) : null}
+              <TouchableOpacity
+                onPress={handleOpenPhoneModal}
+                style={styles.changePhoneLink}
+                accessibilityRole="button"
+              >
+                <Text style={styles.changePhoneLinkText}>{TRAINERS.CHANGE_PHONE_BTN}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
-        {/* ── Specialty Types ───────────────────────────────────── */}
+        {/* ── Specialty Types & Edit Details ────────────────────── */}
         <View style={styles.typesSection}>
           <View style={styles.typesHeaderRow}>
-            <Text style={styles.sectionTitle}>Specialties</Text>
+            <Text style={styles.sectionTitle}>{TRAINERS.TYPES_LABEL}</Text>
             <TouchableOpacity
               style={styles.editTypesBtn}
-              onPress={handleOpenEditTypes}
+              onPress={handleOpenEditModal}
               accessibilityRole="button"
             >
-              <Edit2 size={14} color={theme.colors.primary} style={{ marginRight: 4 }} />
-              <Text style={styles.editTypesBtnText}>{TRAINERS.EDIT_TYPES_BTN}</Text>
+              <Edit2 size={14} color={theme.colors.primary} style={styles.editIcon} />
+              <Text style={styles.editTypesBtnText}>{TRAINERS.EDIT_DETAILS_BTN}</Text>
             </TouchableOpacity>
           </View>
 
@@ -337,24 +495,27 @@ export default function TrainerDetailScreen() {
         </View>
       </GlassCard>
 
-      {/* ── Deactivated Trainer Banner (Requirement 7) ────────── */}
-      {trainer.status === 'INACTIVE' && (
+      {/* ── Deactivated Trainer Banner (Reassign Members) ───────── */}
+      {!isActive && (
         <View style={styles.bannerContainer}>
           <GlassCard style={styles.bannerCard} contentStyle={styles.bannerContent}>
             <View style={styles.bannerHeader}>
-              <AlertTriangle size={20} color={theme.colors.warning} style={{ marginRight: 8 }} />
-              <Text style={styles.bannerTitle}>Trainer Deactivated</Text>
+              <AlertTriangle size={20} color={theme.colors.warning} style={styles.bannerIcon} />
+              <Text style={styles.bannerTitle}>{TRAINERS.DEACTIVATED_BANNER_TITLE}</Text>
             </View>
-            <Text style={styles.bannerDesc}>
-              This trainer is inactive. All active member assignments were auto-ended.
-            </Text>
+            <Text style={styles.bannerDesc}>{TRAINERS.DEACTIVATED_BANNER_MSG}</Text>
             {activeOtherTrainers.length > 0 && (
               <TouchableOpacity
                 style={styles.reassignActionBtn}
                 onPress={() => setReassignModalVisible(true)}
+                accessibilityRole="button"
               >
-                <ArrowRightLeft size={16} color={theme.colors.textOnPrimary} style={{ marginRight: 6 }} />
-                <Text style={styles.reassignActionText}>Reassign Members</Text>
+                <ArrowRightLeft
+                  size={16}
+                  color={theme.colors.textOnPrimary}
+                  style={styles.reassignIcon}
+                />
+                <Text style={styles.reassignActionText}>{TRAINERS.REASSIGN_BTN}</Text>
               </TouchableOpacity>
             )}
           </GlassCard>
@@ -364,24 +525,25 @@ export default function TrainerDetailScreen() {
       {/* ── Assigned Members Section ───────────────────────────── */}
       <View style={styles.assignmentsHeaderBar}>
         <View style={styles.assignmentsCountRow}>
-          <Users size={18} color={theme.colors.primary} style={{ marginRight: 6 }} />
+          <Users size={18} color={theme.colors.primary} style={styles.usersIcon} />
           <Text style={styles.sectionTitle}>
             {TRAINERS.ASSIGNED_MEMBERS} ({assignments.length})
           </Text>
         </View>
 
-        {trainer.status === 'ACTIVE' && (
+        {isActive && (
           <Button
             title={TRAINERS.ASSIGN_MEMBERS_BTN}
             icon={<UserPlus size={16} color={theme.colors.textOnPrimary} />}
             onPress={() => router.push(`/(tabs)/more/trainers/${trainer.id}/assign`)}
             size="sm"
+            fullWidth={false}
           />
         )}
       </View>
 
       {assignments.length === 0 ? (
-        <View style={{ paddingVertical: 20 }}>
+        <View style={styles.emptyAssignmentsWrap}>
           <EmptyState
             icon={<Users size={40} color={theme.colors.primary} />}
             title={TRAINERS.NO_MEMBERS_ASSIGNED}
@@ -403,40 +565,73 @@ export default function TrainerDetailScreen() {
         />
       )}
 
-      {/* ── Deactivate Trainer Action ──────────────────────────── */}
-      {trainer.status === 'ACTIVE' && (
-        <View style={styles.deactivateWrapper}>
+      {/* ── Deactivate / Reactivate Trainer Action ─────────────── */}
+      <View style={styles.statusActionWrapper}>
+        {isActive ? (
           <TouchableOpacity
             style={styles.deactivateBtn}
-            onPress={handleDeactivate}
-            disabled={deactivateTrainer.isPending}
+            onPress={handleToggleStatus}
+            disabled={patchTrainer.isPending}
             accessibilityRole="button"
           >
             <Text style={styles.deactivateBtnText}>{TRAINERS.DEACTIVATE_BTN}</Text>
           </TouchableOpacity>
-        </View>
-      )}
+        ) : (
+          <Button
+            title={TRAINERS.REACTIVATE_BTN}
+            onPress={handleToggleStatus}
+            loading={patchTrainer.isPending}
+            disabled={patchTrainer.isPending}
+            variant="primary"
+            size="lg"
+          />
+        )}
+      </View>
 
-      {/* ── Edit Types Modal ───────────────────────────────────── */}
+      {/* ── Edit Name & Types Modal ────────────────────────────── */}
       <Modal
-        visible={typesModalVisible}
+        visible={editModalVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => !updateTypes.isPending && setTypesModalVisible(false)}
+        onRequestClose={() => !patchTrainer.isPending && setEditModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.bottomSheetContainer}>
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Edit Specialties</Text>
+              <Text style={styles.sheetTitle}>{TRAINERS.EDIT_NAME_TYPES_TITLE}</Text>
               <TouchableOpacity
-                onPress={() => setTypesModalVisible(false)}
-                disabled={updateTypes.isPending}
+                onPress={() => setEditModalVisible(false)}
+                disabled={patchTrainer.isPending}
               >
                 <X size={22} color={theme.colors.textMuted} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={{ maxHeight: 300, marginVertical: 12 }}>
+            <Input
+              label={TRAINERS.NAME_LABEL}
+              placeholder={TRAINERS.NAME_PLACEHOLDER}
+              value={editName}
+              onChangeText={(val) => {
+                setEditName(val);
+                if (editNameError) setEditNameError(undefined);
+              }}
+              error={editNameError}
+              editable={!patchTrainer.isPending}
+            />
+
+            <View style={styles.typesHeaderRow}>
+              <Text style={styles.selectLabel}>{TRAINERS.TYPES_LABEL}</Text>
+              <TouchableOpacity
+                style={styles.addTypeInlineBtn}
+                onPress={() => setNewTypeModalVisible(true)}
+                disabled={patchTrainer.isPending}
+              >
+                <Plus size={14} color={theme.colors.primary} style={styles.editIcon} />
+                <Text style={styles.editTypesBtnText}>{TRAINERS.ADD_NEW_TYPE_LINK}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.typesScroll}>
               {allTypes && allTypes.length > 0 ? (
                 allTypes
                   .filter((t) => t.active)
@@ -465,7 +660,9 @@ export default function TrainerDetailScreen() {
                             isSelected && styles.checkboxBoxActive,
                           ]}
                         >
-                          {isSelected && <Check size={14} color={theme.colors.textOnPrimary} />}
+                          {isSelected && (
+                            <Check size={14} color={theme.colors.textOnPrimary} />
+                          )}
                         </View>
                       </TouchableOpacity>
                     );
@@ -475,11 +672,101 @@ export default function TrainerDetailScreen() {
               )}
             </ScrollView>
 
+            {typesError ? <Text style={styles.errorText}>{typesError}</Text> : null}
+
             <Button
-              title="Save Specialties"
-              onPress={handleSaveTypes}
-              loading={updateTypes.isPending}
-              disabled={updateTypes.isPending || selectedTypeIds.length === 0}
+              title={TRAINERS.SAVE_CHANGES_BTN}
+              onPress={handleSaveDetails}
+              loading={patchTrainer.isPending}
+              disabled={patchTrainer.isPending}
+              size="lg"
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Add New Type Modal ─────────────────────────────────── */}
+      <Modal
+        visible={newTypeModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !createTrainerType.isPending && setNewTypeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.dialogCard}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>{TRAINERS.ADD_NEW_TYPE_MODAL_TITLE}</Text>
+              <TouchableOpacity
+                onPress={() => setNewTypeModalVisible(false)}
+                disabled={createTrainerType.isPending}
+              >
+                <X size={20} color={theme.colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            <Input
+              label={TRAINERS.TYPES_LABEL}
+              placeholder={TRAINERS.ADD_NEW_TYPE_PLACEHOLDER}
+              value={newTypeName}
+              onChangeText={setNewTypeName}
+              autoFocus
+              editable={!createTrainerType.isPending}
+            />
+            <Button
+              title={COMMON.SAVE}
+              onPress={handleCreateNewTypeInline}
+              loading={createTrainerType.isPending}
+              disabled={createTrainerType.isPending || !newTypeName.trim()}
+              size="md"
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Change Mobile Number Modal ─────────────────────────── */}
+      <Modal
+        visible={phoneModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => !patchTrainer.isPending && setPhoneModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.bottomSheetContainer}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>{TRAINERS.CHANGE_PHONE_MODAL_TITLE}</Text>
+              <TouchableOpacity
+                onPress={() => setPhoneModalVisible(false)}
+                disabled={patchTrainer.isPending}
+              >
+                <X size={22} color={theme.colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.warningBox}>
+              <AlertTriangle size={18} color={theme.colors.warning} style={styles.bannerIcon} />
+              <Text style={styles.warningText}>{TRAINERS.CHANGE_PHONE_WARNING}</Text>
+            </View>
+
+            <Input
+              label={TRAINERS.PHONE_LABEL}
+              prefix={TRAINERS.PHONE_PREFIX}
+              placeholder={TRAINERS.PHONE_PLACEHOLDER}
+              keyboardType="phone-pad"
+              maxLength={10}
+              value={newPhone}
+              onChangeText={(val) => {
+                const digitsOnly = val.replace(/\D/g, '').slice(0, 10);
+                setNewPhone(digitsOnly);
+                if (phoneError) setPhoneError(undefined);
+              }}
+              error={phoneError}
+              editable={!patchTrainer.isPending}
+            />
+
+            <Button
+              title={TRAINERS.SAVE_CHANGES_BTN}
+              onPress={handleConfirmPhoneChange}
+              loading={patchTrainer.isPending}
+              disabled={patchTrainer.isPending}
               size="lg"
             />
           </View>
@@ -496,7 +783,7 @@ export default function TrainerDetailScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.bottomSheetContainer}>
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Reassign Members</Text>
+              <Text style={styles.sheetTitle}>{TRAINERS.REASSIGN_MODAL_TITLE}</Text>
               <TouchableOpacity
                 onPress={() => setReassignModalVisible(false)}
                 disabled={reassignTrainer.isPending}
@@ -509,7 +796,7 @@ export default function TrainerDetailScreen() {
               Select an active trainer to receive reassigned members from {trainer.name}.
             </Text>
 
-            <ScrollView style={{ maxHeight: 250, marginVertical: 10 }}>
+            <ScrollView style={styles.typesScroll}>
               {activeOtherTrainers.map((t) => {
                 const isSelected = targetTrainerId === t.id;
                 return (
@@ -543,7 +830,7 @@ export default function TrainerDetailScreen() {
             </ScrollView>
 
             <Button
-              title="Confirm Reassign"
+              title={TRAINERS.REASSIGN_CONFIRM_BTN}
               onPress={handleExecuteReassign}
               loading={reassignTrainer.isPending}
               disabled={reassignTrainer.isPending || !targetTrainerId}
@@ -593,15 +880,33 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
+  phoneActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   phoneRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
+  },
+  phoneIcon: {
+    marginRight: 6,
   },
   phoneText: {
     ...theme.typography.body,
     fontSize: 14,
     color: theme.colors.textMuted,
+  },
+  changePhoneLink: {
+    paddingVertical: 2,
+  },
+  changePhoneLinkText: {
+    ...theme.typography.small,
+    color: theme.colors.primary,
+    fontFamily: theme.fonts.headingMedium,
   },
   typesSection: {
     marginTop: theme.spacing.md,
@@ -623,6 +928,13 @@ const styles = StyleSheet.create({
   editTypesBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  addTypeInlineBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  editIcon: {
+    marginRight: 4,
   },
   editTypesBtnText: {
     ...theme.typography.small,
@@ -655,8 +967,8 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
   },
   bannerCard: {
-    backgroundColor: 'rgba(245, 181, 68, 0.10)',
-    borderColor: 'rgba(245, 181, 68, 0.35)',
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.warning,
   },
   bannerContent: {
     padding: theme.spacing.md,
@@ -665,6 +977,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 4,
+  },
+  bannerIcon: {
+    marginRight: 8,
   },
   bannerTitle: {
     ...theme.typography.h3,
@@ -686,6 +1001,9 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.md,
     alignSelf: 'flex-start',
   },
+  reassignIcon: {
+    marginRight: 6,
+  },
   reassignActionText: {
     ...theme.typography.button,
     fontSize: 13,
@@ -701,6 +1019,13 @@ const styles = StyleSheet.create({
   assignmentsCountRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  usersIcon: {
+    marginRight: 6,
+  },
+  emptyAssignmentsWrap: {
+    paddingVertical: 20,
+    flex: 1,
   },
   listContent: {
     paddingHorizontal: theme.spacing.md,
@@ -739,7 +1064,9 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: theme.radius.sm,
-    backgroundColor: 'rgba(255, 107, 107, 0.15)',
+    backgroundColor: theme.colors.raised,
+    borderWidth: 1,
+    borderColor: theme.colors.error,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -760,20 +1087,26 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: theme.radius.sm,
   },
+  pillIcon: {
+    marginRight: 4,
+  },
+  rupeeIcon: {
+    marginRight: 2,
+  },
   detailPillText: {
     ...theme.typography.small,
     color: theme.colors.textSecondary,
   },
-  deactivateWrapper: {
+  statusActionWrapper: {
     padding: theme.spacing.md,
     paddingBottom: 30,
   },
   deactivateBtn: {
     paddingVertical: 14,
     borderRadius: theme.radius.md,
-    backgroundColor: 'rgba(255, 107, 107, 0.15)',
+    backgroundColor: theme.colors.raised,
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.35)',
+    borderColor: theme.colors.error,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -783,7 +1116,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(5, 31, 32, 0.85)',
+    backgroundColor: theme.colors.overlayEnd,
     justifyContent: 'flex-end',
   },
   bottomSheetContainer: {
@@ -795,11 +1128,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
+  dialogCard: {
+    backgroundColor: theme.colors.surface,
+    marginHorizontal: theme.spacing.lg,
+    marginTop: 'auto',
+    marginBottom: 'auto',
+    borderRadius: theme.radius.xl,
+    padding: theme.spacing.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
   sheetHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: theme.spacing.md,
   },
   sheetTitle: {
     ...theme.typography.h2,
@@ -808,6 +1151,14 @@ const styles = StyleSheet.create({
   sheetDesc: {
     ...theme.typography.caption,
     color: theme.colors.textMuted,
+    marginBottom: theme.spacing.sm,
+  },
+  selectLabel: {
+    ...theme.typography.bodyMedium,
+    color: theme.colors.text,
+  },
+  typesScroll: {
+    maxHeight: 240,
     marginBottom: theme.spacing.md,
   },
   typeSelectItem: {
@@ -824,7 +1175,6 @@ const styles = StyleSheet.create({
   },
   typeSelectItemActive: {
     borderColor: theme.colors.primary,
-    backgroundColor: 'rgba(142, 182, 155, 0.15)',
   },
   typeSelectText: {
     ...theme.typography.bodyMedium,
@@ -832,7 +1182,6 @@ const styles = StyleSheet.create({
   },
   typeSelectTextActive: {
     color: theme.colors.primary,
-    fontFamily: theme.fonts.headingBold,
   },
   checkboxBox: {
     width: 22,
@@ -846,5 +1195,25 @@ const styles = StyleSheet.create({
   checkboxBoxActive: {
     backgroundColor: theme.colors.primary,
     borderColor: theme.colors.primary,
+  },
+  errorText: {
+    ...theme.typography.small,
+    color: theme.colors.error,
+    marginBottom: theme.spacing.sm,
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.raised,
+    borderWidth: 1,
+    borderColor: theme.colors.warning,
+    borderRadius: theme.radius.md,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
+  warningText: {
+    ...theme.typography.caption,
+    color: theme.colors.warning,
+    flex: 1,
   },
 });

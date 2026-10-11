@@ -1,10 +1,10 @@
 package com.gymapp.module.auth.controller;
 
 import com.gymapp.common.ApiResponse;
-import com.gymapp.module.auth.dto.ChangePasswordRequest;
+import com.gymapp.module.auth.dto.GymProfileResponse;
 import com.gymapp.module.auth.dto.GymSettingsRequest;
+import com.gymapp.module.auth.dto.UpdateGymProfileRequest;
 import com.gymapp.module.auth.entity.Gym;
-import com.gymapp.module.auth.service.AuthService;
 import com.gymapp.module.auth.service.GymSettingsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -13,18 +13,16 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/gym")
 @RequiredArgsConstructor
-@Tag(name = "Gym Settings", description = "Gym settings for Owner")
-@SecurityRequirement(name = "bearerAuth")
+@Tag(name = "Gym Settings", description = "Gym settings and profile for Owner")
+@SecurityRequirement(name = "Bearer Auth")
 public class GymSettingsController {
 
     private final GymSettingsService gymSettingsService;
-    private final AuthService authService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
@@ -42,13 +40,21 @@ public class GymSettingsController {
         return ResponseEntity.ok(ApiResponse.success("Gym settings updated", updatedGym));
     }
 
-    @PutMapping("/password")
+    @GetMapping("/profile")
     @PreAuthorize("hasRole('OWNER')")
-    @Operation(summary = "Change OWNER password")
-    public ResponseEntity<ApiResponse<Void>> changePassword(
-            @Valid @RequestBody ChangePasswordRequest request,
-            @AuthenticationPrincipal String userId) {
-        authService.changePassword(userId, request);
-        return ResponseEntity.ok(ApiResponse.success("Password changed successfully", null));
+    @Operation(summary = "Get gym profile (OWNER only)")
+    public ResponseEntity<ApiResponse<GymProfileResponse>> getGymProfile(
+            @RequestParam(name = "reveal", defaultValue = "false") boolean reveal) {
+        GymProfileResponse profile = gymSettingsService.getGymProfile(reveal);
+        return ResponseEntity.ok(ApiResponse.success("Gym profile fetched", profile));
+    }
+
+    @PutMapping("/profile")
+    @PreAuthorize("hasRole('OWNER')")
+    @Operation(summary = "Update gym profile (OWNER only)")
+    public ResponseEntity<ApiResponse<GymProfileResponse>> updateGymProfile(
+            @Valid @RequestBody UpdateGymProfileRequest request) {
+        GymProfileResponse updatedProfile = gymSettingsService.updateGymProfile(request);
+        return ResponseEntity.ok(ApiResponse.success("Gym profile updated", updatedProfile));
     }
 }

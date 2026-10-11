@@ -6,21 +6,22 @@ import com.gymapp.module.auth.dto.*;
 import com.gymapp.module.auth.entity.User;
 import com.gymapp.module.auth.repository.UserRepository;
 import com.gymapp.module.member.dto.CreateMemberRequest;
-import com.gymapp.module.member.dto.MemberResponse;
 import com.gymapp.module.plan.dto.PlanRequest;
 import com.gymapp.module.trainer.dto.ApproveTrainerRequest;
 import com.gymapp.module.trainer.dto.AssignMembersRequest;
+import com.gymapp.module.trainer.dto.CreateTrainerRequest;
 import com.gymapp.module.trainer.dto.MemberNoteRequest;
 import com.gymapp.module.trainer.dto.ReassignTrainerRequest;
+import com.gymapp.module.trainer.dto.UpdateTrainerRequest;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
@@ -29,6 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+@TestPropertySource(properties = "app.otp.dev-fixed-code=123456")
 public class TrainerAccessIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
@@ -43,8 +45,8 @@ public class TrainerAccessIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     private org.springframework.data.mongodb.core.MongoTemplate mongoTemplate;
 
-    private String gymA_Code;
-    private String gymB_Code;
+    private String gymA_Id;
+    private String gymB_Id;
     private String gymA_OwnerToken;
     private String gymB_OwnerToken;
 
@@ -55,176 +57,98 @@ public class TrainerAccessIntegrationTest extends AbstractIntegrationTest {
     private String gymA_M2_Id;
     private String gymB_MB_Id;
 
+    private String gymA_TypeId;
+    private String gymB_TypeId;
+
     private String gymA_TrainerId;
     private String gymB_TrainerId;
     private String gymA_TrainerToken;
     private String gymB_TrainerToken;
 
+    private String gymA_StaffId;
     private String gymA_StaffToken;
 
     private String gymA_Assignment_M1_Id;
 
     @BeforeAll
     void setup() throws Exception {
-        if (loginRateLimiter != null) {
-            loginRateLimiter.reset();
-        }
-        // 1. Register Gym A
-        RegisterGymRequest regA = new RegisterGymRequest();
-        regA.setGymName("Alpha Gym");
-        regA.setOwnerName("Alpha Owner");
-        regA.setOwnerPhone("9851111111");
-        regA.setPassword("password123");
+        // 1. Register Gym A + Owner A via OTP complete-registration
+        JsonNode dataA = registerGymViaOtpToken(
+                mockMvc, objectMapper, "Alpha Gym", "Alpha Owner", "9851111111", "alpha@gym.com");
+        gymA_Id = dataA.path("user").path("gymId").asText();
+        gymA_OwnerToken = "Bearer " + dataA.path("accessToken").asText();
 
-        MvcResult resRegA = mockMvc.perform(post("/api/auth/register-gym")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(regA)))
-                .andExpect(status().isCreated()).andReturn();
-        gymA_Code = objectMapper.readTree(resRegA.getResponse().getContentAsString()).path("data").path("gymCode").asText();
+        // 2. Register Gym B + Owner B via OTP complete-registration
+        JsonNode dataB = registerGymViaOtpToken(
+                mockMvc, objectMapper, "Beta Gym", "Beta Owner", "9852222222", "beta@gym.com");
+        gymB_Id = dataB.path("user").path("gymId").asText();
+        gymB_OwnerToken = "Bearer " + dataB.path("accessToken").asText();
 
-        // 2. Register Gym B
-        RegisterGymRequest regB = new RegisterGymRequest();
-        regB.setGymName("Beta Gym");
-        regB.setOwnerName("Beta Owner");
-        regB.setOwnerPhone("9852222222");
-        regB.setPassword("password123");
-
-        MvcResult resRegB = mockMvc.perform(post("/api/auth/register-gym")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(regB)))
-                .andExpect(status().isCreated()).andReturn();
-        gymB_Code = objectMapper.readTree(resRegB.getResponse().getContentAsString()).path("data").path("gymCode").asText();
-
-        // 3. Login Owner A
-        LoginRequest loginA = new LoginRequest();
-        loginA.setGymCode(gymA_Code);
-        loginA.setPhone("9851111111");
-        loginA.setPassword("password123");
-        MvcResult resLoginA = mockMvc.perform(post("/api/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(loginA)))
-                .andExpect(status().isOk()).andReturn();
-        gymA_OwnerToken = "Bearer " + objectMapper.readTree(resLoginA.getResponse().getContentAsString()).path("data").path("accessToken").asText();
-
-        // 4. Login Owner B
-        LoginRequest loginB = new LoginRequest();
-        loginB.setGymCode(gymB_Code);
-        loginB.setPhone("9852222222");
-        loginB.setPassword("password123");
-        MvcResult resLoginB = mockMvc.perform(post("/api/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(loginB)))
-                .andExpect(status().isOk()).andReturn();
-        gymB_OwnerToken = "Bearer " + objectMapper.readTree(resLoginB.getResponse().getContentAsString()).path("data").path("accessToken").asText();
-
-        // 5. Create Plans
+        // 3. Create Plans
         gymA_PlanId = createPlan(gymA_OwnerToken, "Plan Alpha");
         gymB_PlanId = createPlan(gymB_OwnerToken, "Plan Beta");
 
-        // 6. Create Members
+        // 4. Create Members
         gymA_M1_Id = createMember(gymA_OwnerToken, "Member One", "9850000001", LocalDate.of(1995, 3, 25), "101 Alpha Rd", gymA_PlanId);
         gymA_M2_Id = createMember(gymA_OwnerToken, "Member Two", "9850000002", LocalDate.of(1997, 7, 14), "202 Alpha Rd", gymA_PlanId);
         gymB_MB_Id = createMember(gymB_OwnerToken, "Member Beta", "9850000003", LocalDate.of(1996, 5, 10), "303 Beta Blvd", gymB_PlanId);
 
-        // 7. Register and Approve Trainer A in Gym A
-        RegisterTrainerRequest regTrainerA = new RegisterTrainerRequest();
-        regTrainerA.setName("Trainer Alpha");
-        regTrainerA.setPhone("9859999991");
-        regTrainerA.setPassword("trainer123");
-        regTrainerA.setGymCode(gymA_Code);
-        mockMvc.perform(post("/api/auth/register-trainer")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(regTrainerA)))
-                .andExpect(status().isCreated());
-
-        MvcResult pendingTrainersA = mockMvc.perform(get("/api/trainers?status=PENDING_APPROVAL")
-                .header("Authorization", gymA_OwnerToken))
-                .andExpect(status().isOk()).andReturn();
-        JsonNode trainersArrayA = objectMapper.readTree(pendingTrainersA.getResponse().getContentAsString()).path("data");
-        gymA_TrainerId = trainersArrayA.get(0).path("id").asText();
-
+        // 5. Create ACTIVE Trainer A in Gym A via POST /api/trainers (no immediate members)
         MvcResult typesA = mockMvc.perform(get("/api/trainer-types")
                 .header("Authorization", gymA_OwnerToken))
                 .andExpect(status().isOk()).andReturn();
-        String typeIdA = objectMapper.readTree(typesA.getResponse().getContentAsString()).path("data").get(0).path("id").asText();
+        gymA_TypeId = objectMapper.readTree(typesA.getResponse().getContentAsString()).path("data").get(0).path("id").asText();
 
-        ApproveTrainerRequest approveReqA = new ApproveTrainerRequest();
-        approveReqA.setTrainerTypeIds(List.of(typeIdA));
-        mockMvc.perform(post("/api/trainers/" + gymA_TrainerId + "/approve")
+        CreateTrainerRequest createTrainerA = CreateTrainerRequest.builder()
+                .name("Trainer Alpha")
+                .phone("9859999991")
+                .trainerTypeIds(List.of(gymA_TypeId))
+                .build();
+        MvcResult trainerARes = mockMvc.perform(post("/api/trainers")
                 .header("Authorization", gymA_OwnerToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(approveReqA)))
-                .andExpect(status().isOk());
+                .content(objectMapper.writeValueAsString(createTrainerA)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.status", is("ACTIVE")))
+                .andExpect(jsonPath("$.data.active", is(true)))
+                .andReturn();
+        gymA_TrainerId = objectMapper.readTree(trainerARes.getResponse().getContentAsString()).path("data").path("id").asText();
+        gymA_TrainerToken = bearerTokenForUser(gymA_TrainerId, gymA_Id, "TRAINER");
 
-        LoginRequest loginTrainerA = new LoginRequest();
-        loginTrainerA.setGymCode(gymA_Code);
-        loginTrainerA.setPhone("9859999991");
-        loginTrainerA.setPassword("trainer123");
-        MvcResult resLoginTrainerA = mockMvc.perform(post("/api/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(loginTrainerA)))
-                .andExpect(status().isOk()).andReturn();
-        gymA_TrainerToken = "Bearer " + objectMapper.readTree(resLoginTrainerA.getResponse().getContentAsString()).path("data").path("accessToken").asText();
-
-        // 8. Register and Approve Trainer B in Gym B
-        RegisterTrainerRequest regTrainerB = new RegisterTrainerRequest();
-        regTrainerB.setName("Trainer Beta");
-        regTrainerB.setPhone("9859999992");
-        regTrainerB.setPassword("trainer123");
-        regTrainerB.setGymCode(gymB_Code);
-        mockMvc.perform(post("/api/auth/register-trainer")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(regTrainerB)))
-                .andExpect(status().isCreated());
-
-        MvcResult pendingTrainersB = mockMvc.perform(get("/api/trainers?status=PENDING_APPROVAL")
-                .header("Authorization", gymB_OwnerToken))
-                .andExpect(status().isOk()).andReturn();
-        gymB_TrainerId = objectMapper.readTree(pendingTrainersB.getResponse().getContentAsString()).path("data").get(0).path("id").asText();
-
+        // 6. Create ACTIVE Trainer B in Gym B via POST /api/trainers
         MvcResult typesB = mockMvc.perform(get("/api/trainer-types")
                 .header("Authorization", gymB_OwnerToken))
                 .andExpect(status().isOk()).andReturn();
-        String typeIdB = objectMapper.readTree(typesB.getResponse().getContentAsString()).path("data").get(0).path("id").asText();
+        gymB_TypeId = objectMapper.readTree(typesB.getResponse().getContentAsString()).path("data").get(0).path("id").asText();
 
-        ApproveTrainerRequest approveReqB = new ApproveTrainerRequest();
-        approveReqB.setTrainerTypeIds(List.of(typeIdB));
-        mockMvc.perform(post("/api/trainers/" + gymB_TrainerId + "/approve")
+        CreateTrainerRequest createTrainerB = CreateTrainerRequest.builder()
+                .name("Trainer Beta")
+                .phone("9859999992")
+                .trainerTypeIds(List.of(gymB_TypeId))
+                .build();
+        MvcResult trainerBRes = mockMvc.perform(post("/api/trainers")
                 .header("Authorization", gymB_OwnerToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(approveReqB)))
-                .andExpect(status().isOk());
+                .content(objectMapper.writeValueAsString(createTrainerB)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        gymB_TrainerId = objectMapper.readTree(trainerBRes.getResponse().getContentAsString()).path("data").path("id").asText();
+        gymB_TrainerToken = bearerTokenForUser(gymB_TrainerId, gymB_Id, "TRAINER");
 
-        LoginRequest loginTrainerB = new LoginRequest();
-        loginTrainerB.setGymCode(gymB_Code);
-        loginTrainerB.setPhone("9859999992");
-        loginTrainerB.setPassword("trainer123");
-        MvcResult resLoginTrainerB = mockMvc.perform(post("/api/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(loginTrainerB)))
-                .andExpect(status().isOk()).andReturn();
-        gymB_TrainerToken = "Bearer " + objectMapper.readTree(resLoginTrainerB.getResponse().getContentAsString()).path("data").path("accessToken").asText();
-
-        // 9. Create Staff A in Gym A
+        // 7. Create Staff A in Gym A via POST /api/staff
         CreateStaffRequest staffReq = new CreateStaffRequest();
         staffReq.setName("Staff Alpha");
         staffReq.setPhone("9858888881");
-        staffReq.setPassword("staffpassword123");
-        mockMvc.perform(post("/api/staff")
+        MvcResult staffARes = mockMvc.perform(post("/api/staff")
                 .header("Authorization", gymA_OwnerToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(staffReq)))
-                .andExpect(status().isCreated());
-
-        LoginRequest loginStaffA = new LoginRequest();
-        loginStaffA.setGymCode(gymA_Code);
-        loginStaffA.setPhone("9858888881");
-        loginStaffA.setPassword("staffpassword123");
-        MvcResult resLoginStaffA = mockMvc.perform(post("/api/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(loginStaffA)))
-                .andExpect(status().isOk()).andReturn();
-        gymA_StaffToken = "Bearer " + objectMapper.readTree(resLoginStaffA.getResponse().getContentAsString()).path("data").path("accessToken").asText();
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.role", is("STAFF")))
+                .andExpect(jsonPath("$.data.status", is("ACTIVE")))
+                .andReturn();
+        gymA_StaffId = objectMapper.readTree(staffARes.getResponse().getContentAsString()).path("data").path("id").asText();
+        gymA_StaffToken = bearerTokenForUser(gymA_StaffId, gymA_Id, "STAFF");
     }
 
     private String createPlan(String token, String name) throws Exception {
@@ -333,7 +257,6 @@ public class TrainerAccessIntegrationTest extends AbstractIntegrationTest {
                 .andReturn();
 
         String rawJson = res.getResponse().getContentAsString();
-        // Assert on the raw JSON string for the 10-digit number
         assertThat(rawJson).doesNotContain("9850000001");
         assertThat(rawJson).doesNotContain("101 Alpha Rd");
         assertThat(rawJson).doesNotContain("1995-03-25");
@@ -463,7 +386,7 @@ public class TrainerAccessIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(post("/api/staff")
                 .header("Authorization", gymA_TrainerToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"Hacked Staff\",\"phone\":\"9859999000\",\"password\":\"hackedpass123\"}"))
+                .content("{\"name\":\"Hacked Staff\",\"phone\":\"9859999000\"}"))
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(get("/api/staff")
@@ -565,13 +488,13 @@ public class TrainerAccessIntegrationTest extends AbstractIntegrationTest {
                 .content(objectMapper.writeValueAsString(assignCrossReq3)))
                 .andExpect(status().isNotFound());
 
-        // Owner of Gym B cannot approve anything of Gym A (expect 404)
-        ApproveTrainerRequest approveReq = new ApproveTrainerRequest();
-        approveReq.setTrainerTypeIds(List.of("dummy-type"));
-        mockMvc.perform(post("/api/trainers/" + gymA_TrainerId + "/approve")
+        // Owner of Gym B cannot update trainer types of Gym A (expect 404)
+        ApproveTrainerRequest updateTypesReq = new ApproveTrainerRequest();
+        updateTypesReq.setTrainerTypeIds(List.of("dummy-type"));
+        mockMvc.perform(put("/api/trainers/" + gymA_TrainerId + "/types")
                 .header("Authorization", gymB_OwnerToken)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(approveReq)))
+                .content(objectMapper.writeValueAsString(updateTypesReq)))
                 .andExpect(status().isNotFound());
 
         // Owner of Gym B cannot end assignment of Gym A (expect 404)
@@ -579,8 +502,8 @@ public class TrainerAccessIntegrationTest extends AbstractIntegrationTest {
                 .header("Authorization", gymB_OwnerToken))
                 .andExpect(status().isNotFound());
 
-        // Owner of Gym B cannot reject trainer of Gym A (expect 404)
-        mockMvc.perform(post("/api/trainers/" + gymA_TrainerId + "/reject")
+        // Owner of Gym B cannot fetch trainer of Gym A (expect 404)
+        mockMvc.perform(get("/api/trainers/" + gymA_TrainerId)
                 .header("Authorization", gymB_OwnerToken))
                 .andExpect(status().isNotFound());
 
@@ -691,6 +614,7 @@ public class TrainerAccessIntegrationTest extends AbstractIntegrationTest {
         User trainerA = userRepository.findById(gymA_TrainerId).orElseThrow();
         trainerA.setActive(true);
         trainerA.setStatus("ACTIVE");
+        trainerA.setTokenVersion(0);
         userRepository.save(trainerA);
 
         AssignMembersRequest assignReq = new AssignMembersRequest();
@@ -900,5 +824,261 @@ public class TrainerAccessIntegrationTest extends AbstractIntegrationTest {
         List<String> memberIdxNames = mongoTemplate.indexOps("members").getIndexInfo()
                 .stream().map(org.springframework.data.mongodb.core.index.IndexInfo::getName).toList();
         assertThat(memberIdxNames).contains("gymId_status_lastAttendance_idx");
+    }
+
+    @Test
+    @Order(12)
+    void test12_ownerCreatesAndUpdatesTrainerAndStaff_otpLogin_sessionInvalidation_andAuditLogs() throws Exception {
+        // 1. Owner A cannot read or change a trainer of Gym B (404)
+        mockMvc.perform(get("/api/trainers/" + gymB_TrainerId)
+                .header("Authorization", gymA_OwnerToken))
+                .andExpect(status().isNotFound());
+
+        UpdateTrainerRequest patchGymBReq = UpdateTrainerRequest.builder()
+                .name("Hacked Name")
+                .build();
+        mockMvc.perform(patch("/api/trainers/" + gymB_TrainerId)
+                .header("Authorization", gymA_OwnerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(patchGymBReq)))
+                .andExpect(status().isNotFound());
+
+        // 2. Trainer and staff get 403 on POST /api/trainers, PATCH /api/trainers/{id}, POST /api/staff, PATCH /api/staff/{id}
+        CreateTrainerRequest forbiddenTrainerReq = CreateTrainerRequest.builder()
+                .name("Unauthorized Trainer")
+                .phone("9857777701")
+                .trainerTypeIds(List.of(gymA_TypeId))
+                .build();
+        for (String nonOwnerToken : List.of(gymA_TrainerToken, gymA_StaffToken)) {
+            mockMvc.perform(post("/api/trainers")
+                    .header("Authorization", nonOwnerToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(forbiddenTrainerReq)))
+                    .andExpect(status().isForbidden());
+
+            mockMvc.perform(patch("/api/trainers/" + gymA_TrainerId)
+                    .header("Authorization", nonOwnerToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"name\":\"Forbidden Edit\"}"))
+                    .andExpect(status().isForbidden());
+
+            mockMvc.perform(post("/api/staff")
+                    .header("Authorization", nonOwnerToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"name\":\"Forbidden Staff\",\"phone\":\"9857777702\"}"))
+                    .andExpect(status().isForbidden());
+
+            mockMvc.perform(patch("/api/staff/" + gymA_StaffId)
+                    .header("Authorization", nonOwnerToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"active\":false}"))
+                    .andExpect(status().isForbidden());
+        }
+
+        // 3. Duplicate phone (from same gym OR another gym) is rejected with 409 PHONE_ALREADY_REGISTERED & neutral message
+        CreateTrainerRequest dupPhoneReq = CreateTrainerRequest.builder()
+                .name("Dup Trainer")
+                .phone("9859999992") // Trainer B's phone in Gym B!
+                .trainerTypeIds(List.of(gymA_TypeId))
+                .build();
+        MvcResult dupTrainerRes = mockMvc.perform(post("/api/trainers")
+                .header("Authorization", gymA_OwnerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dupPhoneReq)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("PHONE_ALREADY_REGISTERED"))
+                .andReturn();
+        String dupBody = dupTrainerRes.getResponse().getContentAsString();
+        assertThat(dupBody).doesNotContain("Beta Gym").doesNotContain(gymB_Id);
+
+        CreateStaffRequest dupStaffReq = new CreateStaffRequest();
+        dupStaffReq.setName("Dup Staff");
+        dupStaffReq.setPhone("9859999992"); // Trainer B's phone in Gym B
+        MvcResult dupStaffRes = mockMvc.perform(post("/api/staff")
+                .header("Authorization", gymA_OwnerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dupStaffReq)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("PHONE_ALREADY_REGISTERED"))
+                .andReturn();
+        assertThat(dupStaffRes.getResponse().getContentAsString()).doesNotContain("Beta Gym").doesNotContain(gymB_Id);
+
+        // 4. Owner creates a trainer with immediate member assignment (M2) and trainer signs in through OTP
+        CreateTrainerRequest newTrainerReq = CreateTrainerRequest.builder()
+                .name("Coach Vikram")
+                .phone("9856666601")
+                .trainerTypeIds(List.of(gymA_TypeId))
+                .memberIds(List.of(gymA_M2_Id))
+                .build();
+        MvcResult createVikramRes = mockMvc.perform(post("/api/trainers")
+                .header("Authorization", gymA_OwnerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(newTrainerReq)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.name").value("Coach Vikram"))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.active").value(true))
+                .andExpect(jsonPath("$.data.activeAssignmentsCount").value(1))
+                .andReturn();
+        String vikramId = objectMapper.readTree(createVikramRes.getResponse().getContentAsString())
+                .path("data").path("id").asText();
+
+        // Coach Vikram signs in via OTP
+        mockMvc.perform(post("/api/auth/send-otp")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"phone\":\"9856666601\"}"))
+                .andExpect(status().isOk());
+
+        MvcResult verifyVikramRes = mockMvc.perform(post("/api/auth/verify-otp")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"phone\":\"9856666601\",\"otp\":\"123456\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.isNewUser").value(false))
+                .andExpect(jsonPath("$.data.user.id").value(vikramId))
+                .andExpect(jsonPath("$.data.user.role").value("TRAINER"))
+                .andExpect(jsonPath("$.data.user.gymId").value(gymA_Id))
+                .andReturn();
+        String vikramToken = "Bearer " + objectMapper.readTree(verifyVikramRes.getResponse().getContentAsString())
+                .path("data").path("accessToken").asText();
+
+        // Coach Vikram sees only assigned member M2 and never a full phone number
+        MvcResult vikramMembersRes = mockMvc.perform(get("/api/members")
+                .header("Authorization", vikramToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content", hasSize(1)))
+                .andExpect(jsonPath("$.data.content[0].id").value(gymA_M2_Id))
+                .andExpect(jsonPath("$.data.content[0].phone").value("XXXXXX0002"))
+                .andReturn();
+        assertThat(vikramMembersRes.getResponse().getContentAsString()).doesNotContain("9850000002");
+
+        // 5. PATCH /api/trainers/{id} — change name and phone; old session is invalidated (tokenVersion bumped)
+        UpdateTrainerRequest changePhoneReq = UpdateTrainerRequest.builder()
+                .name("Coach Vikram Updated")
+                .phone("9856666602")
+                .build();
+        mockMvc.perform(patch("/api/trainers/" + vikramId)
+                .header("Authorization", gymA_OwnerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(changePhoneReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("Coach Vikram Updated"))
+                .andExpect(jsonPath("$.data.phone").value("9856666602"));
+
+        // Old token (tokenVersion=0) must now be rejected with 401
+        mockMvc.perform(get("/api/members")
+                .header("Authorization", vikramToken))
+                .andExpect(status().isUnauthorized());
+
+        // Sign in with new phone via OTP
+        mockMvc.perform(post("/api/auth/send-otp")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"phone\":\"9856666602\"}"))
+                .andExpect(status().isOk());
+        MvcResult verifyNewPhoneRes = mockMvc.perform(post("/api/auth/verify-otp")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"phone\":\"9856666602\",\"otp\":\"123456\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.user.id").value(vikramId))
+                .andReturn();
+        String vikramTokenV1 = "Bearer " + objectMapper.readTree(verifyNewPhoneRes.getResponse().getContentAsString())
+                .path("data").path("accessToken").asText();
+
+        mockMvc.perform(get("/api/members")
+                .header("Authorization", vikramTokenV1))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content", hasSize(1)));
+
+        // 6. PATCH /api/trainers/{id} — deactivate trainer: ends assignments, invalidates tokens, blocks OTP sign-in
+        UpdateTrainerRequest deactivateReq = UpdateTrainerRequest.builder()
+                .active(false)
+                .build();
+        mockMvc.perform(patch("/api/trainers/" + vikramId)
+                .header("Authorization", gymA_OwnerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(deactivateReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("INACTIVE"))
+                .andExpect(jsonPath("$.data.active").value(false))
+                .andExpect(jsonPath("$.data.activeAssignmentsCount").value(0));
+
+        // Existing token is rejected
+        mockMvc.perform(get("/api/members")
+                .header("Authorization", vikramTokenV1))
+                .andExpect(status().isUnauthorized());
+
+        // Active assignments for Vikram are 0
+        mockMvc.perform(get("/api/trainer-assignments?trainerId=" + vikramId + "&status=ACTIVE")
+                .header("Authorization", gymA_OwnerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content", hasSize(0)));
+
+        // Deactivated trainer cannot sign in via OTP -> 403 ACCOUNT_INACTIVE
+        User vikramEntity = userRepository.findById(vikramId).orElseThrow();
+        // Clear rate limit window for 9856666602 in otp_requests so we can send OTP immediately
+        mongoTemplate.remove(new org.springframework.data.mongodb.core.query.Query(
+                org.springframework.data.mongodb.core.query.Criteria.where("phone").is("9856666602")), "otp_requests");
+
+        mockMvc.perform(post("/api/auth/send-otp")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"phone\":\"9856666602\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/auth/verify-otp")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"phone\":\"9856666602\",\"otp\":\"123456\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("ACCOUNT_INACTIVE"));
+
+        // Reactivate trainer via PATCH /api/trainers/{id}
+        UpdateTrainerRequest reactivateReq = UpdateTrainerRequest.builder()
+                .active(true)
+                .build();
+        mockMvc.perform(patch("/api/trainers/" + vikramId)
+                .header("Authorization", gymA_OwnerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(reactivateReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.active").value(true));
+
+        // 7. PATCH /api/staff/{id} — deactivate and reactivate staff; cross-gym returns 404
+        mockMvc.perform(patch("/api/staff/" + gymA_StaffId)
+                .header("Authorization", gymB_OwnerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"active\":false}"))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(patch("/api/staff/" + gymA_StaffId)
+                .header("Authorization", gymA_OwnerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"active\":false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("INACTIVE"))
+                .andExpect(jsonPath("$.data.active").value(false));
+
+        mockMvc.perform(patch("/api/staff/" + gymA_StaffId)
+                .header("Authorization", gymA_OwnerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"active\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.active").value(true));
+
+        // 8. Verify Audit Logs: TRAINER_CREATED, STAFF_CREATED, TRAINER_UPDATED, TRAINER_DEACTIVATED, TRAINER_PHONE_CHANGED
+        // and verify NO phone numbers appear in audit log details
+        MvcResult auditRes = mockMvc.perform(get("/api/audit-logs?size=100")
+                .header("Authorization", gymA_OwnerToken))
+                .andExpect(status().isOk())
+                .andReturn();
+        String auditJson = auditRes.getResponse().getContentAsString();
+        assertThat(auditJson).contains("TRAINER_CREATED");
+        assertThat(auditJson).contains("STAFF_CREATED");
+        assertThat(auditJson).contains("TRAINER_UPDATED");
+        assertThat(auditJson).contains("TRAINER_DEACTIVATED");
+        assertThat(auditJson).contains("TRAINER_PHONE_CHANGED");
+        assertThat(auditJson)
+                .doesNotContain("9856666601")
+                .doesNotContain("9856666602")
+                .doesNotContain("9858888881")
+                .doesNotContain("9859999991");
     }
 }

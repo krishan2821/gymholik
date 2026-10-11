@@ -1,432 +1,456 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  Alert,
+  BackHandler,
   Modal,
-  Animated,
+  Platform,
   AccessibilityInfo,
-  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as Clipboard from 'expo-clipboard';
+import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
-import { z } from 'zod';
+import * as Clipboard from 'expo-clipboard';
 import {
-  Eye,
-  EyeOff,
-  AlertCircle,
   ArrowLeft,
-  CheckCircle2,
-  Circle,
+  AlertCircle,
   Check,
+  CheckCircle2,
   Copy,
-  X,
+  Sparkles,
 } from 'lucide-react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { completeRegistration, classifyError } from '../../src/api';
 import { useAuthStore } from '../../src/store/useAuthStore';
-import { registerAndLogin, classifyError } from '../../src/api';
-import { resolveBaseUrl } from '../../src/api/axiosConfig';
+import { useRegistrationFormStore } from '../../src/store/useRegistrationFormStore';
+import { getHomeRouteForRole } from '../../src/navigation/tabsByRole';
 import { theme } from '../../src/theme/theme';
 import { Screen } from '../../src/components/Screen';
 import { GlassCard } from '../../src/components/GlassCard';
-import { Button } from '../../src/components/Button';
 import { GymholikLogo } from '../../src/components/GymholikLogo';
+import { Input } from '../../src/components/Input';
+import { Button } from '../../src/components/Button';
+import { StepProgress } from '../../src/components/StepProgress';
+import { SearchableSelect } from '../../src/components/SearchableSelect';
 
-// ─── Constants ─────────────────────────────────────────────────────────────────
-const CURSOR_COLOR = '#8EB69B';
-const PHONE_RE = /^[6-9]\d{9}$/;
-const HAS_NUMBER_RE = /\d/;
+import { GYM_TYPE_OPTIONS, GymTypeCode } from '../../src/data/gymTypes';
+import {
+  LEGAL_DOC_CONFIGS,
+  LEGAL_DOC_OPTIONS,
+  LegalDocType,
+  validateLegalDoc,
+} from '../../src/data/legalDocs';
+import { INDIA_STATE_OPTIONS } from '../../src/data/indiaStates';
+import { getDistrictsForState } from '../../src/data/indiaDistricts';
+import { usePincodeLookup } from '../../src/hooks/usePincodeLookup';
+import {
+  step1Schema,
+  step2Schema,
+  step3Schema,
+  getStepForField,
+  formatGymCode,
+} from '../../src/utils/registrationValidation';
+import { REGISTER } from '../../src/constants/strings';
 
-// ─── Role type ─────────────────────────────────────────────────────────────────
-type Role = 'OWNER' | 'TRAINER';
-
-// ─── Validation schemas ────────────────────────────────────────────────────────
-const ownerSchema = z
-  .object({
-    gymName: z
-      .string()
-      .min(2, 'Gym name must be at least 2 characters')
-      .max(100, 'Gym name is too long'),
-    ownerName: z
-      .string()
-      .min(2, 'Your name must be at least 2 characters')
-      .max(100, 'Name is too long'),
-    ownerPhone: z
-      .string()
-      .regex(PHONE_RE, 'Enter a valid 10-digit mobile number starting with 6-9'),
-    password: z
-      .string()
-      .min(8, 'Password must be at least 8 characters')
-      .regex(HAS_NUMBER_RE, 'Password must contain at least one number'),
-    confirmPassword: z.string(),
-    agreedToTerms: z.literal(true, {
-      errorMap: () => ({ message: 'You must agree to continue' }),
-    }),
-  })
-  .refine((d) => d.password === d.confirmPassword, {
-    path: ['confirmPassword'],
-    message: 'Passwords do not match',
-  });
-
-const trainerSchema = z
-  .object({
-    gymCode: z
-      .string()
-      .min(4, 'Gym code must be at least 4 characters')
-      .max(10, 'Gym code too long')
-      .regex(/^[A-Z0-9]*$/, 'Gym code must be uppercase letters and numbers only'),
-    ownerName: z
-      .string()
-      .min(2, 'Your name must be at least 2 characters')
-      .max(100, 'Name is too long'),
-    ownerPhone: z
-      .string()
-      .regex(PHONE_RE, 'Enter a valid 10-digit mobile number starting with 6-9'),
-    password: z
-      .string()
-      .min(8, 'Password must be at least 8 characters')
-      .regex(HAS_NUMBER_RE, 'Password must contain at least one number'),
-    confirmPassword: z.string(),
-    agreedToTerms: z.literal(true, {
-      errorMap: () => ({ message: 'You must agree to continue' }),
-    }),
-  })
-  .refine((d) => d.password === d.confirmPassword, {
-    path: ['confirmPassword'],
-    message: 'Passwords do not match',
-  });
-
-type OwnerFormData = z.infer<typeof ownerSchema>;
-type TrainerFormData = z.infer<typeof trainerSchema>;
-
-// ─── Password rule row ────────────────────────────────────────────────────────
-function PasswordRule({ met, label }: { met: boolean; label: string }) {
-  return (
-    <View style={styles.ruleRow}>
-      {met ? (
-        <CheckCircle2 size={14} color={theme.colors.primary} />
-      ) : (
-        <Circle size={14} color={theme.colors.textMuted} />
-      )}
-      <Text
-        style={[
-          styles.ruleText,
-          { color: met ? theme.colors.primary : theme.colors.textMuted },
-        ]}
-      >
-        {label}
-      </Text>
-    </View>
-  );
+function formatVerifiedPhone(phone?: string | null): string {
+  if (!phone) return '+91 verified';
+  const clean = phone.replace(/\D/g, '');
+  if (clean.length === 10) {
+    const prefix = clean.slice(0, 2);
+    return `+91 ${prefix}xxx xxxxx verified`;
+  }
+  return `+91 ${phone} verified`;
 }
 
-// ─── Segmented Role Selector ──────────────────────────────────────────────────
-function RoleSelector({
-  value,
-  onChange,
-}: {
-  value: Role;
-  onChange: (v: Role) => void;
-}) {
-  return (
-    <View style={styles.roleSelector}>
-      <TouchableOpacity
-        style={[styles.roleOption, value === 'OWNER' && styles.roleOptionActive]}
-        onPress={() => onChange('OWNER')}
-        activeOpacity={0.8}
-        accessibilityRole="radio"
-        accessibilityState={{ selected: value === 'OWNER' }}
-        accessibilityLabel="I am a Gym Owner"
-      >
-        <Text
-          style={[
-            styles.roleOptionText,
-            value === 'OWNER' && styles.roleOptionTextActive,
-          ]}
-        >
-          Gym Owner
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.roleOption, value === 'TRAINER' && styles.roleOptionActive]}
-        onPress={() => onChange('TRAINER')}
-        activeOpacity={0.8}
-        accessibilityRole="radio"
-        accessibilityState={{ selected: value === 'TRAINER' }}
-        accessibilityLabel="I am a Trainer"
-      >
-        <Text
-          style={[
-            styles.roleOptionText,
-            value === 'TRAINER' && styles.roleOptionTextActive,
-          ]}
-        >
-          Trainer
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
+export default function OwnerRegistrationScreen() {
+  const registrationToken = useAuthStore((s) => s.registrationToken);
+  const registrationPhone = useAuthStore((s) => s.registrationPhone);
+  const clearRegistrationSession = useAuthStore((s) => s.clearRegistrationSession);
+  const setAuthData = useAuthStore((s) => s.setAuthData);
 
-// ─── Component ─────────────────────────────────────────────────────────────────
-export default function RegisterScreen() {
-  const insets = useSafeAreaInsets();
-  const [selectedRole, setSelectedRole] = useState<Role>('OWNER');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
-  const [phoneFieldError, setPhoneFieldError] = useState<string | null>(null);
+  // ── Form Store (In-Memory Zustand) ─────────────────────────────────────────
+  const {
+    currentStep,
+    setStep,
+    gymName,
+    gymType,
+    ownerName,
+    email,
+    legalIdType,
+    legalIdNumber,
+    addressLine1,
+    addressLine2,
+    state: selectedState,
+    district: selectedDistrict,
+    pincode,
+    acceptedTerms,
+    setField,
+    clearLegalDoc,
+    resetForm,
+  } = useRegistrationFormStore();
+
+  // ── Local Validation / Error States ────────────────────────────────────────
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [bannerError, setBannerError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // ── Welcome Sheet Modal State ─────────────────────────────────────────────
+  const [welcomeSheetVisible, setWelcomeSheetVisible] = useState(false);
+  const [registeredGymCode, setRegisteredGymCode] = useState<string>('');
+  const [registeredUserRole, setRegisteredUserRole] = useState<string>('OWNER');
+
+  // ── Districts State for Chosen State ──────────────────────────────────────
+  const [districtOptions, setDistrictOptions] = useState<{ label: string; value: string }[]>([]);
+  const [districtDatasetMissing, setDistrictDatasetMissing] = useState(false);
+
+  // ── Accessibility & Animation ──────────────────────────────────────────────
   const [reduceMotion, setReduceMotion] = useState(false);
-
-  // Gym code debounced lookup (trainer only)
-  const [gymCodeRaw, setGymCodeRaw] = useState('');
-  const [gymLookupName, setGymLookupName] = useState<string | null>(null);
-  const [gymLookupLoading, setGymLookupLoading] = useState(false);
-  const gymLookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const ownerNameRef = useRef<TextInput>(null);
-  const phoneRef = useRef<TextInput>(null);
-  const passwordRef = useRef<TextInput>(null);
-  const confirmRef = useRef<TextInput>(null);
-  const gymNameRef = useRef<TextInput>(null);
-  const gymCodeRef = useRef<TextInput>(null);
-
-  const setAuthData = useAuthStore((state) => state.setAuthData);
-
-  // ── Animations ─────────────────────────────────────────────────────────────
-  const cardSlideAnim = useRef(new Animated.Value(60)).current;
-  const cardFadeAnim = useRef(new Animated.Value(0)).current;
-  const shakeAnim = useRef(new Animated.Value(0)).current;
-
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
     const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
-    return () => sub?.remove();
+    return () => sub?.remove?.();
   }, []);
 
+  // ── Refs & Locks ──────────────────────────────────────────────────────────
+  const ownerNameRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
+  const legalNumberRef = useRef<TextInput>(null);
+  const addressLine2Ref = useRef<TextInput>(null);
+  const pincodeRef = useRef<TextInput>(null);
+  const submittingLockRef = useRef(false);
+  const completedSuccessRef = useRef(false);
+
+  // ── Pincode Lookup Hook ───────────────────────────────────────────────────
+  const { suggestion: pincodeSuggestion } = usePincodeLookup(pincode);
+
+  // Pre-fill state & district only if they are currently empty
   useEffect(() => {
-    if (reduceMotion) {
-      cardSlideAnim.setValue(0);
-      cardFadeAnim.setValue(1);
+    if (pincodeSuggestion) {
+      if (!selectedState && pincodeSuggestion.state) {
+        setField('state', pincodeSuggestion.state);
+      }
+      if (!selectedDistrict && pincodeSuggestion.district) {
+        setField('district', pincodeSuggestion.district);
+      }
+    }
+  }, [pincodeSuggestion, selectedState, selectedDistrict, setField]);
+
+  // ── Load Districts when State Changes ─────────────────────────────────────
+  useEffect(() => {
+    let active = true;
+    if (!selectedState) {
+      setDistrictOptions([]);
+      setDistrictDatasetMissing(false);
       return;
     }
 
-    Animated.parallel([
-      Animated.timing(cardFadeAnim, {
-        toValue: 1,
-        duration: 450,
-        useNativeDriver: true,
-      }),
-      Animated.spring(cardSlideAnim, {
-        toValue: 0,
-        tension: 40,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [reduceMotion, cardFadeAnim, cardSlideAnim]);
+    getDistrictsForState(selectedState).then((result) => {
+      if (!active) return;
+      if (result.isDatasetMissing) {
+        setDistrictDatasetMissing(true);
+        setDistrictOptions([]);
+      } else {
+        setDistrictDatasetMissing(false);
+        setDistrictOptions(result.districts.map((d) => ({ label: d, value: d })));
+      }
+    });
 
-  const triggerShake = useCallback(() => {
-    if (reduceMotion) return;
-    Animated.sequence([
-      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 8, duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -8, duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 4, duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
-    ]).start();
-  }, [reduceMotion, shakeAnim]);
-
-  // ── Owner form ──────────────────────────────────────────────────────────────
-  const ownerForm = useForm<OwnerFormData>({
-    resolver: zodResolver(ownerSchema),
-    defaultValues: {
-      gymName: '',
-      ownerName: '',
-      ownerPhone: '',
-      password: '',
-      confirmPassword: '',
-      agreedToTerms: undefined as any,
-    },
-  });
-
-  // ── Trainer form ─────────────────────────────────────────────────────────────
-  const trainerForm = useForm<TrainerFormData>({
-    resolver: zodResolver(trainerSchema),
-    defaultValues: {
-      gymCode: '',
-      ownerName: '',
-      ownerPhone: '',
-      password: '',
-      confirmPassword: '',
-      agreedToTerms: undefined as any,
-    },
-  });
-
-  const activeForm = selectedRole === 'OWNER' ? ownerForm : trainerForm;
-  const ownerPassword = ownerForm.watch('password') || '';
-  const trainerPassword = trainerForm.watch('password') || '';
-  const passwordValue = selectedRole === 'OWNER' ? ownerPassword : trainerPassword;
-  const meetsLength = passwordValue.length >= 8;
-  const meetsNumber = HAS_NUMBER_RE.test(passwordValue);
-
-  // ── Gym code debounced lookup ───────────────────────────────────────────────
-  const handleGymCodeChange = useCallback((raw: string) => {
-    const upper = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    setGymCodeRaw(upper);
-    trainerForm.setValue('gymCode', upper, { shouldValidate: false });
-    setGymLookupName(null);
-
-    if (gymLookupTimer.current) clearTimeout(gymLookupTimer.current);
-
-    if (upper.length >= 4) {
-      setGymLookupLoading(true);
-      gymLookupTimer.current = setTimeout(async () => {
-        try {
-          const baseUrl = resolveBaseUrl();
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 2500);
-          const res = await fetch(`${baseUrl}/api/gym/public?code=${encodeURIComponent(upper)}`, {
-            signal: controller.signal,
-            headers: { Accept: 'application/json' },
-          });
-          clearTimeout(timeoutId);
-          if (res.ok) {
-            const json = await res.json();
-            setGymLookupName(json?.data?.name || json?.data?.gymName || null);
-          } else {
-            setGymLookupName(null);
-          }
-        } catch {
-          setGymLookupName(null);
-        } finally {
-          setGymLookupLoading(false);
-        }
-      }, 600);
-    } else {
-      setGymLookupLoading(false);
-    }
-  }, [trainerForm]);
-
-  useEffect(() => {
     return () => {
-      if (gymLookupTimer.current) clearTimeout(gymLookupTimer.current);
+      active = false;
     };
-  }, []);
+  }, [selectedState]);
 
-  const [successModalVisible, setSuccessModalVisible] = useState(false);
-  const [newGymCode, setNewGymCode] = useState<string>('');
-  const [copiedCode, setCopiedCode] = useState(false);
+  // ── Auth Guard: Return to Login if Token Missing ──────────────────────────
+  useEffect(() => {
+    if (!registrationToken && !completedSuccessRef.current) {
+      router.replace('/(auth)/login');
+    }
+  }, [registrationToken]);
 
-  const copyGymCode = async () => {
-    if (!newGymCode) return;
-    await Clipboard.setStringAsync(newGymCode);
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2500);
+  // ── Back Button Handling ──────────────────────────────────────────────────
+  const handleBackPress = useCallback(() => {
+    if (submittingLockRef.current || welcomeSheetVisible) return;
+
+    if (currentStep > 1) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      setFieldErrors({});
+      setBannerError(null);
+      setStep(currentStep - 1);
+      return;
+    }
+
+    // Step 1: Confirmation before returning to Login
+    Alert.alert(REGISTER.BACK_CONFIRM_TITLE, REGISTER.BACK_CONFIRM_MESSAGE, [
+      {
+        text: REGISTER.BACK_CONFIRM_STAY,
+        style: 'cancel',
+      },
+      {
+        text: REGISTER.BACK_CONFIRM_LEAVE,
+        style: 'destructive',
+        onPress: () => {
+          clearRegistrationSession();
+          router.replace('/(auth)/login');
+        },
+      },
+    ]);
+  }, [currentStep, setStep, clearRegistrationSession, welcomeSheetVisible]);
+
+  // Android hardware back handler
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleBackPress();
+      return true;
+    });
+    return () => sub.remove();
+  }, [handleBackPress]);
+
+  // ── Step 1: Next Handler ──────────────────────────────────────────────────
+  const handleStep1Next = () => {
+    setBannerError(null);
+    setFieldErrors({});
+
+    const result = step1Schema.safeParse({
+      gymName,
+      gymType,
+      ownerName,
+      email: email.trim() || undefined,
+    });
+
+    if (!result.success) {
+      const errors: Record<string, string> = {};
+      result.error.issues.forEach((issue) => {
+        const path = issue.path[0] as string;
+        if (!errors[path]) errors[path] = issue.message;
+      });
+      setFieldErrors(errors);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      return;
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setStep(2);
   };
 
-  const handleContinue = () => {
-    setSuccessModalVisible(false);
-    router.replace('/(tabs)');
+  // ── Step 2: Next Handler ──────────────────────────────────────────────────
+  const handleStep2Next = () => {
+    setBannerError(null);
+    setFieldErrors({});
+
+    const result = step2Schema.safeParse({
+      legalIdType: legalIdType || undefined,
+      legalIdNumber: legalIdNumber.trim() || undefined,
+    });
+
+    if (!result.success) {
+      const errors: Record<string, string> = {};
+      result.error.issues.forEach((issue) => {
+        const path = issue.path[0] as string;
+        if (!errors[path]) errors[path] = issue.message;
+      });
+      setFieldErrors(errors);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      return;
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setStep(3);
   };
 
-  // ── Owner Submit ──────────────────────────────────────────────────────────
-  const onOwnerSubmit = async (values: OwnerFormData) => {
-    setServerError(null);
-    setPhoneFieldError(null);
+  const handleSkipStep2 = () => {
+    clearLegalDoc();
+    setFieldErrors({});
+    setBannerError(null);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setStep(3);
+  };
+
+  // ── Step 3: Complete Registration ─────────────────────────────────────────
+  const handleCompleteRegistration = async () => {
+    if (submittingLockRef.current) return;
+
+    setBannerError(null);
+    setFieldErrors({});
+
+    const result = step3Schema.safeParse({
+      addressLine1,
+      addressLine2: addressLine2.trim() || undefined,
+      state: selectedState,
+      district: selectedDistrict,
+      pincode,
+      acceptedTerms,
+    });
+
+    if (!result.success) {
+      const errors: Record<string, string> = {};
+      result.error.issues.forEach((issue) => {
+        const path = issue.path[0] as string;
+        if (!errors[path]) errors[path] = issue.message;
+      });
+      setFieldErrors(errors);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      return;
+    }
+
+    if (!registrationToken) {
+      Toast.show({
+        type: 'error',
+        text1: REGISTER.SESSION_EXPIRED_MSG,
+      });
+      router.replace({
+        pathname: '/(auth)/login',
+        params: { error: REGISTER.SESSION_EXPIRED_MSG },
+      });
+      return;
+    }
+
+    submittingLockRef.current = true;
+    setIsSubmitting(true);
 
     try {
-      const { gym, tokens } = await registerAndLogin({
-        gymName: values.gymName.trim(),
-        ownerName: values.ownerName.trim(),
-        ownerPhone: values.ownerPhone,
-        password: values.password,
-      });
+      // Body payload per spec: phone is strictly omitted
+      const payload = {
+        gymName: gymName.trim(),
+        gymType: gymType as string,
+        ownerName: ownerName.trim(),
+        email: email.trim().length > 0 ? email.trim() : undefined,
+        legalIdType: legalIdType.trim().length > 0 ? legalIdType : undefined,
+        legalIdNumber:
+          legalIdNumber.trim().length > 0 ? legalIdNumber.trim().toUpperCase() : undefined,
+        address: {
+          line1: addressLine1.trim(),
+          line2: addressLine2.trim().length > 0 ? addressLine2.trim() : undefined,
+          state: selectedState.trim(),
+          district: selectedDistrict.trim(),
+          pincode: pincode.trim(),
+        },
+        acceptedTerms: true,
+        termsVersion: '2026-v1',
+      };
+
+      const response = await completeRegistration(payload, registrationToken);
+      const data = response.data;
+
+      if (!data?.accessToken || !data?.refreshToken || !data?.user) {
+        throw new Error('Incomplete registration response');
+      }
+
+      completedSuccessRef.current = true;
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+
+      const { accessToken, refreshToken, user, gym } = data;
+      const code = gym?.gymCode || '';
 
       await setAuthData(
-        tokens.accessToken,
-        tokens.refreshToken,
-        tokens.role,
-        tokens.userId,
-        tokens.gymId ?? '',
-        gym.gymCode
+        accessToken,
+        refreshToken,
+        user.role,
+        user.id,
+        user.gymId ?? '',
+        user.name,
+        registrationPhone ?? undefined,
+        gym?.name ?? user.gymName ?? gymName.trim()
       );
 
-      setNewGymCode(gym.gymCode);
-      setSuccessModalVisible(true);
-    } catch (error: unknown) {
-      const apiErr = classifyError(error);
+      setRegisteredGymCode(code);
+      setRegisteredUserRole(user.role);
+      setWelcomeSheetVisible(true);
+    } catch (err: unknown) {
+      const apiErr = classifyError(err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
 
+      // Expired or invalid registration token: return to Login, retaining form values in store
       if (
-        apiErr.errorCode === 'PHONE_ALREADY_EXISTS' ||
-        (apiErr.status === 409 && apiErr.message.toLowerCase().includes('mobile'))
+        apiErr.status === 401 ||
+        apiErr.status === 403 ||
+        apiErr.errorCode === 'TOKEN_EXPIRED' ||
+        apiErr.errorCode === 'INVALID_TOKEN' ||
+        apiErr.errorCode === 'UNAUTHORIZED'
       ) {
-        setPhoneFieldError('This mobile number is already registered. Try signing in.');
-      } else {
-        setServerError(apiErr.message);
+        clearRegistrationSession();
+        Toast.show({
+          type: 'error',
+          text1: REGISTER.SESSION_EXPIRED_MSG,
+        });
+        router.replace({
+          pathname: '/(auth)/login',
+          params: { error: REGISTER.SESSION_EXPIRED_MSG },
+        });
+        return;
       }
-      triggerShake();
+
+      // 409 Already registered
+      if (
+        apiErr.status === 409 ||
+        apiErr.errorCode === 'PHONE_ALREADY_EXISTS' ||
+        apiErr.errorCode === 'PHONE_ALREADY_REGISTERED'
+      ) {
+        setBannerError(REGISTER.ERRORS.ALREADY_REGISTERED);
+        return;
+      }
+
+      // Network error
+      if (!apiErr.status || apiErr.errorCode === 'NETWORK_ERROR') {
+        setBannerError(REGISTER.ERRORS.NETWORK);
+        return;
+      }
+
+      // Server field validation errors: map to fields and jump to step of first error
+      if (apiErr.fieldErrors && Object.keys(apiErr.fieldErrors).length > 0) {
+        const mappedErrors: Record<string, string> = {};
+        let firstStepToJump: number | null = null;
+
+        for (const [key, msg] of Object.entries(apiErr.fieldErrors)) {
+          // Normalize dot-notation e.g. address.line1 -> addressLine1
+          const normKey = key.includes('.') ? key.split('.').pop()! : key;
+          mappedErrors[normKey] = msg;
+          mappedErrors[key] = msg;
+
+          const targetStep = getStepForField(key);
+          if (firstStepToJump === null || targetStep < firstStepToJump) {
+            firstStepToJump = targetStep;
+          }
+        }
+
+        setFieldErrors(mappedErrors);
+
+        if (firstStepToJump !== null && firstStepToJump !== currentStep) {
+          setStep(firstStepToJump);
+        }
+      }
+
+      setBannerError(apiErr.message || REGISTER.ERRORS.GENERIC);
+    } finally {
+      setIsSubmitting(false);
+      submittingLockRef.current = false;
     }
   };
 
-  // ── Trainer Submit ────────────────────────────────────────────────────────
-  const onTrainerSubmit = async (values: TrainerFormData) => {
-    setServerError(null);
-    setPhoneFieldError(null);
-
-    try {
-      const { gym, tokens } = await registerAndLogin({
-        gymName: gymLookupName || values.gymCode,
-        ownerName: values.ownerName.trim(),
-        ownerPhone: values.ownerPhone,
-        password: values.password,
-      });
-
-      await setAuthData(
-        tokens.accessToken,
-        tokens.refreshToken,
-        tokens.role,
-        tokens.userId,
-        tokens.gymId ?? '',
-        gym.gymCode
-      );
-
-      router.replace('/(tabs)');
-    } catch (error: unknown) {
-      const apiErr = classifyError(error);
-
-      if (
-        apiErr.errorCode === 'PHONE_ALREADY_EXISTS' ||
-        (apiErr.status === 409 && apiErr.message.toLowerCase().includes('mobile'))
-      ) {
-        setPhoneFieldError('This mobile number is already registered. Try signing in.');
-      } else {
-        setServerError(apiErr.message);
-      }
-      triggerShake();
-    }
+  // ── Copy Gym Code from Welcome Sheet ──────────────────────────────────────
+  const handleCopyGymCode = async () => {
+    if (!registeredGymCode) return;
+    await Clipboard.setStringAsync(registeredGymCode);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    Toast.show({
+      type: 'success',
+      text1: REGISTER.WELCOME_SHEET.COPIED_TOAST,
+    });
   };
 
-  const onSubmit = selectedRole === 'OWNER'
-    ? ownerForm.handleSubmit(onOwnerSubmit, () => triggerShake())
-    : trainerForm.handleSubmit(onTrainerSubmit, () => triggerShake());
+  // ── Navigate to Dashboard & Clean Up ──────────────────────────────────────
+  const handleGoToDashboard = () => {
+    setWelcomeSheetVisible(false);
+    resetForm();
+    const destination = getHomeRouteForRole(registeredUserRole);
+    router.replace(destination as any);
+  };
 
-  const isSubmitting = selectedRole === 'OWNER'
-    ? ownerForm.formState.isSubmitting
-    : trainerForm.formState.isSubmitting;
-  const errors = selectedRole === 'OWNER'
-    ? ownerForm.formState.errors
-    : trainerForm.formState.errors;
-
-  const bottomPadding = insets.bottom + 24;
+  // Active legal doc config for Step 2
+  const activeLegalDocConfig = legalIdType ? LEGAL_DOC_CONFIGS[legalIdType as LegalDocType] : null;
 
   return (
     <Screen
@@ -434,570 +458,615 @@ export default function RegisterScreen() {
       withHeroImage
       heroOpacity={0.85}
       keyboardAvoiding
-      contentContainerStyle={[styles.scroll, { paddingBottom: bottomPadding }]}
+      safeBottom={false}
+      contentContainerStyle={styles.scrollContent}
     >
-      {/* Back Button */}
-      <View style={styles.header}>
+      {/* Top Bar with Back Button */}
+      <View style={styles.topBar}>
         <TouchableOpacity
-          onPress={() => router.replace('/(auth)/login')}
-          style={styles.backBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Go back to sign in"
+          onPress={handleBackPress}
+          disabled={isSubmitting}
+          style={styles.backButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
         >
           <ArrowLeft size={20} color={theme.colors.text} />
         </TouchableOpacity>
-      </View>
 
-      {/* Brand Header */}
-      <View style={styles.brandBlock}>
-        <GymholikLogo size={58} />
-        <Text style={styles.appName}>Gymholik</Text>
-        <Text style={styles.appTagline}>Manage your gym, all in one place</Text>
-      </View>
-
-      {/* Animated Card */}
-      <Animated.View
-        style={[
-          styles.cardWrapper,
-          {
-            opacity: cardFadeAnim,
-            transform: [{ translateY: cardSlideAnim }, { translateX: shakeAnim }],
-          },
-        ]}
-      >
-        <GlassCard style={styles.card} intensity={35}>
-          <Text style={styles.cardTitle}>Create your account</Text>
-          <Text style={styles.cardSubtitle}>
-            {selectedRole === 'OWNER'
-              ? 'Start your 14-day free trial. No card required.'
-              : 'Join your gym as a trainer.'}
+        {/* Read-only Verified Phone Badge at the top */}
+        <View style={styles.verifiedPhoneBadge}>
+          <CheckCircle2 size={15} color={theme.colors.primary} />
+          <Text style={styles.verifiedPhoneText}>
+            {formatVerifiedPhone(registrationPhone)}
           </Text>
-
-          {/* Role Selector - very top of form */}
-          <Text style={styles.roleLabel}>I am a...</Text>
-          <RoleSelector
-            value={selectedRole}
-            onChange={(role) => {
-              setSelectedRole(role);
-              setServerError(null);
-              setPhoneFieldError(null);
-              setGymLookupName(null);
-              setGymCodeRaw('');
-            }}
-          />
-
-          {/* Error Banner */}
-          {serverError && (
-            <View style={styles.errorBanner} accessibilityRole="alert">
-              <AlertCircle color={theme.colors.error} size={18} />
-              <Text style={styles.errorBannerText}>{serverError}</Text>
-              <TouchableOpacity
-                onPress={() => setServerError(null)}
-                style={styles.errorDismiss}
-                accessibilityLabel="Dismiss error"
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <X color={theme.colors.error} size={16} />
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* OWNER: Gym name */}
-          {selectedRole === 'OWNER' && (
-            <>
-              <Text style={styles.label}>Gym name</Text>
-              <Controller
-                control={ownerForm.control}
-                name="gymName"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <View
-                    style={[
-                      styles.inputRow,
-                      ownerForm.formState.errors.gymName && styles.inputRowError,
-                    ]}
-                  >
-                    <TextInput
-                      ref={gymNameRef}
-                      style={styles.inputField}
-                      placeholder="e.g. FitZone Gym"
-                      placeholderTextColor={theme.colors.textMuted}
-                      returnKeyType="next"
-                      autoFocus
-                      autoCapitalize="words"
-                      onBlur={onBlur}
-                      onChangeText={onChange}
-                      value={value}
-                      onSubmitEditing={() => ownerNameRef.current?.focus()}
-                      accessibilityLabel="Gym name"
-                      cursorColor={CURSOR_COLOR}
-                      selectionColor={CURSOR_COLOR}
-                    />
-                  </View>
-                )}
-              />
-              {ownerForm.formState.errors.gymName && (
-                <Text style={styles.fieldError}>
-                  {ownerForm.formState.errors.gymName.message}
-                </Text>
-              )}
-            </>
-          )}
-
-          {/* TRAINER: Gym code */}
-          {selectedRole === 'TRAINER' && (
-            <>
-              <Text style={styles.label}>Gym code</Text>
-              <View
-                style={[
-                  styles.inputRow,
-                  trainerForm.formState.errors.gymCode && styles.inputRowError,
-                ]}
-              >
-                <TextInput
-                  ref={gymCodeRef}
-                  style={styles.inputField}
-                  placeholder="e.g. GYM123"
-                  placeholderTextColor={theme.colors.textMuted}
-                  returnKeyType="next"
-                  autoFocus
-                  autoCapitalize="characters"
-                  autoCorrect={false}
-                  onChangeText={handleGymCodeChange}
-                  value={gymCodeRaw}
-                  onSubmitEditing={() => ownerNameRef.current?.focus()}
-                  accessibilityLabel="Gym code"
-                  cursorColor={CURSOR_COLOR}
-                  selectionColor={CURSOR_COLOR}
-                />
-                {gymLookupLoading && (
-                  <ActivityIndicator
-                    size="small"
-                    color={theme.colors.primary}
-                    style={styles.lookupSpinner}
-                  />
-                )}
-              </View>
-              {gymLookupName && !gymLookupLoading && (
-                <Text style={styles.gymLookupSuccess}>
-                  Joining: {gymLookupName}
-                </Text>
-              )}
-              {trainerForm.formState.errors.gymCode && (
-                <Text style={styles.fieldError}>
-                  {trainerForm.formState.errors.gymCode.message}
-                </Text>
-              )}
-            </>
-          )}
-
-          {/* Your name */}
-          <Text style={[styles.label, { marginTop: 16 }]}>Your name</Text>
-          <Controller
-            control={activeForm.control as any}
-            name="ownerName"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <View
-                style={[
-                  styles.inputRow,
-                  (errors as any).ownerName && styles.inputRowError,
-                ]}
-              >
-                <TextInput
-                  ref={ownerNameRef}
-                  style={styles.inputField}
-                  placeholder="e.g. Rahul Sharma"
-                  placeholderTextColor={theme.colors.textMuted}
-                  returnKeyType="next"
-                  autoCapitalize="words"
-                  onBlur={onBlur}
-                  onChangeText={onChange}
-                  value={value}
-                  onSubmitEditing={() => phoneRef.current?.focus()}
-                  accessibilityLabel="Your name"
-                  cursorColor={CURSOR_COLOR}
-                  selectionColor={CURSOR_COLOR}
-                />
-              </View>
-            )}
-          />
-          {(errors as any).ownerName && (
-            <Text style={styles.fieldError}>{(errors as any).ownerName.message}</Text>
-          )}
-
-          {/* Mobile number */}
-          <Text style={[styles.label, { marginTop: 16 }]}>Mobile number</Text>
-          <Controller
-            control={activeForm.control as any}
-            name="ownerPhone"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <View
-                style={[
-                  styles.inputRow,
-                  ((errors as any).ownerPhone || phoneFieldError) && styles.inputRowError,
-                ]}
-              >
-                <View style={styles.prefixBox}>
-                  <Text style={styles.prefix}>+91</Text>
-                  <View style={styles.prefixDivider} />
-                </View>
-                <TextInput
-                  ref={phoneRef}
-                  style={styles.inputField}
-                  placeholder="98765 43210"
-                  placeholderTextColor={theme.colors.textMuted}
-                  keyboardType="phone-pad"
-                  maxLength={10}
-                  returnKeyType="next"
-                  onBlur={onBlur}
-                  onChangeText={(v) => {
-                    setPhoneFieldError(null);
-                    onChange(v.replace(/\D/g, ''));
-                  }}
-                  value={value}
-                  onSubmitEditing={() => passwordRef.current?.focus()}
-                  accessibilityLabel="Mobile number"
-                  cursorColor={CURSOR_COLOR}
-                  selectionColor={CURSOR_COLOR}
-                />
-              </View>
-            )}
-          />
-          <Text style={styles.helperText}>This number will be your login ID.</Text>
-          {((errors as any).ownerPhone?.message || phoneFieldError) && (
-            <Text style={styles.fieldError}>
-              {(errors as any).ownerPhone?.message ?? phoneFieldError}
-            </Text>
-          )}
-
-          {/* Password */}
-          <Text style={[styles.label, { marginTop: 16 }]}>Password</Text>
-          <Controller
-            control={activeForm.control as any}
-            name="password"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <View
-                style={[
-                  styles.inputRow,
-                  (errors as any).password && styles.inputRowError,
-                ]}
-              >
-                <TextInput
-                  ref={passwordRef}
-                  style={[styles.inputField, styles.passwordField]}
-                  placeholder="Min 8 characters"
-                  placeholderTextColor={theme.colors.textMuted}
-                  secureTextEntry={!showPassword}
-                  returnKeyType="next"
-                  onBlur={onBlur}
-                  onChangeText={onChange}
-                  value={value}
-                  onSubmitEditing={() => confirmRef.current?.focus()}
-                  accessibilityLabel="Password"
-                  cursorColor={CURSOR_COLOR}
-                  selectionColor={CURSOR_COLOR}
-                />
-                <TouchableOpacity
-                  onPress={() => setShowPassword((v) => !v)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  style={styles.eyeBtn}
-                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? (
-                    <EyeOff color={theme.colors.primary} size={20} />
-                  ) : (
-                    <Eye color={theme.colors.textMuted} size={20} />
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
-          />
-          <View style={styles.rulesBlock}>
-            <PasswordRule met={meetsLength} label="At least 8 characters" />
-            <PasswordRule met={meetsNumber} label="At least one number" />
-          </View>
-          {(errors as any).password && (
-            <Text style={styles.fieldError}>{(errors as any).password.message}</Text>
-          )}
-
-          {/* Confirm password */}
-          <Text style={[styles.label, { marginTop: 16 }]}>Confirm password</Text>
-          <Controller
-            control={activeForm.control as any}
-            name="confirmPassword"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <View
-                style={[
-                  styles.inputRow,
-                  (errors as any).confirmPassword && styles.inputRowError,
-                ]}
-              >
-                <TextInput
-                  ref={confirmRef}
-                  style={[styles.inputField, styles.passwordField]}
-                  placeholder="Re-enter your password"
-                  placeholderTextColor={theme.colors.textMuted}
-                  secureTextEntry={!showConfirm}
-                  returnKeyType="done"
-                  onBlur={onBlur}
-                  onChangeText={onChange}
-                  value={value}
-                  onSubmitEditing={onSubmit}
-                  accessibilityLabel="Confirm password"
-                  cursorColor={CURSOR_COLOR}
-                  selectionColor={CURSOR_COLOR}
-                />
-                <TouchableOpacity
-                  onPress={() => setShowConfirm((v) => !v)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  style={styles.eyeBtn}
-                  accessibilityLabel={showConfirm ? 'Hide password' : 'Show password'}
-                >
-                  {showConfirm ? (
-                    <EyeOff color={theme.colors.primary} size={20} />
-                  ) : (
-                    <Eye color={theme.colors.textMuted} size={20} />
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
-          />
-          {(errors as any).confirmPassword && (
-            <Text style={styles.fieldError}>{(errors as any).confirmPassword.message}</Text>
-          )}
-
-          {/* Terms */}
-          <Controller
-            control={activeForm.control as any}
-            name="agreedToTerms"
-            render={({ field: { onChange, value } }) => (
-              <TouchableOpacity
-                style={styles.termsRow}
-                onPress={() => onChange(value ? (undefined as any) : true)}
-                activeOpacity={0.7}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: !!value }}
-                accessibilityLabel="Agree to Terms and Privacy Policy"
-              >
-                <View
-                  style={[
-                    styles.checkbox,
-                    {
-                      backgroundColor: value ? theme.colors.primary : 'transparent',
-                      borderColor: (errors as any).agreedToTerms
-                        ? theme.colors.error
-                        : value
-                        ? theme.colors.primary
-                        : theme.colors.border,
-                    },
-                  ]}
-                >
-                  {value && (
-                    <Check size={12} color={theme.colors.textOnPrimary} strokeWidth={3} />
-                  )}
-                </View>
-                <Text style={styles.termsText}>
-                  I agree to the{' '}
-                  <Text style={styles.termsLink}>Terms and Privacy Policy</Text>
-                </Text>
-              </TouchableOpacity>
-            )}
-          />
-          {(errors as any).agreedToTerms && (
-            <Text style={[styles.fieldError, { marginTop: 2 }]}>
-              {(errors as any).agreedToTerms.message}
-            </Text>
-          )}
-
-          {/* Submit */}
-          <View style={styles.submitWrapper}>
-            <Button
-              title={selectedRole === 'OWNER' ? 'Start free trial' : 'Start'}
-              onPress={onSubmit}
-              loading={isSubmitting}
-              disabled={isSubmitting}
-              variant="primary"
-              size="lg"
-            />
-          </View>
-        </GlassCard>
-
-        {/* Sign in link */}
-        <View style={styles.signinRow}>
-          <Text style={styles.signinText}>Already have an account? </Text>
-          <TouchableOpacity
-            onPress={() => router.replace('/(auth)/login')}
-            accessibilityRole="link"
-            accessibilityLabel="Sign in"
-            style={styles.signinTouch}
-          >
-            <Text style={styles.signinLink}>Sign in</Text>
-          </TouchableOpacity>
         </View>
-      </Animated.View>
+      </View>
 
-      {/* Success Modal */}
-      <Modal visible={successModalVisible} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <GlassCard style={styles.successModalCard} intensity={40}>
-            <View style={styles.successCelebrationCircle}>
-              <Text style={{ fontSize: 36 }}>🎉</Text>
+      {/* StepProgress on top */}
+      <View style={styles.progressContainer}>
+        <StepProgress currentStep={currentStep} totalSteps={3} />
+      </View>
+
+      {/* Header Section */}
+      <View style={styles.headerSection}>
+        <GymholikLogo size={52} style={styles.logo} />
+        <Text style={styles.title}>
+          {currentStep === 1
+            ? REGISTER.STEP_1_TITLE
+            : currentStep === 2
+            ? REGISTER.STEP_2_TITLE
+            : REGISTER.STEP_3_TITLE}
+        </Text>
+        <Text style={styles.subtitle}>
+          {currentStep === 1
+            ? REGISTER.STEP_1_SUBTITLE
+            : currentStep === 2
+            ? REGISTER.STEP_2_SUBTITLE
+            : REGISTER.STEP_3_SUBTITLE}
+        </Text>
+      </View>
+
+      {/* Main Glass Card Form Container */}
+      <GlassCard style={styles.glassCard} contentStyle={styles.cardInner}>
+        {/* Coral Error Banner */}
+        {bannerError && (
+          <View style={styles.errorBanner} accessibilityRole="alert">
+            <AlertCircle color={theme.colors.error} size={18} />
+            <Text style={styles.errorBannerText}>{bannerError}</Text>
+          </View>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            STEP 1: Gym details
+           ══════════════════════════════════════════════════════════════════════ */}
+        {currentStep === 1 && (
+          <View style={styles.stepBlock}>
+            {/* Gym Name (Required) */}
+            <Input
+              label={REGISTER.GYM_NAME_LABEL}
+              placeholder={REGISTER.GYM_NAME_PLACEHOLDER_NEW}
+              value={gymName}
+              onChangeText={(text) => {
+                setField('gymName', text);
+                setBannerError(null);
+                if (fieldErrors.gymName) {
+                  setFieldErrors((prev) => ({ ...prev, gymName: '' }));
+                }
+              }}
+              autoFocus
+              autoCapitalize="words"
+              returnKeyType="next"
+              maxLength={80}
+              editable={!isSubmitting}
+              error={fieldErrors.gymName}
+            />
+
+            {/* Gym Type (SearchableSelect with 7 options) */}
+            <SearchableSelect
+              label={REGISTER.GYM_TYPE_LABEL}
+              placeholder={REGISTER.GYM_TYPE_PLACEHOLDER}
+              value={gymType}
+              options={GYM_TYPE_OPTIONS}
+              onChange={(code) => {
+                setField('gymType', code as GymTypeCode);
+                setBannerError(null);
+                if (fieldErrors.gymType) {
+                  setFieldErrors((prev) => ({ ...prev, gymType: '' }));
+                }
+              }}
+              error={fieldErrors.gymType}
+            />
+
+            {/* Your Name (Required) */}
+            <Input
+              ref={ownerNameRef}
+              label={REGISTER.OWNER_NAME_LABEL}
+              placeholder={REGISTER.OWNER_NAME_PLACEHOLDER}
+              value={ownerName}
+              onChangeText={(text) => {
+                setField('ownerName', text);
+                setBannerError(null);
+                if (fieldErrors.ownerName) {
+                  setFieldErrors((prev) => ({ ...prev, ownerName: '' }));
+                }
+              }}
+              autoCapitalize="words"
+              returnKeyType="next"
+              maxLength={80}
+              editable={!isSubmitting}
+              onSubmitEditing={() => emailRef.current?.focus()}
+              error={fieldErrors.ownerName}
+            />
+
+            {/* Email (Optional, Validated) */}
+            <Input
+              ref={emailRef}
+              label={REGISTER.EMAIL_LABEL}
+              placeholder={REGISTER.EMAIL_PLACEHOLDER}
+              value={email}
+              onChangeText={(text) => {
+                setField('email', text);
+                setBannerError(null);
+                if (fieldErrors.email) {
+                  setFieldErrors((prev) => ({ ...prev, email: '' }));
+                }
+              }}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="done"
+              maxLength={150}
+              editable={!isSubmitting}
+              error={fieldErrors.email}
+            />
+
+            <View style={styles.actionRow}>
+              <Button
+                title={REGISTER.NEXT_BTN}
+                onPress={handleStep1Next}
+                size="lg"
+                style={styles.flexBtn}
+              />
             </View>
+          </View>
+        )}
 
-            <Text style={styles.successTitle}>Gym Registered Successfully!</Text>
-            <Text style={styles.successSubtitle}>
-              Welcome to Gymholik. Aapka gym account create ho gaya hai.
+        {/* ══════════════════════════════════════════════════════════════════════
+            STEP 2: Business registration (optional)
+           ══════════════════════════════════════════════════════════════════════ */}
+        {currentStep === 2 && (
+          <View style={styles.stepBlock}>
+            {/* Document Type Selector */}
+            <SearchableSelect
+              label={REGISTER.LEGAL_DOC_TYPE_LABEL}
+              placeholder={REGISTER.LEGAL_DOC_PLACEHOLDER}
+              value={legalIdType}
+              options={LEGAL_DOC_OPTIONS}
+              onChange={(val) => {
+                setField('legalIdType', val as LegalDocType);
+                setField('legalIdNumber', ''); // Changing type clears number
+                setBannerError(null);
+                setFieldErrors({});
+                setTimeout(() => legalNumberRef.current?.focus(), 150);
+              }}
+              error={fieldErrors.legalIdType}
+            />
+
+            {/* Document Number Input (Shown when a type is chosen) */}
+            {activeLegalDocConfig && (
+              <Input
+                ref={legalNumberRef}
+                label={activeLegalDocConfig.label}
+                placeholder={activeLegalDocConfig.placeholder}
+                value={legalIdNumber}
+                onChangeText={(text) => {
+                  const formatted = activeLegalDocConfig.autoUppercase
+                    ? text.toUpperCase()
+                    : text;
+                  setField('legalIdNumber', formatted);
+                  setBannerError(null);
+                  if (fieldErrors.legalIdNumber) {
+                    setFieldErrors((prev) => ({ ...prev, legalIdNumber: '' }));
+                  }
+                }}
+                keyboardType={activeLegalDocConfig.keyboardType}
+                maxLength={activeLegalDocConfig.maxLength}
+                autoCapitalize={activeLegalDocConfig.autoCapitalize}
+                autoCorrect={false}
+                helperText={activeLegalDocConfig.hintText}
+                error={fieldErrors.legalIdNumber}
+              />
+            )}
+
+            {/* Helper Note */}
+            <Text style={styles.helperTextNote}>
+              {REGISTER.LEGAL_DOC_HELPER_TEXT}
             </Text>
 
-            <View style={styles.codeContainer}>
-              <Text style={styles.codeLabel}>Aapka Gym Code</Text>
+            {/* Step 2 Buttons: Next and Clearly Visible Skip Button */}
+            <View style={styles.actionRowColumn}>
+              <Button
+                title={REGISTER.NEXT_BTN}
+                onPress={handleStep2Next}
+                size="lg"
+                style={styles.fullWidthBtn}
+              />
               <TouchableOpacity
-                style={styles.codeBox}
-                onPress={copyGymCode}
+                onPress={handleSkipStep2}
+                style={styles.skipBtn}
+                accessibilityRole="button"
+                accessibilityLabel={REGISTER.SKIP_FOR_NOW}
+              >
+                <Text style={styles.skipBtnText}>{REGISTER.SKIP_FOR_NOW}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            STEP 3: Gym address
+           ══════════════════════════════════════════════════════════════════════ */}
+        {currentStep === 3 && (
+          <View style={styles.stepBlock}>
+            {/* Address Line 1 (Required) */}
+            <Input
+              label={REGISTER.ADDRESS.LINE1_LABEL}
+              placeholder={REGISTER.ADDRESS_LINE1_PLACEHOLDER}
+              value={addressLine1}
+              onChangeText={(text) => {
+                setField('addressLine1', text);
+                setBannerError(null);
+                if (fieldErrors.addressLine1 || fieldErrors['address.line1']) {
+                  setFieldErrors((prev) => ({
+                    ...prev,
+                    addressLine1: '',
+                    'address.line1': '',
+                  }));
+                }
+              }}
+              autoCapitalize="words"
+              maxLength={120}
+              editable={!isSubmitting}
+              error={fieldErrors.addressLine1 || fieldErrors['address.line1']}
+            />
+
+            {/* Address Line 2 (Optional) */}
+            <Input
+              ref={addressLine2Ref}
+              label={REGISTER.ADDRESS.LINE2_LABEL}
+              placeholder={REGISTER.ADDRESS_LINE2_PLACEHOLDER}
+              value={addressLine2}
+              onChangeText={(text) => setField('addressLine2', text)}
+              autoCapitalize="words"
+              maxLength={120}
+              editable={!isSubmitting}
+              error={fieldErrors.addressLine2 || fieldErrors['address.line2']}
+            />
+
+            {/* Pincode (6-digit, pre-fills state/district when valid) */}
+            <Input
+              ref={pincodeRef}
+              label={REGISTER.ADDRESS.PINCODE_LABEL}
+              placeholder={REGISTER.ADDRESS.PINCODE_PLACEHOLDER}
+              value={pincode}
+              onChangeText={(text) => {
+                const numeric = text.replace(/\D/g, '').slice(0, 6);
+                setField('pincode', numeric);
+                setBannerError(null);
+                if (fieldErrors.pincode || fieldErrors['address.pincode']) {
+                  setFieldErrors((prev) => ({
+                    ...prev,
+                    pincode: '',
+                    'address.pincode': '',
+                  }));
+                }
+              }}
+              keyboardType="number-pad"
+              maxLength={6}
+              editable={!isSubmitting}
+              error={fieldErrors.pincode || fieldErrors['address.pincode']}
+            />
+
+            {/* State (SearchableSelect, 36 items) */}
+            <SearchableSelect
+              label={REGISTER.ADDRESS.STATE_LABEL}
+              placeholder={REGISTER.ADDRESS.STATE_PLACEHOLDER}
+              value={selectedState}
+              options={INDIA_STATE_OPTIONS}
+              onChange={(st) => {
+                setField('state', st);
+                setField('district', ''); // Changing state clears district
+                setBannerError(null);
+                if (fieldErrors.state || fieldErrors['address.state']) {
+                  setFieldErrors((prev) => ({
+                    ...prev,
+                    state: '',
+                    'address.state': '',
+                  }));
+                }
+              }}
+              error={fieldErrors.state || fieldErrors['address.state']}
+            />
+
+            {/* District (SearchableSelect loaded from chosen state) */}
+            <SearchableSelect
+              label={REGISTER.ADDRESS.DISTRICT_LABEL}
+              placeholder={
+                !selectedState
+                  ? 'Select state first'
+                  : REGISTER.ADDRESS.DISTRICT_PLACEHOLDER
+              }
+              value={selectedDistrict}
+              options={districtOptions}
+              disabled={!selectedState}
+              allowOther={true}
+              helperText={
+                districtDatasetMissing ? REGISTER.DISTRICT_DATASET_MISSING : undefined
+              }
+              onChange={(dist) => {
+                setField('district', dist);
+                setBannerError(null);
+                if (fieldErrors.district || fieldErrors['address.district']) {
+                  setFieldErrors((prev) => ({
+                    ...prev,
+                    district: '',
+                    'address.district': '',
+                  }));
+                }
+              }}
+              error={fieldErrors.district || fieldErrors['address.district']}
+            />
+
+            {/* Terms and Privacy Checkbox (Required) */}
+            <TouchableOpacity
+              style={styles.termsRow}
+              onPress={() => {
+                const next = !acceptedTerms;
+                setField('acceptedTerms', next);
+                if (next) {
+                  setFieldErrors((prev) => ({ ...prev, acceptedTerms: '' }));
+                }
+              }}
+              disabled={isSubmitting}
+              activeOpacity={0.75}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: acceptedTerms }}
+              accessibilityLabel={`${REGISTER.TERMS_PREFIX}${REGISTER.TERMS_LINK}`}
+            >
+              <View
+                style={[
+                  styles.checkbox,
+                  acceptedTerms && styles.checkboxChecked,
+                  fieldErrors.acceptedTerms ? styles.checkboxError : null,
+                ]}
+              >
+                {acceptedTerms && (
+                  <Check size={14} color={theme.colors.textOnPrimary} strokeWidth={3} />
+                )}
+              </View>
+              <Text style={styles.termsText}>
+                {REGISTER.TERMS_PREFIX}
+                <Text style={styles.termsLinkText}>{REGISTER.TERMS_LINK}</Text>
+              </Text>
+            </TouchableOpacity>
+            {fieldErrors.acceptedTerms ? (
+              <Text style={styles.termsErrorText}>{fieldErrors.acceptedTerms}</Text>
+            ) : null}
+
+            {/* Submit Button: Complete Registration */}
+            <View style={styles.submitButtonWrapper}>
+              <Button
+                title={REGISTER.COMPLETE_REGISTRATION_BTN}
+                onPress={handleCompleteRegistration}
+                loading={isSubmitting}
+                disabled={isSubmitting}
+                size="lg"
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Text under the form: Trainer or Staff Helper Note */}
+        <View style={styles.footerNoteBlock}>
+          <Text style={styles.trainerStaffNote}>
+            {REGISTER.TRAINER_STAFF_BOTTOM_NOTE}
+          </Text>
+        </View>
+      </GlassCard>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          Welcome Bottom Sheet Modal: "Your gym is ready"
+         ══════════════════════════════════════════════════════════════════════ */}
+      <Modal
+        visible={welcomeSheetVisible}
+        transparent
+        animationType={reduceMotion ? 'none' : 'slide'}
+        onRequestClose={handleGoToDashboard}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.welcomeSheetContainer}>
+            {/* Drag Handle (top radius 28) */}
+            <View style={styles.welcomeHandleContainer}>
+              <View style={styles.welcomeHandle} />
+            </View>
+
+            {/* Icon & Heading */}
+            <View style={styles.welcomeHeader}>
+              <View style={styles.sparkleIconCircle}>
+                <Sparkles size={28} color={theme.colors.primary} />
+              </View>
+              <Text style={styles.welcomeTitle}>
+                {REGISTER.WELCOME_SHEET.TITLE}
+              </Text>
+              <Text style={styles.welcomeSubtitle}>
+                {REGISTER.WELCOME_SHEET.SUBTITLE}
+              </Text>
+            </View>
+
+            {/* Big Gym Code Container */}
+            <View style={styles.codeCard}>
+              <Text style={styles.codeLabel}>
+                {REGISTER.WELCOME_SHEET.CODE_LABEL}
+              </Text>
+              <Text style={styles.codeValue}>
+                {formatGymCode(registeredGymCode)}
+              </Text>
+
+              <TouchableOpacity
+                onPress={handleCopyGymCode}
+                style={styles.copyBtn}
                 activeOpacity={0.8}
                 accessibilityRole="button"
                 accessibilityLabel="Copy gym code"
               >
-                <Text style={styles.codeText}>{newGymCode}</Text>
-                <View style={[styles.copyBadge, copiedCode && styles.copyBadgeSuccess]}>
-                  {copiedCode ? (
-                    <>
-                      <Check size={14} color={theme.colors.textOnPrimary} />
-                      <Text style={styles.copyBadgeText}>Copied!</Text>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={14} color={theme.colors.textOnPrimary} />
-                      <Text style={styles.copyBadgeText}>Tap to Copy</Text>
-                    </>
-                  )}
-                </View>
+                <Copy size={16} color={theme.colors.primary} />
+                <Text style={styles.copyBtnText}>
+                  {REGISTER.WELCOME_SHEET.COPY_BTN}
+                </Text>
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.successNotice}>
-              Is code ko save kar lein. Logout hone ke baad login karne aur apne staff ke
-              sath share karne ke liye yeh zaroori hai.
-            </Text>
-
-            <Button
-              title="Continue to Dashboard"
-              onPress={handleContinue}
-              variant="primary"
-              size="lg"
-            />
-          </GlassCard>
+            {/* Action Button: Go to Dashboard */}
+            <View style={styles.welcomeActionWrapper}>
+              <Button
+                title={REGISTER.WELCOME_SHEET.DASHBOARD_BTN}
+                onPress={handleGoToDashboard}
+                size="lg"
+              />
+            </View>
+          </View>
         </View>
       </Modal>
     </Screen>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  scroll: {
+  scrollContent: {
     flexGrow: 1,
     paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.xxl,
   },
-  header: {
-    marginBottom: theme.spacing.sm,
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.xs,
   },
-  backBtn: {
+  backButton: {
     width: 44,
     height: 44,
     borderRadius: theme.radius.full,
+    backgroundColor: theme.colors.raised,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.raised,
     alignItems: 'center',
     justifyContent: 'center',
-    ...theme.shadows.glow,
   },
-  brandBlock: {
-    alignItems: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  appName: {
-    ...theme.typography.h1,
-    color: theme.colors.text,
-    letterSpacing: 0.5,
-    marginTop: theme.spacing.xs,
-  },
-  appTagline: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    marginTop: 2,
-  },
-  cardWrapper: {
-    width: '100%',
-  },
-  card: {
-    marginBottom: theme.spacing.lg,
-    padding: theme.spacing.lg,
-  },
-  cardTitle: {
-    ...theme.typography.h1,
-    color: theme.colors.text,
-    marginBottom: 4,
-  },
-  cardSubtitle: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    marginBottom: theme.spacing.md,
-  },
-  roleLabel: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  roleSelector: {
+  verifiedPhoneBadge: {
     flexDirection: 'row',
-    gap: 6,
-    marginBottom: theme.spacing.lg,
-    backgroundColor: 'rgba(11, 43, 38, 0.65)',
-    borderRadius: theme.radius.lg,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    padding: 4,
-  },
-  roleOption: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: theme.radius.md,
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(142, 182, 155, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(142, 182, 155, 0.35)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: theme.radius.full,
   },
-  roleOptionActive: {
-    backgroundColor: theme.colors.primary,
-  },
-  roleOptionText: {
-    fontFamily: theme.fonts.headingMedium,
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  roleOptionTextActive: {
-    color: theme.colors.textOnPrimary,
-  },
-  lookupSpinner: {
-    marginRight: 12,
-  },
-  gymLookupSuccess: {
+  verifiedPhoneText: {
     fontFamily: theme.fonts.headingMedium,
     fontSize: 12,
+    color: theme.colors.text,
+  },
+  progressContainer: {
+    marginVertical: theme.spacing.xs,
+  },
+  headerSection: {
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  logo: {
+    marginBottom: theme.spacing.xs,
+  },
+  title: {
+    ...theme.typography.h1,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  subtitle: {
+    ...theme.typography.body,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  glassCard: {
+    marginBottom: theme.spacing.lg,
+  },
+  cardInner: {
+    padding: theme.spacing.xl,
+  },
+  stepBlock: {
+    width: '100%',
+  },
+  helperTextNote: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 13,
+    lineHeight: 18,
+    color: theme.colors.textMuted,
+    marginVertical: theme.spacing.sm,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    marginTop: theme.spacing.md,
+  },
+  actionRowColumn: {
+    marginTop: theme.spacing.md,
+    gap: theme.spacing.sm,
+  },
+  flexBtn: {
+    flex: 1,
+  },
+  fullWidthBtn: {
+    width: '100%',
+  },
+  skipBtn: {
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  skipBtnText: {
+    fontFamily: theme.fonts.headingMedium,
+    fontSize: 14,
+    color: theme.colors.textMuted,
+    textDecorationLine: 'underline',
+  },
+  termsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 44,
+    marginTop: 8,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  checkboxChecked: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  checkboxError: {
+    borderColor: theme.colors.error,
+  },
+  termsText: {
+    ...theme.typography.caption,
+    color: theme.colors.textMuted,
+    flex: 1,
+  },
+  termsLinkText: {
     color: theme.colors.primary,
-    marginTop: 5,
-    marginLeft: 2,
+    fontFamily: theme.fonts.headingMedium,
     fontWeight: '600',
+  },
+  termsErrorText: {
+    ...theme.typography.small,
+    color: theme.colors.error,
+    marginTop: 2,
+    marginLeft: 4,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     backgroundColor: 'rgba(255, 107, 107, 0.15)',
     borderRadius: theme.radius.md,
     borderWidth: 1,
@@ -1008,235 +1077,117 @@ const styles = StyleSheet.create({
   errorBannerText: {
     color: theme.colors.error,
     fontFamily: theme.fonts.bodyRegular,
-    fontSize: 14,
+    fontSize: 13,
+    lineHeight: 18,
     flex: 1,
-    lineHeight: 20,
   },
-  errorDismiss: {
-    padding: 4,
+  submitButtonWrapper: {
+    marginTop: theme.spacing.lg,
   },
-  label: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  inputRow: {
-    flexDirection: 'row',
+  footerNoteBlock: {
+    marginTop: theme.spacing.lg,
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    backgroundColor: 'rgba(11, 43, 38, 0.65)',
-    borderRadius: theme.radius.lg,
-    overflow: 'hidden',
-    minHeight: 52,
   },
-  inputRowError: {
-    borderColor: theme.colors.error,
-  },
-  prefixBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 14,
-  },
-  prefix: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 15,
-    fontWeight: '700',
-    color: theme.colors.primary,
-    marginRight: 8,
-  },
-  prefixDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: theme.colors.border,
-    marginRight: 8,
-  },
-  inputField: {
-    flex: 1,
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 15,
-    color: theme.colors.text,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-  },
-  passwordField: {
-    paddingVertical: 16,
-  },
-  eyeBtn: {
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-  },
-  helperText: {
+  trainerStaffNote: {
     ...theme.typography.small,
-    color: theme.colors.textMuted,
-    marginTop: 4,
-    marginLeft: 2,
-  },
-  fieldError: {
-    ...theme.typography.small,
-    color: theme.colors.error,
-    marginTop: 4,
-    marginLeft: 2,
-  },
-  rulesBlock: {
-    marginTop: 8,
-    gap: 4,
-    paddingLeft: 2,
-  },
-  ruleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  ruleText: {
-    ...theme.typography.small,
-  },
-  termsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 20,
-    minHeight: 44,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  termsText: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    flex: 1,
-  },
-  termsLink: {
-    color: theme.colors.primary,
-    fontFamily: theme.fonts.headingMedium,
-    fontWeight: '600',
-  },
-  submitWrapper: {
-    marginTop: theme.spacing.xl,
-  },
-  signinRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: 44,
-  },
-  signinTouch: {
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  signinText: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-  },
-  signinLink: {
-    ...theme.typography.body,
-    color: theme.colors.primary,
-    fontFamily: theme.fonts.headingBold,
-    fontWeight: '700',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(5, 31, 32, 0.88)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.xl,
-  },
-  successModalCard: {
-    width: '100%',
-    padding: theme.spacing.xl,
-    borderRadius: theme.radius.xl,
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-  },
-  successCelebrationCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: theme.radius.full,
-    backgroundColor: theme.colors.raised,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: theme.colors.primary,
-    marginBottom: theme.spacing.md,
-  },
-  successTitle: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 22,
-    color: theme.colors.text,
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  successSubtitle: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  codeContainer: {
-    width: '100%',
-    backgroundColor: theme.colors.raised,
-    borderRadius: theme.radius.lg,
-    padding: theme.spacing.md,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    marginBottom: theme.spacing.md,
-  },
-  codeLabel: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  codeBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-  },
-  codeText: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 22,
-    color: theme.colors.text,
-    letterSpacing: 2,
-  },
-  copyBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: theme.colors.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: theme.radius.full,
-  },
-  copyBadgeSuccess: {
-    backgroundColor: theme.colors.primary,
-  },
-  copyBadgeText: {
-    fontFamily: theme.fonts.headingMedium,
-    fontSize: 12,
-    color: theme.colors.textOnPrimary,
-    fontWeight: '700',
-  },
-  successNotice: {
-    ...theme.typography.caption,
     color: theme.colors.textMuted,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(5, 31, 32, 0.85)',
+    justifyContent: 'flex-end',
+  },
+  welcomeSheetContainer: {
+    backgroundColor: theme.colors.surface,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: theme.spacing.xl,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+  },
+  welcomeHandleContainer: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  welcomeHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(218, 241, 222, 0.28)',
+  },
+  welcomeHeader: {
+    alignItems: 'center',
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.lg,
+  },
+  sparkleIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(142, 182, 155, 0.16)',
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  welcomeTitle: {
+    ...theme.typography.h1,
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  welcomeSubtitle: {
+    ...theme.typography.body,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: theme.spacing.md,
+  },
+  codeCard: {
+    backgroundColor: theme.colors.raised,
+    borderWidth: 1,
+    borderColor: theme.colors.borderLight,
+    borderRadius: theme.radius.lg,
+    paddingVertical: theme.spacing.lg,
+    alignItems: 'center',
     marginBottom: theme.spacing.xl,
+  },
+  codeLabel: {
+    fontFamily: theme.fonts.headingMedium,
+    fontSize: 11,
+    letterSpacing: 1.2,
+    color: theme.colors.textMuted,
+    marginBottom: 6,
+  },
+  codeValue: {
+    fontFamily: theme.fonts.headingBold,
+    fontSize: 34,
+    lineHeight: 40,
+    color: theme.colors.text,
+    letterSpacing: 2.5,
+    marginBottom: theme.spacing.md,
+  },
+  copyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(142, 182, 155, 0.12)',
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: theme.radius.full,
+    minHeight: 44,
+  },
+  copyBtnText: {
+    fontFamily: theme.fonts.headingSemiBold,
+    fontSize: 13,
+    color: theme.colors.primary,
+  },
+  welcomeActionWrapper: {
+    width: '100%',
   },
 });

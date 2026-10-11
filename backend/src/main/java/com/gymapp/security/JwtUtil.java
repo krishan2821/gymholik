@@ -27,11 +27,23 @@ public class JwtUtil {
     @Getter
     private final long accessTokenExpiryMs;
 
+    @Getter
+    private final long registrationTokenExpiryMs;
+
+    public JwtUtil(
+            String secret,
+            long accessTokenExpiryMs) {
+        this(secret, accessTokenExpiryMs, 1_800_000L);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
     public JwtUtil(
             @Value("${app.jwt.secret}") String secret,
-            @Value("${app.jwt.access-token-expiry-ms}") long accessTokenExpiryMs) {
+            @Value("${app.jwt.access-token-expiry-ms}") long accessTokenExpiryMs,
+            @Value("${app.jwt.registration-token-expiry-ms:1800000}") long registrationTokenExpiryMs) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.accessTokenExpiryMs = accessTokenExpiryMs;
+        this.registrationTokenExpiryMs = registrationTokenExpiryMs;
     }
 
     /**
@@ -39,18 +51,44 @@ public class JwtUtil {
      *
      * @param userId  MongoDB _id of the user
      * @param gymId   MongoDB _id of the gym (null for SUPER_ADMIN)
-     * @param role    User.Role name (OWNER | STAFF | SUPER_ADMIN)
+     * @param role    User.Role name (OWNER | STAFF | TRAINER | SUPER_ADMIN)
      */
     public String generateAccessToken(String userId, String gymId, String role) {
+        return generateAccessToken(userId, gymId, role, 0);
+    }
+
+    /**
+     * Builds a signed HS256 access token including the user's tokenVersion.
+     */
+    public String generateAccessToken(String userId, String gymId, String role, int tokenVersion) {
         return Jwts.builder()
                 .subject(userId)
                 .claim("gymId", gymId)
                 .claim("role", role)
+                .claim("tokenVersion", tokenVersion)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + accessTokenExpiryMs))
                 .signWith(key)
                 .compact();
     }
+
+
+    /**
+     * Builds a 30-minute registration token with scope REGISTER only,
+     * containing the verified phone, with NO gymId and NO role.
+     */
+    public String generateRegistrationToken(String phone) {
+        return Jwts.builder()
+                .id( java.util.UUID.randomUUID().toString())
+                .subject(phone)
+                .claim("phone", phone)
+                .claim("scope", "REGISTER")
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + registrationTokenExpiryMs))
+                .signWith(key)
+                .compact();
+    }
+
 
     /**
      * Parses and verifies the token, returning the claims payload.
@@ -72,9 +110,9 @@ public class JwtUtil {
             validateAndExtractClaims(token);
             return true;
         } catch (ExpiredJwtException ex) {
-            log.debug("JWT expired: {}", ex.getMessage());
+            log.debug("JWT expired");
         } catch (JwtException ex) {
-            log.warn("Invalid JWT: {}", ex.getMessage());
+            log.warn("Invalid JWT");
         }
         return false;
     }

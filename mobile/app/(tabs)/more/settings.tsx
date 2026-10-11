@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,8 +7,6 @@ import {
   Switch,
   ActivityIndicator,
   Alert,
-  TouchableOpacity,
-  Share,
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,14 +15,8 @@ import {
   Building2,
   Settings2,
   BellRing,
-  Check,
   ShieldAlert,
-  KeyRound,
-  Copy,
-  Share2,
 } from 'lucide-react-native';
-import * as Clipboard from 'expo-clipboard';
-import * as Haptics from 'expo-haptics';
 import { theme } from '../../../src/theme/theme';
 import { useAuthStore } from '../../../src/store/useAuthStore';
 import { useGymSettings, useUpdateGymSettings } from '../../../src/api/more';
@@ -32,7 +24,7 @@ import { Screen } from '../../../src/components/Screen';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Button } from '../../../src/components/Button';
 import { ErrorState } from '../../../src/components/ErrorState';
-import { SETTINGS, ERRORS, FIELDS } from '../../../src/constants/strings';
+import { SETTINGS, ERRORS, FIELDS, COMMON } from '../../../src/constants/strings';
 
 const schema = z.object({
   gymName: z.string().min(2, 'Gym name is required'),
@@ -44,31 +36,10 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export default function SettingsScreen() {
-  const { role, gymCode } = useAuthStore();
+  const { role } = useAuthStore();
   const { data: settings, isLoading, isError, refetch } = useGymSettings();
   const updateSettings = useUpdateGymSettings();
-  const [copiedCode, setCopiedCode] = useState(false);
-
-  const effectiveGymCode = settings?.gymCode || gymCode;
-
-  const handleCopyGymCode = async () => {
-    if (!effectiveGymCode) return;
-    await Clipboard.setStringAsync(effectiveGymCode);
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
-  };
-
-  const handleShareGymCode = async () => {
-    if (!effectiveGymCode) return;
-    try {
-      await Share.share({
-        message: `Join ${settings?.gymName || 'our gym'} on Gymholik! Use Gym Code: ${effectiveGymCode}`,
-      });
-    } catch {
-      // User cancelled
-    }
-  };
+  const submitLockRef = useRef(false);
 
   const {
     control,
@@ -123,6 +94,8 @@ export default function SettingsScreen() {
   }
 
   const onSubmit = async (data: FormData) => {
+    if (submitLockRef.current || updateSettings.isPending) return;
+    submitLockRef.current = true;
     try {
       await updateSettings.mutateAsync({
         name: data.gymName,
@@ -131,9 +104,14 @@ export default function SettingsScreen() {
         reminderDaysBefore: parseInt(data.reminderDays, 10) || 5,
         staffCanSeeFullPhone: data.staffCanSeeFullPhone,
       });
-      Alert.alert('Saved', 'Gym settings updated successfully.');
+      Alert.alert(COMMON.SUCCESS, SETTINGS.SAVE_SUCCESS);
     } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.message || 'Failed to update settings');
+      Alert.alert(
+        COMMON.ERROR,
+        err.response?.data?.message || 'Failed to update settings'
+      );
+    } finally {
+      submitLockRef.current = false;
     }
   };
 
@@ -144,51 +122,9 @@ export default function SettingsScreen() {
       keyboardAvoiding
       contentContainerStyle={styles.container}
     >
-      {/* ── Gym Code Card (Owner Only) ─────────────────────────── */}
-      {effectiveGymCode ? (
-        <GlassCard style={styles.sectionCard}>
-          <View style={styles.sectionHeaderRow}>
-            <KeyRound size={20} color={theme.colors.primary} style={{ marginRight: 8 }} />
-            <Text style={styles.sectionTitle}>Gym Code</Text>
-          </View>
-          <Text style={styles.gymCodeHint}>
-            Share this code with trainers to allow them to register and link to your gym.
-          </Text>
-          <View style={styles.gymCodeDisplayRow}>
-            <View style={styles.gymCodeBox}>
-              <Text style={styles.gymCodeText}>{effectiveGymCode}</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.actionBtn}
-              onPress={handleCopyGymCode}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="Copy gym code"
-            >
-              {copiedCode ? (
-                <Check size={16} color={theme.colors.primary} />
-              ) : (
-                <Copy size={16} color={theme.colors.primary} />
-              )}
-              <Text style={styles.actionBtnText}>{copiedCode ? 'Copied' : 'Copy'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionBtn}
-              onPress={handleShareGymCode}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="Share gym code"
-            >
-              <Share2 size={16} color={theme.colors.primary} />
-              <Text style={styles.actionBtnText}>Share</Text>
-            </TouchableOpacity>
-          </View>
-        </GlassCard>
-      ) : null}
-
       <GlassCard style={styles.sectionCard}>
         <View style={styles.sectionHeaderRow}>
-          <Building2 size={20} color={theme.colors.primary} style={{ marginRight: 8 }} />
+          <Building2 size={20} color={theme.colors.primary} style={styles.headerIcon} />
           <Text style={styles.sectionTitle}>{SETTINGS.SECTION_GENERAL}</Text>
         </View>
 
@@ -210,7 +146,7 @@ export default function SettingsScreen() {
           <Text style={styles.errorText}>{errors.gymName.message}</Text>
         )}
 
-        <Text style={[styles.label, { marginTop: 12 }]}>{FIELDS.ADDRESS}</Text>
+        <Text style={[styles.label, styles.labelSpaced]}>{FIELDS.ADDRESS}</Text>
         <Controller
           control={control}
           name="address"
@@ -233,7 +169,7 @@ export default function SettingsScreen() {
 
       <GlassCard style={styles.sectionCard}>
         <View style={styles.sectionHeaderRow}>
-          <Settings2 size={20} color={theme.colors.primary} style={{ marginRight: 8 }} />
+          <Settings2 size={20} color={theme.colors.primary} style={styles.headerIcon} />
           <Text style={styles.sectionTitle}>{SETTINGS.SECTION_CHECKIN}</Text>
         </View>
 
@@ -264,7 +200,7 @@ export default function SettingsScreen() {
         <View style={styles.divider} />
 
         <View style={styles.sectionHeaderRow}>
-          <BellRing size={18} color={theme.colors.primary} style={{ marginRight: 8 }} />
+          <BellRing size={18} color={theme.colors.primary} style={styles.headerIcon} />
           <Text style={styles.subSectionTitle}>Expiry Reminders</Text>
         </View>
 
@@ -291,14 +227,14 @@ export default function SettingsScreen() {
       {/* ── Staff Privacy Settings ─────────────────────────────── */}
       <GlassCard style={styles.sectionCard}>
         <View style={styles.sectionHeaderRow}>
-          <ShieldAlert size={20} color={theme.colors.warning} style={{ marginRight: 8 }} />
+          <ShieldAlert size={20} color={theme.colors.warning} style={styles.headerIcon} />
           <Text style={styles.sectionTitle}>Privacy & Staff Access</Text>
         </View>
 
         <View style={styles.switchRow}>
           <View style={styles.switchTextContainer}>
             <Text style={styles.switchLabel}>{SETTINGS.STAFF_FULL_PHONE_LABEL}</Text>
-            <Text style={[styles.switchDesc, { color: theme.colors.warning }]}>
+            <Text style={[styles.switchDesc, styles.warningDesc]}>
               {SETTINGS.STAFF_FULL_PHONE_WARNING}
             </Text>
           </View>
@@ -333,7 +269,7 @@ export default function SettingsScreen() {
         />
       </View>
 
-      <View style={{ height: 40 }} />
+      <View style={styles.bottomSpacer} />
     </Screen>
   );
 }
@@ -357,6 +293,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: theme.spacing.lg,
   },
+  headerIcon: {
+    marginRight: 8,
+  },
   sectionTitle: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 18,
@@ -372,6 +311,9 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     marginBottom: 6,
     marginLeft: 2,
+  },
+  labelSpaced: {
+    marginTop: 12,
   },
   input: {
     backgroundColor: theme.colors.raised,
@@ -420,6 +362,9 @@ const styles = StyleSheet.create({
     marginTop: 3,
     lineHeight: 18,
   },
+  warningDesc: {
+    color: theme.colors.warning,
+  },
   divider: {
     height: 1,
     backgroundColor: theme.colors.border,
@@ -429,48 +374,7 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.sm,
     marginBottom: theme.spacing.lg,
   },
-  gymCodeHint: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    marginBottom: 12,
-    lineHeight: 18,
-  },
-  gymCodeDisplayRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  gymCodeBox: {
-    flex: 1,
-    backgroundColor: theme.colors.raised,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.lg,
-    paddingHorizontal: 14,
-    height: 48,
-    justifyContent: 'center',
-  },
-  gymCodeText: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 16,
-    color: theme.colors.text,
-    letterSpacing: 2,
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: theme.colors.raised,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.lg,
-    paddingHorizontal: 12,
-    height: 48,
-  },
-  actionBtnText: {
-    fontFamily: theme.fonts.headingMedium,
-    fontSize: 13,
-    color: theme.colors.text,
+  bottomSpacer: {
+    height: 40,
   },
 });

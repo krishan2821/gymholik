@@ -48,7 +48,7 @@ import { Button } from '../../src/components/Button';
 import { Skeleton } from '../../src/components/Skeleton';
 import { ErrorState } from '../../src/components/ErrorState';
 import { isPhoneMasked } from '../../src/components/MaskedPhone';
-import { DASHBOARD } from '../../src/constants/strings';
+import { DASHBOARD, COMPLETE_GYM_PROFILE_BANNER } from '../../src/constants/strings';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -415,6 +415,7 @@ export default function DashboardScreen() {
   const { data: currentUser } = useCurrentUser();
   const displayName = currentUser?.name || gymSettings?.ownerName || (isOwner ? 'Owner' : 'Staff');
   const gymName = currentUser?.gymName || gymSettings?.gymName || 'Gymholik Fitness';
+  const gymType = currentUser?.gymType ?? user?.gymType ?? null;
 
   const handleNotificationPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -522,6 +523,30 @@ export default function DashboardScreen() {
           </Text>
         </View>
       </View>
+
+      {/* ── Complete Gym Profile Banner (OWNER only, when gymType is null) ─ */}
+      {isOwner && !gymType && (
+        <TouchableOpacity
+          activeOpacity={0.88}
+          onPress={() => router.push('/(tabs)/more/gym-profile')}
+          style={styles.profileBannerTouch}
+          accessibilityRole="button"
+          accessibilityLabel={COMPLETE_GYM_PROFILE_BANNER.TITLE}
+        >
+          <GlassCard style={styles.profileBannerCard} contentStyle={styles.profileBannerContent}>
+            <View style={styles.profileBannerIconBox}>
+              <Sparkles size={20} color={theme.colors.primary} />
+            </View>
+            <View style={styles.profileBannerTextBox}>
+              <Text style={styles.profileBannerTitle}>{COMPLETE_GYM_PROFILE_BANNER.TITLE}</Text>
+              <Text style={styles.profileBannerSubtitle}>
+                {COMPLETE_GYM_PROFILE_BANNER.SUBTITLE}
+              </Text>
+            </View>
+            <ChevronRight size={18} color={theme.colors.primary} />
+          </GlassCard>
+        </TouchableOpacity>
+      )}
 
       {/* ── 2. Glass Hero Card Over Image Bottom Edge ─────────────────── */}
       {isOwner && (
@@ -1467,5 +1492,44 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  profileBannerTouch: {
+    marginHorizontal: theme.spacing.md,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  },
+  profileBannerCard: {
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+  },
+  profileBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: theme.spacing.md,
+  },
+  profileBannerIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.raised,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  profileBannerTextBox: {
+    flex: 1,
+    marginRight: theme.spacing.xs,
+  },
+  profileBannerTitle: {
+    ...theme.typography.bodyMedium,
+    fontWeight: '700',
+    color: theme.colors.text,
+  },
+  profileBannerSubtitle: {
+    ...theme.typography.caption,
+    color: theme.colors.textMuted,
+    marginTop: 2,
   },
 });

@@ -15,10 +15,25 @@ export interface Trainer {
   phone: string;
   role: string;
   active: boolean;
-  status: 'PENDING_APPROVAL' | 'ACTIVE' | 'INACTIVE' | 'REJECTED';
+  status: 'ACTIVE' | 'INACTIVE';
   trainerTypes: TrainerType[];
   activeAssignmentsCount: number;
   createdAt?: string;
+}
+
+export interface CreateTrainerPayload {
+  name: string;
+  phone: string;
+  trainerTypeIds: string[];
+  memberIds?: string[];
+}
+
+export interface UpdateTrainerPayload {
+  name?: string;
+  phone?: string;
+  trainerTypeIds?: string[];
+  active?: boolean;
+  status?: 'ACTIVE' | 'INACTIVE';
 }
 
 export interface TrainerAssignment {
@@ -78,44 +93,31 @@ export const useTrainer = (id: string) => {
 
 // ─── Trainer Mutations ────────────────────────────────────────────────────────
 
-export const useApproveTrainer = () => {
+export const useCreateTrainer = () => {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, trainerTypeIds }: { id: string; trainerTypeIds: string[] }) => {
-      const { data } = await apiClient.post(`/api/trainers/${id}/approve`, { trainerTypeIds });
+  return useMutation<Trainer, any, CreateTrainerPayload>({
+    mutationFn: async (payload) => {
+      const { data } = await apiClient.post('/api/trainers', payload);
       return data.data;
     },
     onSuccess: () => {
-      Toast.show({ type: 'success', text1: 'Trainer approved successfully' });
       queryClient.invalidateQueries({ queryKey: ['trainers'] });
-    },
-    onError: (e: any) => {
-      Toast.show({
-        type: 'error',
-        text1: 'Approval failed',
-        text2: e.response?.data?.message || 'Could not approve trainer',
-      });
+      queryClient.invalidateQueries({ queryKey: ['trainer-assignments'] });
     },
   });
 };
 
-export const useRejectTrainer = () => {
+export const usePatchTrainer = () => {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { data } = await apiClient.post(`/api/trainers/${id}/reject`);
+  return useMutation<Trainer, any, { id: string; payload: UpdateTrainerPayload }>({
+    mutationFn: async ({ id, payload }) => {
+      const { data } = await apiClient.patch(`/api/trainers/${id}`, payload);
       return data.data;
     },
-    onSuccess: () => {
-      Toast.show({ type: 'success', text1: 'Trainer request rejected' });
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['trainers'] });
-    },
-    onError: (e: any) => {
-      Toast.show({
-        type: 'error',
-        text1: 'Action failed',
-        text2: e.response?.data?.message || 'Could not reject trainer',
-      });
+      queryClient.invalidateQueries({ queryKey: ['trainers', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['trainer-assignments'] });
     },
   });
 };
@@ -124,7 +126,7 @@ export const useUpdateTrainerTypes = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, trainerTypeIds }: { id: string; trainerTypeIds: string[] }) => {
-      const { data } = await apiClient.put(`/api/trainers/${id}/types`, { trainerTypeIds });
+      const { data } = await apiClient.patch(`/api/trainers/${id}`, { trainerTypeIds });
       return data.data;
     },
     onSuccess: () => {
@@ -145,7 +147,10 @@ export const useDeactivateTrainer = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { data } = await apiClient.put(`/api/trainers/${id}/deactivate`);
+      const { data } = await apiClient.patch(`/api/trainers/${id}`, {
+        status: 'INACTIVE',
+        active: false,
+      });
       return data.data;
     },
     onSuccess: () => {

@@ -4,17 +4,27 @@ import { TouchableOpacity, StyleSheet } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
 import { useAuthStore } from '../../../src/store/useAuthStore';
 import { theme } from '../../../src/theme/theme';
+import { safeBack } from '../../../src/utils/navigation';
 import {
   MORE,
   STAFF,
   PLANS,
   SETTINGS,
   SUBSCRIPTION,
-  CHANGE_PASSWORD,
   TRAINERS,
   TRAINER_TYPES,
   AUDIT_LOGS,
+  GYM_PROFILE,
 } from '../../../src/constants/strings';
+
+const OWNER_ONLY_SUBROUTES = new Set([
+  'staff',
+  'trainers',
+  'plans',
+  'settings',
+  'audit',
+  'gym-profile',
+]);
 
 export default function MoreLayout() {
   const router = useRouter();
@@ -24,12 +34,14 @@ export default function MoreLayout() {
 
   useEffect(() => {
     if (role === 'TRAINER') {
-      const segs = segments as string[];
-      const subRoute = segs[2];
-      // Trainers can only access password change under more
-      if (subRoute !== 'password') {
-        router.replace('/(tabs)/members');
-      }
+      router.replace('/(tabs)/members');
+      return;
+    }
+
+    const segs = segments as string[];
+    const subRoute = segs[2];
+    if (role && role !== 'OWNER' && subRoute && OWNER_ONLY_SUBROUTES.has(subRoute)) {
+      router.replace('/(tabs)/more');
     }
   }, [role, segments, router]);
 
@@ -53,7 +65,7 @@ export default function MoreLayout() {
         animation: 'slide_from_right',
         headerLeft: () => (
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => safeBack('/(tabs)/more')}
             style={styles.backBtn}
             accessibilityRole="button"
             accessibilityLabel="Go back"
@@ -90,6 +102,12 @@ export default function MoreLayout() {
         }}
       />
       <Stack.Screen
+        name="gym-profile"
+        options={{
+          title: GYM_PROFILE.SCREEN_TITLE,
+        }}
+      />
+      <Stack.Screen
         name="settings"
         options={{
           title: SETTINGS.SCREEN_TITLE,
@@ -102,16 +120,15 @@ export default function MoreLayout() {
         }}
       />
       <Stack.Screen
-        name="password"
-        options={{
-          title: CHANGE_PASSWORD.SCREEN_TITLE,
-          presentation: 'card',
-        }}
-      />
-      <Stack.Screen
         name="trainers/index"
         options={{
           title: TRAINERS.SCREEN_TITLE,
+        }}
+      />
+      <Stack.Screen
+        name="trainers/add"
+        options={{
+          title: TRAINERS.ADD_SCREEN_TITLE,
         }}
       />
       <Stack.Screen
@@ -144,12 +161,12 @@ export default function MoreLayout() {
 
 const styles = StyleSheet.create({
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(11, 43, 38, 0.75)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: theme.colors.raised,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.12)',
+    borderColor: theme.colors.border,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,

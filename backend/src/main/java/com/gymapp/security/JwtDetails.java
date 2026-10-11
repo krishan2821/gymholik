@@ -12,6 +12,12 @@ import lombok.Getter;
 @AllArgsConstructor
 public class JwtDetails {
     private final String userId;
-    private final String gymId;   // null for SUPER_ADMIN
-    private final String role;
+    private final String gymId;   // null for SUPER_ADMIN or REGISTER scope
+    private final String role;    // null for REGISTER scope
+    private final String phone;
+    private final String scope;
+
+    public JwtDetails(String userId, String gymId, String role) {
+        this(userId, gymId, role, null, null);
+    }
 }

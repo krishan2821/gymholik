@@ -1,12 +1,15 @@
 package com.gymapp.module.auth.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.annotation.Version;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -18,9 +21,25 @@ public class Gym {
     private String name;
     private String ownerName;
     private String phone;
-    private String address;
+    private GymAddress address;
     private String logoUrl;
+
+    @Indexed(unique = true, sparse = true)
     private String gymCode;
+
+    private GymType gymType;
+
+    private LegalIdType legalIdType;
+
+    @Indexed
+    private String legalIdNumber;
+
+    @Builder.Default
+    private boolean legalIdVerified = false;
+
+    private Instant termsAcceptedAt;
+    private String termsVersion;
+
     private String status; // TRIAL/ACTIVE/EXPIRED/SUSPENDED
     private String subscriptionPlan;
     private LocalDate subscriptionValidTill;

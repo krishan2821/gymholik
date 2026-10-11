@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { safeBack } from '../../../../src/utils/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -94,7 +95,7 @@ export default function RenewMemberScreen() {
       };
 
       await renewMutation.mutateAsync({ id: id as string, payload });
-      router.back();
+      safeBack('/(tabs)/members');
     } catch (error: any) {
       Alert.alert(RENEW.ERROR_TITLE, error.response?.data?.message || 'Failed to renew membership');
     }

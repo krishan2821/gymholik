@@ -2,3 +2,5 @@
 export * from './auth';
 export * from './notes';
 export { classifyError, apiClient, BASE_URL } from './axiosConfig';
+export type { ApiError } from './axiosConfig';
+

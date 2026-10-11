@@ -20,7 +20,33 @@ public class PlanService {
 
     private final PlanRepository planRepository;
 
+    public record DefaultPlanSpec(String name, int durationDays, long pricePaise) {}
+
+    public static final List<DefaultPlanSpec> DEFAULT_PLANS = List.of(
+            new DefaultPlanSpec("Monthly", 30, 150000L),
+            new DefaultPlanSpec("Quarterly", 90, 400000L),
+            new DefaultPlanSpec("Half-Yearly", 180, 750000L),
+            new DefaultPlanSpec("Annual", 365, 1200000L)
+    );
+
+    public void seedDefaultsForGym(String gymId) {
+        for (DefaultPlanSpec spec : DEFAULT_PLANS) {
+            if (!planRepository.existsByGymIdAndNameAndActive(gymId, spec.name(), true)) {
+                Plan plan = Plan.builder()
+                        .gymId(gymId)
+                        .name(spec.name())
+                        .durationDays(spec.durationDays())
+                        .pricePaise(spec.pricePaise())
+                        .active(true)
+                        .build();
+                planRepository.save(plan);
+            }
+        }
+        log.info("Seeded default plans for gymId={}", gymId);
+    }
+
     // ── Public API ────────────────────────────────────────────────────────────
+
 
     public PlanResponse createPlan(PlanRequest request) {
         if (com.gymapp.security.SecurityUtils.getCurrentRole() != null && !com.gymapp.security.SecurityUtils.isOwner()) {

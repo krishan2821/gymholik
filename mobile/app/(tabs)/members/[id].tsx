@@ -14,6 +14,7 @@ import {
   TextInput,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { safeBack } from '../../../src/utils/navigation';
 import {
   Phone,
   MessageCircle,
@@ -214,13 +215,13 @@ export default function MemberDetailScreen() {
                 ? 'This member is no longer assigned to you'
                 : 'This member was not found.'
             }
-            onRetry={() => router.back()}
+            onRetry={() => safeBack('/(tabs)/members')}
           />
           <View style={{ marginTop: 16 }}>
             <Button
               title="Go Back"
               variant="secondary"
-              onPress={() => router.back()}
+              onPress={() => safeBack('/(tabs)/members')}
               size="sm"
             />
           </View>

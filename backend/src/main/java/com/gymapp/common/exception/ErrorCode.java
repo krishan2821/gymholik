@@ -12,16 +12,20 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode {
 
     // ── Auth ──────────────────────────────────────────────────────────────────
-    INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED,       "Invalid phone or password"),
-    ACCOUNT_LOCKED(HttpStatus.TOO_MANY_REQUESTS,       "Account locked due to too many failed attempts. Try again later."),
+    INVALID_OTP(HttpStatus.UNAUTHORIZED,               "Invalid or expired OTP"),
+    RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS,         "Too many OTP requests. Please try again later."),
+    ACCOUNT_INACTIVE(HttpStatus.FORBIDDEN,             "This account is inactive"),
     TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED,             "Token has expired"),
     INVALID_TOKEN(HttpStatus.UNAUTHORIZED,             "Invalid or malformed token"),
     REFRESH_TOKEN_NOT_FOUND(HttpStatus.UNAUTHORIZED,   "Refresh token not found or has expired"),
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED,              "Full authentication is required"),
 
     // ── User ──────────────────────────────────────────────────────────────────
     USER_NOT_FOUND(HttpStatus.NOT_FOUND,               "User not found"),
     USER_ALREADY_EXISTS(HttpStatus.CONFLICT,           "A user with this phone number already exists in this gym"),
     PHONE_ALREADY_EXISTS(HttpStatus.CONFLICT,          "Phone number is already registered"),
+    PHONE_ALREADY_REGISTERED(HttpStatus.CONFLICT,      "This phone number is already registered"),
+
 
     // ── Gym ───────────────────────────────────────────────────────────────────
     GYM_NOT_FOUND(HttpStatus.NOT_FOUND,                "Gym not found"),
@@ -49,7 +53,6 @@ public enum ErrorCode {
     FILE_PROCESSING_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to process the uploaded file"),
 
     // ── Trainer & Assignment ───────────────────────────────────────────────────
-    TRAINER_PENDING_APPROVAL(HttpStatus.FORBIDDEN,     "Your trainer account is pending approval by the gym owner"),
     TRAINER_NOT_FOUND(HttpStatus.NOT_FOUND,            "Trainer not found"),
     TRAINER_INACTIVE(HttpStatus.UNPROCESSABLE_ENTITY,  "Trainer is not active"),
     TRAINER_TYPE_NOT_FOUND(HttpStatus.NOT_FOUND,       "Trainer type not found"),
@@ -57,7 +60,9 @@ public enum ErrorCode {
     ASSIGNMENT_EXISTS(HttpStatus.CONFLICT,             "Member already has an active assignment with this trainer"),
     ASSIGNMENT_NOT_FOUND(HttpStatus.NOT_FOUND,         "Trainer assignment not found"),
 
+
     // ── Generic ───────────────────────────────────────────────────────────────
+    SMS_SEND_FAILED(HttpStatus.BAD_GATEWAY,            "Failed to send SMS. Please try again."),
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND,           "Resource not found"),
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST,           "Validation failed"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR,   "An unexpected error occurred");

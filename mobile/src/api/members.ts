@@ -5,8 +5,15 @@ import Toast from 'react-native-toast-message';
 import { components } from './types';
 
 export type Membership = Required<components['schemas']['MembershipResponse']>;
-export type Member = Required<components['schemas']['MemberResponse']>;
-export type MembersResponse = Required<components['schemas']['PagedResponseMemberResponse']>;
+export type Member = Omit<Required<components['schemas']['MemberResponse']>, 'currentMembership'> & {
+  currentMembership?: Membership;
+};
+export type MembersResponse = Omit<
+  Required<components['schemas']['PagedResponseMemberResponse']>,
+  'content'
+> & {
+  content: Member[];
+};
 
 export const fetchMembers = async ({ pageParam = 0, queryKey }: any): Promise<MembersResponse> => {
   const [_key, filters] = queryKey;

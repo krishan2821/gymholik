@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Image } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
+import { safeBack } from '../../../src/utils/navigation';
 import * as Haptics from 'expo-haptics';
 import { X, Flashlight, AlertCircle, CheckCircle } from 'lucide-react-native';
 import { theme } from '../../../src/theme/theme';
@@ -112,37 +113,36 @@ export default function ScanScreen() {
           barcodeTypes: ['qr'],
         }}
         onBarcodeScanned={scannedData ? undefined : handleBarCodeScanned}
-      >
-        <View style={styles.overlay}>
-          {/* Header controls */}
-          <View style={styles.headerRow}>
-            <TouchableOpacity
-              style={styles.iconBtn}
-              onPress={() => router.back()}
-              accessibilityLabel="Close camera"
-            >
-              <X color={theme.colors.text} size={22} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.iconBtn}
-              onPress={() => setTorch(!torch)}
-              accessibilityLabel="Toggle flashlight"
-            >
-              <Flashlight color={torch ? theme.colors.primary : theme.colors.text} size={22} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Scanner Guide Frame */}
-          <View style={styles.scannerFrame}>
-            <View style={[styles.corner, styles.cornerTL]} />
-            <View style={[styles.corner, styles.cornerTR]} />
-            <View style={[styles.corner, styles.cornerBL]} />
-            <View style={[styles.corner, styles.cornerBR]} />
-          </View>
-
-          <Text style={styles.helperText}>{SCANNER.AIM_HINT}</Text>
+      />
+      <View style={[StyleSheet.absoluteFill, styles.overlay]}>
+        {/* Header controls */}
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => safeBack('/(tabs)/attendance')}
+            accessibilityLabel="Close camera"
+          >
+            <X color={theme.colors.text} size={22} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => setTorch(!torch)}
+            accessibilityLabel="Toggle flashlight"
+          >
+            <Flashlight color={torch ? theme.colors.primary : theme.colors.text} size={22} />
+          </TouchableOpacity>
         </View>
-      </CameraView>
+
+        {/* Scanner Guide Frame */}
+        <View style={styles.scannerFrame}>
+          <View style={[styles.corner, styles.cornerTL]} />
+          <View style={[styles.corner, styles.cornerTR]} />
+          <View style={[styles.corner, styles.cornerBL]} />
+          <View style={[styles.corner, styles.cornerBR]} />
+        </View>
+
+        <Text style={styles.helperText}>{SCANNER.AIM_HINT}</Text>
+      </View>
 
       {/* Full-Screen Sage Pulse Check-In Success Modal */}
       <CheckInSuccessModal

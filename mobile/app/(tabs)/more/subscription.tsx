@@ -1,8 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, Linking, TouchableOpacity } from 'react-native';
-import { MessageCircle, QrCode, ShieldCheck, Sparkles, Copy, Check } from 'lucide-react-native';
-import * as Clipboard from 'expo-clipboard';
-import * as Haptics from 'expo-haptics';
+import { View, Text, StyleSheet, Linking } from 'react-native';
+import { MessageCircle, QrCode, ShieldCheck, Sparkles } from 'lucide-react-native';
 import { theme } from '../../../src/theme/theme';
 import { useAuthStore } from '../../../src/store/useAuthStore';
 import { Screen } from '../../../src/components/Screen';
@@ -13,8 +11,7 @@ import { ErrorState } from '../../../src/components/ErrorState';
 import { SUBSCRIPTION, ERRORS } from '../../../src/constants/strings';
 
 export default function SubscriptionScreen() {
-  const { gymId, gymCode, role } = useAuthStore();
-  const [copied, setCopied] = React.useState(false);
+  const { gymId, role } = useAuthStore();
 
   if (role !== 'OWNER') {
     return (
@@ -24,17 +21,8 @@ export default function SubscriptionScreen() {
     );
   }
 
-  const copyCode = async () => {
-    const code = gymCode || gymId;
-    if (!code) return;
-    await Clipboard.setStringAsync(code);
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   const openWhatsApp = () => {
-    const msg = SUBSCRIPTION.WHATSAPP_MSG(gymCode || gymId || '');
+    const msg = SUBSCRIPTION.WHATSAPP_MSG(gymId || '');
     Linking.openURL(`https://wa.me/919999999999?text=${encodeURIComponent(msg)}`);
   };
 
@@ -49,25 +37,6 @@ export default function SubscriptionScreen() {
         </View>
 
         <Text style={styles.planTitle}>{SUBSCRIPTION.PLAN_NAME}</Text>
-
-        <View style={styles.codeRow}>
-          <Text style={styles.gymIdText}>Gym Code: {gymCode || gymId || 'N/A'}</Text>
-          {(gymCode || gymId) && (
-            <TouchableOpacity
-              onPress={copyCode}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={styles.copyBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Copy gym code"
-            >
-              {copied ? (
-                <Check size={14} color={theme.colors.primary} />
-              ) : (
-                <Copy size={14} color={theme.colors.textMuted} />
-              )}
-            </TouchableOpacity>
-          )}
-        </View>
 
         <View style={styles.divider} />
 
@@ -89,7 +58,7 @@ export default function SubscriptionScreen() {
 
       <GlassCard style={styles.renewCard}>
         <View style={styles.headerRow}>
-          <ShieldCheck size={22} color={theme.colors.primary} style={{ marginRight: 8 }} />
+          <ShieldCheck size={22} color={theme.colors.primary} style={styles.headerIcon} />
           <Text style={styles.sectionTitle}>{SUBSCRIPTION.HOW_TO_RENEW_TITLE}</Text>
         </View>
 
@@ -112,7 +81,7 @@ export default function SubscriptionScreen() {
         />
       </GlassCard>
 
-      <View style={{ height: 24 }} />
+      <View style={styles.bottomSpacer} />
     </Screen>
   );
 }
@@ -147,19 +116,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: theme.colors.text,
     marginBottom: 4,
-  },
-  codeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: theme.spacing.md,
-  },
-  gymIdText: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-  },
-  copyBtn: {
-    padding: 4,
-    marginLeft: 6,
   },
   divider: {
     height: 1,
@@ -199,6 +155,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: theme.spacing.sm,
   },
+  headerIcon: {
+    marginRight: 8,
+  },
   sectionTitle: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 18,
@@ -235,5 +194,8 @@ const styles = StyleSheet.create({
     ...theme.typography.small,
     color: theme.colors.textMuted,
     textAlign: 'center',
+  },
+  bottomSpacer: {
+    height: 24,
   },
 });

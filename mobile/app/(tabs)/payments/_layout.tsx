@@ -5,6 +5,7 @@ import { ArrowLeft } from 'lucide-react-native';
 import { useAuthStore } from '../../../src/store/useAuthStore';
 import { theme } from '../../../src/theme/theme';
 import { PAYMENTS, DUES, COLLECT } from '../../../src/constants/strings';
+import { safeBack } from '../../../src/utils/navigation';
 
 export default function PaymentsLayout() {
   const router = useRouter();
@@ -41,7 +42,7 @@ export default function PaymentsLayout() {
         animation: 'slide_from_right',
         headerLeft: () => (
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => safeBack('/(tabs)/payments')}
             style={styles.backBtn}
             accessibilityRole="button"
             accessibilityLabel="Go back"

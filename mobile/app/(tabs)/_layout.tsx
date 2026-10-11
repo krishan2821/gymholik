@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import { Tabs, useRouter, useSegments } from 'expo-router';
 import { View, ActivityIndicator } from 'react-native';
 import { useAuthStore } from '../../src/store/useAuthStore';
-import { useTrainers } from '../../src/api/trainers';
 import { FloatingTabBar } from '../../src/components/FloatingTabBar';
 import { theme } from '../../src/theme/theme';
 import {
@@ -19,7 +18,6 @@ export default function TabLayout() {
   // Read role strictly from authenticated user object in auth store
   const user = useAuthStore((state) => state.user);
   const role = user?.role;
-  const isOwner = role === 'OWNER';
 
   // Deep-link guard: if user opens a route forbidden for their role, redirect to role's home
   useEffect(() => {
@@ -28,27 +26,12 @@ export default function TabLayout() {
     // segments e.g. ['(tabs)'] or ['(tabs)', 'notes'] or ['(tabs)', 'payments', 'dues']
     const segs = segments as string[];
     const currentTab = segs[1] || 'index';
-    const subRoute = segs[2];
-
-    // Allow trainer to access password change under more
-    if (role === 'TRAINER' && currentTab === 'more' && subRoute === 'password') {
-      return;
-    }
 
     if (!isRouteAllowedForRole(role, currentTab)) {
       const home = getHomeRouteForRole(role);
       router.replace(home as any);
     }
   }, [segments, role, router]);
-
-  // Badge for pending trainer requests (OWNER only)
-  const { data: pendingTrainers } = useTrainers('PENDING_APPROVAL', {
-    enabled: Boolean(isOwner && role),
-  });
-  const pendingCount =
-    isOwner && pendingTrainers && pendingTrainers.length > 0
-      ? pendingTrainers.length
-      : undefined;
 
   // Prevent flash of wrong tabs: do not render tabs until authenticated user role is available
   if (!role) {
@@ -136,7 +119,6 @@ export default function TabLayout() {
         options={{
           title: getTabTitleForRole(role, 'more'),
           href: getTabHrefForRole(role, 'more'),
-          tabBarBadge: pendingCount,
         }}
       />
     </Tabs>

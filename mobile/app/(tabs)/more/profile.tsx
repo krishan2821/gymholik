@@ -8,6 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
+import { safeBack } from '../../../src/utils/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -79,7 +80,7 @@ export default function EditProfileScreen() {
         phone: data.phone.trim(),
       });
       Alert.alert('Success', 'Profile updated successfully.');
-      router.back();
+      safeBack('/(tabs)/more');
     } catch (err: any) {
       Alert.alert('Error', err.response?.data?.message || 'Failed to update profile');
     }

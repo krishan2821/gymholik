@@ -4,6 +4,7 @@ import { TouchableOpacity, StyleSheet } from 'react-native';
 import { ArrowLeft, X } from 'lucide-react-native';
 import { theme } from '../../../src/theme/theme';
 import { MEMBERS, MEMBER_PROFILE, RENEW } from '../../../src/constants/strings';
+import { safeBack } from '../../../src/utils/navigation';
 
 export default function MembersLayout() {
   const router = useRouter();
@@ -28,7 +29,7 @@ export default function MembersLayout() {
         animation: 'slide_from_right',
         headerLeft: () => (
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => safeBack('/(tabs)/members')}
             style={styles.backBtn}
             accessibilityRole="button"
             accessibilityLabel="Go back"

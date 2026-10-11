@@ -12,6 +12,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { safeBack } from '../../../src/utils/navigation';
 import { CheckCircle, Search, X } from 'lucide-react-native';
 import { theme } from '../../../src/theme/theme';
 import { useMember, useMembers } from '../../../src/api/members';
@@ -107,7 +108,7 @@ export default function CollectPaymentScreen() {
           <Button
             title={COMMON.DONE}
             variant="secondary"
-            onPress={() => router.back()}
+            onPress={() => safeBack('/(tabs)/payments')}
             size="md"
           />
         </View>
@@ -235,7 +236,7 @@ export default function CollectPaymentScreen() {
       <MemberPickerModal
         visible={showPicker}
         onClose={() => {
-          if (!memberId) router.back();
+          if (!memberId) safeBack('/(tabs)/payments');
           else setShowPicker(false);
         }}
         onSelect={(id: string) => {

@@ -1,159 +1,360 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
+  Pressable,
   StyleSheet,
-  ActivityIndicator,
   Animated,
   AccessibilityInfo,
-  Linking,
-  Modal,
+  Platform,
 } from 'react-native';
-import { router } from 'expo-router';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Eye, EyeOff, AlertCircle, X, MessageCircle, HelpCircle } from 'lucide-react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import Toast from 'react-native-toast-message';
+import * as Haptics from 'expo-haptics';
+import { AlertCircle } from 'lucide-react-native';
 
+import { sendOtp, verifyOtp, classifyError, ApiError } from '../../src/api';
 import { useAuthStore } from '../../src/store/useAuthStore';
-import { loginUser, classifyError } from '../../src/api';
+import { getHomeRouteForRole } from '../../src/navigation/tabsByRole';
 import { theme } from '../../src/theme/theme';
 import { Screen } from '../../src/components/Screen';
 import { GlassCard } from '../../src/components/GlassCard';
-import { Button } from '../../src/components/Button';
 import { GymholikLogo } from '../../src/components/GymholikLogo';
-import { getHomeRouteForRole } from '../../src/navigation/tabsByRole';
+import { Input } from '../../src/components/Input';
+import { Button } from '../../src/components/Button';
+import { LOGIN, VALIDATION } from '../../src/constants/strings';
 
-// ─── Validation schema ─────────────────────────────────────────────────────────
-const loginSchema = z.object({
-  phone: z
-    .string()
-    .regex(/^[6-9]\d{9}$/, 'Enter a valid 10-digit mobile number starting with 6–9'),
-  password: z.string().min(1, 'Password is required'),
-  gymCode: z
-    .string()
-    .optional()
-    .refine((val) => !val || val.trim().length === 0 || val.trim().length >= 4, {
-      message: 'Gym code must be at least 4 characters if entered',
-    }),
-});
+const INDIAN_PHONE_REGEX = /^[6-9]\d{9}$/;
+const OTP_LENGTH = 6;
+const DEFAULT_RESEND_SECONDS = 30;
 
-type LoginFormData = z.infer<typeof loginSchema>;
+function formatCountdown(totalSeconds: number): string {
+  const safe = Math.max(0, Math.floor(totalSeconds));
+  const mins = Math.floor(safe / 60);
+  const secs = safe % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
 
-export default function LoginScreen() {
-  const [showPassword, setShowPassword] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
-  const [forgotSheetVisible, setForgotSheetVisible] = useState(false);
-  const [logoTapCount, setLogoTapCount] = useState(0);
+function formatRetryDuration(seconds?: number | null): string | undefined {
+  if (!seconds || seconds <= 0) return undefined;
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins > 0 && secs > 0) {
+    return `${mins}m ${secs}s`;
+  }
+  if (mins > 0) {
+    return `${mins} minute${mins === 1 ? '' : 's'}`;
+  }
+  return `${secs} second${secs === 1 ? '' : 's'}`;
+}
+
+function resolveBannerErrorMessage(apiErr: ApiError): string {
+  const code = apiErr.errorCode;
+  if (!apiErr.status || code === 'NETWORK_ERROR') {
+    return LOGIN.ERRORS.NETWORK;
+  }
+  if (code === 'INVALID_OTP') {
+    return LOGIN.ERRORS.INVALID_OTP;
+  }
+  if (code === 'RATE_LIMITED' || apiErr.status === 429) {
+    return LOGIN.ERRORS.RATE_LIMITED(formatRetryDuration(apiErr.retryAfterSeconds));
+  }
+  if (code === 'ACCOUNT_INACTIVE') {
+    return LOGIN.ERRORS.ACCOUNT_INACTIVE;
+  }
+  if (
+    code === 'SUBSCRIPTION_EXPIRED' ||
+    code === 'GYM_TRIAL_EXPIRED' ||
+    apiErr.status === 402
+  ) {
+    return LOGIN.ERRORS.SUBSCRIPTION_EXPIRED;
+  }
+  if (code === 'GYM_SUSPENDED') {
+    return LOGIN.ERRORS.GYM_SUSPENDED;
+  }
+  return apiErr.message || LOGIN.ERRORS.GENERIC;
+}
+
+export default function OtpLoginScreen() {
+  const params = useLocalSearchParams<{ error?: string }>();
+  const setAuthData = useAuthStore((s) => s.setAuthData);
+  const setRegistrationSession = useAuthStore((s) => s.setRegistrationSession);
+  const clearRegistrationSession = useAuthStore((s) => s.clearRegistrationSession);
+
+  // ── State ─────────────────────────────────────────────────────────────────
+  const [phone, setPhone] = useState('');
+  const [phoneTouched, setPhoneTouched] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [isOtpFocused, setIsOtpFocused] = useState(false);
+  const [resendSeconds, setResendSeconds] = useState(0);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [bannerError, setBannerError] = useState<string | null>(
+    params.error ? String(params.error) : null
+  );
   const [reduceMotion, setReduceMotion] = useState(false);
 
-  const passwordRef = useRef<TextInput>(null);
-  const gymCodeRef = useRef<TextInput>(null);
-  const setAuthData = useAuthStore((state) => state.setAuthData);
-
-  // ── Animations: Card Slide-Up & Error Shake ───────────────────────────────
-  const cardSlideAnim = useRef(new Animated.Value(60)).current;
-  const cardFadeAnim = useRef(new Animated.Value(0)).current;
-  const shakeAnim = useRef(new Animated.Value(0)).current;
-
   useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
-    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
-    return () => sub?.remove();
+    if (params.error) {
+      setBannerError(String(params.error));
+    }
+  }, [params.error]);
+
+  // ── Refs & Locks ──────────────────────────────────────────────────────────
+  const phoneInputRef = useRef<TextInput>(null);
+  const otpInputRef = useRef<TextInput>(null);
+  const sendingLockRef = useRef(false);
+  const verifyingLockRef = useRef(false);
+
+  // ── Animations ────────────────────────────────────────────────────────────
+  const revealOpacity = useRef(new Animated.Value(0)).current;
+  const revealTranslateY = useRef(new Animated.Value(16)).current;
+  const shakeX = useRef(new Animated.Value(0)).current;
+
+  // Check system reduce-motion preference
+  useEffect(() => {
+    let mounted = true;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((enabled) => {
+        if (mounted) setReduceMotion(Boolean(enabled));
+      })
+      .catch(() => {});
+
+    const subscription = AccessibilityInfo.addEventListener?.(
+      'reduceMotionChanged',
+      (enabled) => {
+        if (mounted) setReduceMotion(Boolean(enabled));
+      }
+    );
+    return () => {
+      mounted = false;
+      subscription?.remove?.();
+    };
   }, []);
 
+  // Countdown timer for Resend OTP
   useEffect(() => {
+    if (!otpSent || resendSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setResendSeconds((prev) => (prev > 1 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [otpSent, resendSeconds]);
+
+  // ── Haptics helpers ───────────────────────────────────────────────────────
+  const triggerSuccessHaptic = useCallback(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+  }, []);
+
+  const triggerErrorHaptic = useCallback(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+  }, []);
+
+  // ── Animation helpers ─────────────────────────────────────────────────────
+  const animateRevealOtpSection = useCallback(() => {
     if (reduceMotion) {
-      cardSlideAnim.setValue(0);
-      cardFadeAnim.setValue(1);
+      revealOpacity.setValue(1);
+      revealTranslateY.setValue(0);
       return;
     }
-
+    revealOpacity.setValue(0);
+    revealTranslateY.setValue(16);
     Animated.parallel([
-      Animated.timing(cardFadeAnim, {
+      Animated.timing(revealOpacity, {
         toValue: 1,
-        duration: 450,
+        duration: 240,
         useNativeDriver: true,
       }),
-      Animated.spring(cardSlideAnim, {
+      Animated.timing(revealTranslateY, {
         toValue: 0,
-        tension: 40,
-        friction: 7,
+        duration: 240,
         useNativeDriver: true,
       }),
     ]).start();
-  }, [reduceMotion]);
+  }, [reduceMotion, revealOpacity, revealTranslateY]);
 
-  const triggerShake = useCallback(() => {
-    if (reduceMotion) return;
+  const triggerOtpShake = useCallback(() => {
+    if (reduceMotion) {
+      shakeX.setValue(0);
+      return;
+    }
+    shakeX.setValue(0);
     Animated.sequence([
-      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 8, duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -8, duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 4, duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeX, { toValue: -10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeX, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeX, { toValue: -8, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeX, { toValue: 8, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeX, { toValue: -4, duration: 40, useNativeDriver: true }),
+      Animated.timing(shakeX, { toValue: 0, duration: 40, useNativeDriver: true }),
     ]).start();
-  }, [reduceMotion, shakeAnim]);
+  }, [reduceMotion, shakeX]);
 
-  const {
-    control,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { phone: '', password: '', gymCode: '' },
-  });
+  // ── Validation ────────────────────────────────────────────────────────────
+  const isPhoneValid = INDIAN_PHONE_REGEX.test(phone);
+  const showPhoneInlineError =
+    !otpSent &&
+    phone.length > 0 &&
+    ((phone.length === 10 && !isPhoneValid) ||
+      (phoneTouched && !isPhoneValid) ||
+      !/^[6-9]/.test(phone));
+  const phoneInlineError = showPhoneInlineError ? VALIDATION.PHONE_INVALID : undefined;
 
-  // ── Logo tap 5× → hidden Super Admin screen ──────────────────────────────
-  const handleLogoTap = useCallback(() => {
-    setLogoTapCount((prev) => {
-      const next = prev + 1;
-      if (next >= 5) {
-        router.push('/(auth)/super-admin-login' as any);
-        return 0;
-      }
-      return next;
-    });
-  }, []);
+  // ── Handlers ──────────────────────────────────────────────────────────────
+  const handlePhoneChange = (raw: string) => {
+    setBannerError(null);
+    let digits = raw.replace(/\D/g, '');
+    // Strip leading 91 if user pasted +91XXXXXXXXXX (12 digits)
+    if (digits.length === 12 && digits.startsWith('91')) {
+      digits = digits.slice(2);
+    } else if (digits.length === 11 && digits.startsWith('0')) {
+      digits = digits.slice(1);
+    }
+    setPhone(digits.slice(0, 10));
+  };
 
-  // ── Submit handler ────────────────────────────────────────────────────────
-  const onSubmit = async (values: LoginFormData) => {
-    setServerError(null);
+  const handleGetOtp = async () => {
+    setPhoneTouched(true);
+    if (!isPhoneValid || sendingLockRef.current) return;
+
+    sendingLockRef.current = true;
+    setIsSendingOtp(true);
+    setBannerError(null);
+
     try {
-      const trimmedCode = values.gymCode?.trim() ? values.gymCode.trim().toUpperCase() : undefined;
-      const tokens = await loginUser({
-        phone: values.phone,
-        password: values.password,
-        gymCode: trimmedCode,
-      });
+      const response = await sendOtp(phone);
+      const cooldown =
+        response?.data?.resendAfterSeconds ?? DEFAULT_RESEND_SECONDS;
+      setResendSeconds(cooldown);
+      setOtp('');
+      setOtpSent(true);
+      animateRevealOtpSection();
+      triggerSuccessHaptic();
 
-      await setAuthData(
-        tokens.accessToken,
-        tokens.refreshToken,
-        tokens.role,
-        tokens.userId,
-        tokens.gymId ?? '',
-        tokens.gymCode ?? trimmedCode ?? null
-      );
-
-      const homeRoute = getHomeRouteForRole(tokens.role);
-      router.replace(homeRoute as any);
-    } catch (error: unknown) {
-      const apiErr = classifyError(error);
-      setServerError(apiErr.message);
-      triggerShake();
+      setTimeout(() => {
+        otpInputRef.current?.focus();
+      }, 100);
+    } catch (err: unknown) {
+      const apiErr = classifyError(err);
+      setBannerError(resolveBannerErrorMessage(apiErr));
+      triggerErrorHaptic();
+    } finally {
+      setIsSendingOtp(false);
+      sendingLockRef.current = false;
     }
   };
 
-  const handleWhatsAppHelp = () => {
-    Linking.openURL(
-      'https://wa.me/919999999999?text=' +
-        encodeURIComponent('Hi Gymholik Support, I need help resetting my password.')
-    );
+  const handleChangeNumber = () => {
+    clearRegistrationSession();
+    setOtpSent(false);
+    setOtp('');
+    setResendSeconds(0);
+    setBannerError(null);
+    revealOpacity.setValue(0);
+    revealTranslateY.setValue(16);
+    setTimeout(() => {
+      phoneInputRef.current?.focus();
+    }, 80);
   };
+
+  const handleResendOtp = async () => {
+    if (resendSeconds > 0 || sendingLockRef.current || isVerifyingOtp) return;
+
+    sendingLockRef.current = true;
+    setIsSendingOtp(true);
+    setBannerError(null);
+    setOtp('');
+
+    try {
+      const response = await sendOtp(phone);
+      const cooldown =
+        response?.data?.resendAfterSeconds ?? DEFAULT_RESEND_SECONDS;
+      setResendSeconds(cooldown);
+      triggerSuccessHaptic();
+      setTimeout(() => {
+        otpInputRef.current?.focus();
+      }, 80);
+    } catch (err: unknown) {
+      const apiErr = classifyError(err);
+      if (apiErr.retryAfterSeconds && apiErr.retryAfterSeconds > 0) {
+        setResendSeconds(apiErr.retryAfterSeconds);
+      }
+      setBannerError(resolveBannerErrorMessage(apiErr));
+      triggerErrorHaptic();
+    } finally {
+      setIsSendingOtp(false);
+      sendingLockRef.current = false;
+    }
+  };
+
+  const handleOtpChange = (raw: string) => {
+    setBannerError(null);
+    const digits = raw.replace(/\D/g, '').slice(0, OTP_LENGTH);
+    setOtp(digits);
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otp.length !== OTP_LENGTH || verifyingLockRef.current) return;
+
+    verifyingLockRef.current = true;
+    setIsVerifyingOtp(true);
+    setBannerError(null);
+
+    try {
+      const response = await verifyOtp(phone, otp);
+      const data = response.data;
+      triggerSuccessHaptic();
+
+      if (data.isNewUser) {
+        if (!data.registrationToken) {
+          throw new Error('Missing registration token');
+        }
+        // Keep registrationToken in memory only (never in SecureStore) and navigate to Registration
+        setRegistrationSession(data.registrationToken, phone);
+        router.push('/(auth)/register');
+        return;
+      }
+
+      if (!data.accessToken || !data.refreshToken || !data.user) {
+        throw new Error('Incomplete authentication payload');
+      }
+
+      const { accessToken, refreshToken, user } = data;
+      await setAuthData(
+        accessToken,
+        refreshToken,
+        user.role,
+        user.id,
+        user.gymId ?? '',
+        user.name,
+        phone,
+        user.gymName ?? null
+      );
+
+      // Navigate by role using tabsByRole config and replace stack so Back cannot return to Login
+      const destination = getHomeRouteForRole(user.role);
+      router.replace(destination as any);
+    } catch (err: unknown) {
+      const apiErr = classifyError(err);
+      setBannerError(resolveBannerErrorMessage(apiErr));
+      triggerErrorHaptic();
+
+      if (apiErr.errorCode === 'INVALID_OTP' || apiErr.status === 401) {
+        triggerOtpShake();
+        setOtp('');
+        setTimeout(() => {
+          otpInputRef.current?.focus();
+        }, 80);
+      }
+    } finally {
+      setIsVerifyingOtp(false);
+      verifyingLockRef.current = false;
+    }
+  };
+
+  const activeBoxIndex = Math.min(otp.length, OTP_LENGTH - 1);
 
   return (
     <Screen
@@ -161,507 +362,389 @@ export default function LoginScreen() {
       withHeroImage
       heroOpacity={0.85}
       keyboardAvoiding
-      contentContainerStyle={styles.scroll}
+      safeBottom={false}
+      contentContainerStyle={styles.scrollContent}
     >
-      {/* ── Top Header with Mint Logo (No Checkerboard) ──────────────── */}
-      <View style={styles.topSection}>
-        <TouchableOpacity
-          onPress={handleLogoTap}
-          activeOpacity={0.85}
-          style={styles.logoBtn}
-          accessibilityLabel="Gymholik logo"
-        >
-          <GymholikLogo size={68} />
-        </TouchableOpacity>
-        <Text style={styles.brandTitle}>Gymholik</Text>
-        <Text style={styles.brandTagline}>Manage your gym, all in one place</Text>
+      {/* Header: Mint Logo + Welcome Back + Subtitle */}
+      <View style={styles.headerSection}>
+        <GymholikLogo size={68} style={styles.logo} />
+        <Text style={styles.title}>{LOGIN.TITLE}</Text>
+        <Text style={styles.subtitle}>{LOGIN.SUBTITLE}</Text>
       </View>
 
-      {/* ── Slide-up Glass Card over silhouette background ───────────── */}
-      <Animated.View
-        style={[
-          styles.cardWrapper,
-          {
-            opacity: cardFadeAnim,
-            transform: [{ translateY: cardSlideAnim }, { translateX: shakeAnim }],
-          },
-        ]}
-      >
-        <GlassCard style={styles.card} intensity={35}>
-          <Text style={styles.cardTitle}>Welcome back</Text>
-          <Text style={styles.cardSubtitle}>Sign in to continue</Text>
-
-          {/* ── Coral Error Banner ────────────────────────────────────── */}
-          {serverError && (
-            <View style={styles.errorBanner} accessibilityRole="alert">
-              <AlertCircle color={theme.colors.error} size={18} />
-              <Text style={styles.errorBannerText}>{serverError}</Text>
+      {/* Main Glass Card */}
+      <GlassCard style={styles.glassCard} contentStyle={styles.cardInner}>
+        {/* Mobile Number Field (Editable in State 1, Read-only with Change number link in State 2) */}
+        <Input
+          ref={phoneInputRef}
+          label={LOGIN.PHONE_LABEL}
+          prefix={LOGIN.PHONE_PREFIX}
+          placeholder={LOGIN.PHONE_PLACEHOLDER}
+          keyboardType="phone-pad"
+          maxLength={10}
+          autoFocus={!otpSent}
+          editable={!otpSent && !isSendingOtp}
+          value={phone}
+          onChangeText={handlePhoneChange}
+          onBlur={() => setPhoneTouched(true)}
+          returnKeyType="done"
+          onSubmitEditing={() => {
+            if (!otpSent && isPhoneValid) {
+              handleGetOtp();
+            }
+          }}
+          error={phoneInlineError}
+          containerStyle={otpSent ? styles.phoneContainerReadOnly : undefined}
+          rightIcon={
+            otpSent ? (
               <TouchableOpacity
-                onPress={() => setServerError(null)}
-                style={styles.errorDismiss}
-                accessibilityLabel="Dismiss error"
+                onPress={handleChangeNumber}
+                disabled={isVerifyingOtp || isSendingOtp}
+                style={styles.changeNumberBtn}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel={LOGIN.CHANGE_NUMBER}
               >
-                <X color={theme.colors.error} size={16} />
+                <Text style={styles.changeNumberText}>{LOGIN.CHANGE_NUMBER}</Text>
+              </TouchableOpacity>
+            ) : undefined
+          }
+        />
+
+        {/* STATE 1: Get OTP Button + Helper Text */}
+        {!otpSent && (
+          <>
+            {bannerError && (
+              <View style={styles.errorBanner} accessibilityRole="alert">
+                <AlertCircle color={theme.colors.error} size={18} />
+                <Text style={styles.errorBannerText}>{bannerError}</Text>
+              </View>
+            )}
+
+            <View style={styles.primaryButtonWrapper}>
+              <Button
+                title={LOGIN.GET_OTP}
+                onPress={handleGetOtp}
+                loading={isSendingOtp}
+                disabled={!isPhoneValid || isSendingOtp}
+                size="lg"
+              />
+            </View>
+
+            <Text style={styles.staffHelperText}>{LOGIN.STAFF_HELPER}</Text>
+          </>
+        )}
+
+        {/* STATE 2: Animated OTP Reveal Section */}
+        {otpSent && (
+          <Animated.View
+            style={[
+              styles.otpSection,
+              {
+                opacity: revealOpacity,
+                transform: [{ translateY: revealTranslateY }],
+              },
+            ]}
+          >
+            <View style={styles.otpHeaderRow}>
+              <Text style={styles.otpSectionLabel}>{LOGIN.OTP_SECTION_LABEL}</Text>
+              {__DEV__ && (
+                <Text style={styles.devOtpHint}>{LOGIN.DEV_OTP_HINT}</Text>
+              )}
+            </View>
+
+            {/* 6 Visual OTP Boxes backed by ONE Hidden TextInput */}
+            <Pressable
+              onPress={() => otpInputRef.current?.focus()}
+              style={styles.otpWrapper}
+              accessibilityRole="button"
+              accessibilityLabel={LOGIN.OTP_SECTION_LABEL}
+            >
+              <TextInput
+                ref={otpInputRef}
+                value={otp}
+                onChangeText={handleOtpChange}
+                onFocus={() => setIsOtpFocused(true)}
+                onBlur={() => setIsOtpFocused(false)}
+                keyboardType="number-pad"
+                textContentType="oneTimeCode"
+                autoComplete="sms-otp"
+                maxLength={OTP_LENGTH}
+                autoFocus
+                caretHidden
+                contextMenuHidden={false}
+                style={styles.hiddenOtpInput}
+                onSubmitEditing={() => {
+                  if (otp.length === OTP_LENGTH) {
+                    handleVerifyOtp();
+                  }
+                }}
+              />
+
+              <Animated.View
+                style={[
+                  styles.otpBoxesRow,
+                  { transform: [{ translateX: shakeX }] },
+                ]}
+                pointerEvents="none"
+              >
+                {Array.from({ length: OTP_LENGTH }).map((_, idx) => {
+                  const digit = otp[idx] ?? '';
+                  const isFilled = digit.length > 0;
+                  const isActive = isOtpFocused && idx === activeBoxIndex;
+
+                  return (
+                    <View
+                      key={idx}
+                      style={[
+                        styles.otpBox,
+                        isFilled && styles.otpBoxFilled,
+                        isActive && styles.otpBoxActive,
+                      ]}
+                    >
+                      <Text style={styles.otpDigitText}>{digit}</Text>
+                      {isActive && !isFilled && <View style={styles.otpCursor} />}
+                    </View>
+                  );
+                })}
+              </Animated.View>
+            </Pressable>
+
+            {/* Resend OTP Row with Countdown */}
+            <View style={styles.resendRow}>
+              <TouchableOpacity
+                onPress={handleResendOtp}
+                disabled={resendSeconds > 0 || isSendingOtp || isVerifyingOtp}
+                style={styles.resendTouchTarget}
+                accessibilityRole="button"
+                accessibilityState={{
+                  disabled: resendSeconds > 0 || isSendingOtp || isVerifyingOtp,
+                }}
+              >
+                <Text
+                  style={[
+                    styles.resendText,
+                    resendSeconds > 0
+                      ? styles.resendTextDisabled
+                      : styles.resendTextActive,
+                  ]}
+                >
+                  {resendSeconds > 0
+                    ? LOGIN.RESEND_IN(formatCountdown(resendSeconds))
+                    : LOGIN.RESEND_OTP}
+                </Text>
               </TouchableOpacity>
             </View>
-          )}
 
-          {/* ── Mobile Number Input ───────────────────────────────────── */}
-          <Text style={styles.label}>Mobile number</Text>
-          <Controller
-            control={control}
-            name="phone"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <View
-                style={[
-                  styles.inputRow,
-                  errors.phone && styles.inputRowError,
-                ]}
-              >
-                <View style={styles.prefixBox}>
-                  <Text style={styles.prefix}>+91</Text>
-                  <View style={styles.prefixDivider} />
-                </View>
-                <TextInput
-                  style={styles.inputField}
-                  placeholder="98765 43210"
-                  placeholderTextColor={theme.colors.textMuted}
-                  keyboardType="phone-pad"
-                  maxLength={10}
-                  returnKeyType="next"
-                  autoFocus
-                  onBlur={onBlur}
-                  onChangeText={(v) => onChange(v.replace(/\D/g, ''))}
-                  value={value}
-                  onSubmitEditing={() => gymCodeRef.current?.focus()}
-                  accessibilityLabel="Mobile number"
-                />
+            {/* Coral Error Banner above Verify & Proceed */}
+            {bannerError && (
+              <View style={styles.errorBanner} accessibilityRole="alert">
+                <AlertCircle color={theme.colors.error} size={18} />
+                <Text style={styles.errorBannerText}>{bannerError}</Text>
               </View>
             )}
-          />
-          {errors.phone && (
-            <Text style={styles.fieldError}>{errors.phone.message}</Text>
-          )}
 
-          {/* ── Gym Code (Optional for Owner) ─────────────────────────── */}
-          <View style={styles.labelRow}>
-            <Text style={styles.label}>Gym code</Text>
-            <Text style={styles.optionalBadge}>Optional for owner</Text>
-          </View>
-          <Controller
-            control={control}
-            name="gymCode"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <View
-                style={[
-                  styles.inputRow,
-                  errors.gymCode && styles.inputRowError,
-                ]}
-              >
-                <TextInput
-                  ref={gymCodeRef}
-                  style={[styles.inputField, { letterSpacing: 2 }]}
-                  placeholder="e.g. FITZON1234"
-                  placeholderTextColor={theme.colors.textMuted}
-                  returnKeyType="next"
-                  autoCapitalize="characters"
-                  onBlur={onBlur}
-                  onChangeText={(v) => onChange(v.toUpperCase())}
-                  value={value}
-                  onSubmitEditing={() => passwordRef.current?.focus()}
-                  accessibilityLabel="Gym code"
-                />
-              </View>
-            )}
-          />
-          {errors.gymCode ? (
-            <Text style={styles.fieldError}>{errors.gymCode.message}</Text>
-          ) : (
-            <Text style={styles.fieldHint}>
-              Gym code aapke owner se lein ya registration ke waqt mila hoga.
-            </Text>
-          )}
-
-          {/* ── Password Input ────────────────────────────────────────── */}
-          <Text style={[styles.label, { marginTop: 16 }]}>Password</Text>
-          <Controller
-            control={control}
-            name="password"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <View
-                style={[
-                  styles.inputRow,
-                  errors.password && styles.inputRowError,
-                ]}
-              >
-                <TextInput
-                  ref={passwordRef}
-                  style={[styles.inputField, styles.passwordField]}
-                  placeholder="••••••••"
-                  placeholderTextColor={theme.colors.textMuted}
-                  secureTextEntry={!showPassword}
-                  returnKeyType="done"
-                  onBlur={onBlur}
-                  onChangeText={onChange}
-                  value={value}
-                  onSubmitEditing={handleSubmit(onSubmit)}
-                  accessibilityLabel="Password"
-                />
-                <TouchableOpacity
-                  onPress={() => setShowPassword((v) => !v)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  style={styles.eyeBtn}
-                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? (
-                    <EyeOff color={theme.colors.primary} size={20} />
-                  ) : (
-                    <Eye color={theme.colors.textMuted} size={20} />
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
-          />
-          {errors.password && (
-            <Text style={styles.fieldError}>{errors.password.message}</Text>
-          )}
-
-          {/* ── Forgot Password Link ──────────────────────────────────── */}
-          <TouchableOpacity
-            style={styles.forgotRow}
-            onPress={() => setForgotSheetVisible(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Forgot password?"
-          >
-            <Text style={styles.forgotText}>Forgot password?</Text>
-          </TouchableOpacity>
-
-          {/* ── Sign In Button ────────────────────────────────────────── */}
-          <Button
-            title="Sign In"
-            onPress={handleSubmit(onSubmit)}
-            loading={isSubmitting}
-            disabled={isSubmitting}
-            variant="primary"
-            size="lg"
-          />
-        </GlassCard>
-
-        {/* ── Register Link ─────────────────────────────────────────── */}
-        <View style={styles.registerRow}>
-          <Text style={styles.registerPrompt}>New gym? </Text>
-          <TouchableOpacity
-            onPress={() => router.push('/(auth)/register')}
-            accessibilityRole="link"
-            accessibilityLabel="Create an account"
-            style={styles.registerTouch}
-          >
-            <Text style={styles.registerLink}>Create an account</Text>
-          </TouchableOpacity>
-        </View>
-      </Animated.View>
-
-      {/* ── Forgot Password Bottom Sheet Modal ──────────────────────── */}
-      <Modal
-        visible={forgotSheetVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setForgotSheetVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <GlassCard style={styles.sheetContent} intensity={40}>
-            <View style={styles.sheetHandle} />
-
-            <View style={styles.sheetIconCircle}>
-              <HelpCircle size={28} color={theme.colors.primary} />
+            {/* Primary Button: Verify & Proceed */}
+            <View style={styles.verifyButtonWrapper}>
+              <Button
+                title={LOGIN.VERIFY_AND_PROCEED}
+                onPress={handleVerifyOtp}
+                loading={isVerifyingOtp}
+                disabled={otp.length !== OTP_LENGTH || isVerifyingOtp}
+                size="lg"
+              />
             </View>
 
-            <Text style={styles.sheetTitle}>Reset Password</Text>
-            <Text style={styles.sheetBody}>
-              Agar aap gym staff hain, toh please contact your gym owner to reset your password.
-            </Text>
-            <Text style={styles.sheetSubBody}>
-              Agar aap gym owner hain, toh hamari support team se WhatsApp par sampark karein:
-            </Text>
-
-            <TouchableOpacity
-              style={styles.waHelpBtn}
-              onPress={handleWhatsAppHelp}
-              activeOpacity={0.8}
-            >
-              <MessageCircle color={theme.colors.textOnPrimary} size={18} style={{ marginRight: 8 }} />
-              <Text style={styles.waHelpBtnText}>Contact WhatsApp Support</Text>
-            </TouchableOpacity>
-
-            <Button
-              title="Close"
-              onPress={() => setForgotSheetVisible(false)}
-              variant="secondary"
-              size="md"
-              style={{ marginTop: theme.spacing.sm }}
-            />
-          </GlassCard>
-        </View>
-      </Modal>
+            <Text style={styles.staffHelperText}>{LOGIN.STAFF_HELPER}</Text>
+          </Animated.View>
+        )}
+      </GlassCard>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: {
+  scrollContent: {
     flexGrow: 1,
-    justifyContent: 'space-between',
     paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.xl,
     paddingBottom: theme.spacing.xxl,
+    justifyContent: 'center',
   },
-  topSection: {
+  headerSection: {
     alignItems: 'center',
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.xl,
+    marginBottom: theme.spacing.xl,
   },
-  logoBtn: {
-    marginBottom: theme.spacing.sm,
+  logo: {
+    marginBottom: theme.spacing.md,
   },
-  brandTitle: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 32,
-    color: theme.colors.text,
-    letterSpacing: 0.5,
-    marginBottom: 4,
+  title: {
+    ...theme.typography.h1,
+    textAlign: 'center',
+    marginBottom: 6,
   },
-  brandTagline: {
+  subtitle: {
     ...theme.typography.body,
     color: theme.colors.textMuted,
     textAlign: 'center',
   },
-  cardWrapper: {
-    width: '100%',
-  },
-  card: {
-    padding: theme.spacing.xl,
-    borderRadius: theme.radius.xl,
-  },
-  cardTitle: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 24,
-    color: theme.colors.text,
-    marginBottom: 4,
-  },
-  cardSubtitle: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
+  glassCard: {
     marginBottom: theme.spacing.lg,
+  },
+  cardInner: {
+    padding: theme.spacing.xl,
+  },
+  phoneContainerReadOnly: {
+    marginBottom: theme.spacing.sm,
+  },
+  changeNumberBtn: {
+    minHeight: 44,
+    minWidth: 44,
+    paddingHorizontal: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  changeNumberText: {
+    fontFamily: theme.fonts.headingBold,
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.primary,
+  },
+  primaryButtonWrapper: {
+    marginTop: theme.spacing.xs,
+  },
+  staffHelperText: {
+    ...theme.typography.small,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+    marginTop: theme.spacing.md,
+    lineHeight: 18,
+  },
+  otpSection: {
+    marginTop: theme.spacing.sm,
+  },
+  otpHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  otpSectionLabel: {
+    ...theme.typography.caption,
+    color: theme.colors.textMuted,
+    fontFamily: theme.fonts.headingMedium,
+    fontWeight: '600',
+  },
+  devOtpHint: {
+    ...theme.typography.small,
+    fontFamily: theme.fonts.headingBold,
+    fontWeight: '700',
+    color: theme.colors.primary,
+    backgroundColor: 'rgba(142, 182, 155, 0.14)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: theme.radius.sm,
+    overflow: 'hidden',
+  },
+  otpWrapper: {
+    position: 'relative',
+    minHeight: 56,
+    justifyContent: 'center',
+  },
+  hiddenOtpInput: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    opacity: 0.01,
+    fontSize: 1,
+    zIndex: 2,
+  },
+  otpBoxesRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  otpBox: {
+    flex: 1,
+    minWidth: 44,
+    minHeight: 54,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  otpBoxFilled: {
+    borderColor: 'rgba(142, 182, 155, 0.55)',
+    backgroundColor: theme.colors.raised,
+  },
+  otpBoxActive: {
+    borderColor: theme.colors.primary,
+    backgroundColor: 'rgba(142, 182, 155, 0.14)',
+    ...Platform.select({
+      ios: {
+        ...theme.shadows.glow,
+      },
+      android: {
+        elevation: 5,
+        shadowColor: theme.colors.primary,
+      },
+    }),
+  },
+  otpDigitText: {
+    fontFamily: theme.fonts.headingBold,
+    fontSize: 20,
+    fontWeight: '700',
+    color: theme.colors.text,
+  },
+  otpCursor: {
+    width: 2,
+    height: 22,
+    borderRadius: 1,
+    backgroundColor: theme.colors.primary,
+  },
+  resendRow: {
+    alignItems: 'flex-end',
+    marginTop: 6,
+    marginBottom: theme.spacing.xs,
+  },
+  resendTouchTarget: {
+    minHeight: 44,
+    minWidth: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  resendText: {
+    fontFamily: theme.fonts.headingMedium,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  resendTextDisabled: {
+    color: theme.colors.textMuted,
+  },
+  resendTextActive: {
+    color: theme.colors.primary,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     backgroundColor: 'rgba(255, 107, 107, 0.15)',
     borderRadius: theme.radius.md,
-    borderWidth: 1.5,
-    borderColor: '#FF6B6B',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 107, 0.40)',
     padding: 12,
+    marginTop: theme.spacing.xs,
     marginBottom: theme.spacing.md,
   },
   errorBannerText: {
     color: theme.colors.error,
     fontFamily: theme.fonts.bodyRegular,
-    fontSize: 14,
+    fontSize: 13,
+    lineHeight: 18,
     flex: 1,
-    lineHeight: 20,
   },
-  errorDismiss: {
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  labelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 16,
-    marginBottom: 6,
-  },
-  label: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  optionalBadge: {
-    ...theme.typography.small,
-    color: theme.colors.primary,
-    backgroundColor: theme.colors.raised,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: theme.radius.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.raised,
-    borderRadius: theme.radius.lg,
-    overflow: 'hidden',
-    minHeight: 52,
-  },
-  inputRowError: {
-    borderColor: theme.colors.error,
-  },
-  prefixBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 14,
-  },
-  prefix: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 15,
-    color: theme.colors.primary,
-    marginRight: 8,
-  },
-  prefixDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: theme.colors.border,
-    marginRight: 8,
-  },
-  inputField: {
-    flex: 1,
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 15,
-    color: theme.colors.text,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-  },
-  passwordField: {
-    paddingVertical: 14,
-  },
-  eyeBtn: {
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-  },
-  fieldError: {
-    ...theme.typography.small,
-    color: theme.colors.error,
-    marginTop: 4,
-    marginLeft: 2,
-  },
-  fieldHint: {
-    ...theme.typography.small,
-    color: theme.colors.textMuted,
-    marginTop: 6,
-    marginLeft: 2,
-    lineHeight: 16,
-  },
-  forgotRow: {
-    alignSelf: 'flex-end',
-    marginTop: 10,
-    marginBottom: theme.spacing.lg,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  forgotText: {
-    ...theme.typography.caption,
-    color: theme.colors.primary,
-    fontWeight: '600',
-  },
-  registerRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: theme.spacing.xl,
-    minHeight: 44,
-  },
-  registerPrompt: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-  },
-  registerTouch: {
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  registerLink: {
-    ...theme.typography.body,
-    color: theme.colors.primary,
-    fontFamily: theme.fonts.headingBold,
-    fontWeight: '700',
-  },
-
-  // ── Bottom Sheet Modal ─────────────────────────────────────────────────────
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(5, 31, 32, 0.85)',
-    justifyContent: 'flex-end',
-  },
-  sheetContent: {
-    backgroundColor: theme.colors.surface,
-    padding: theme.spacing.xl,
-    borderTopLeftRadius: theme.radius.xl,
-    borderTopRightRadius: theme.radius.xl,
-    alignItems: 'center',
-    borderTopWidth: 1.5,
-    borderTopColor: theme.colors.border,
-  },
-  sheetHandle: {
-    width: 44,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: theme.colors.border,
-    marginBottom: theme.spacing.lg,
-  },
-  sheetIconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: theme.radius.full,
-    backgroundColor: theme.colors.raised,
-    borderWidth: 1.5,
-    borderColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: theme.spacing.md,
-  },
-  sheetTitle: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 20,
-    color: theme.colors.text,
-    marginBottom: 8,
-  },
-  sheetBody: {
-    ...theme.typography.body,
-    color: theme.colors.text,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 6,
-  },
-  sheetSubBody: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  waHelpBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.primary,
-    width: '100%',
-    paddingVertical: 14,
-    borderRadius: theme.radius.full,
-    marginBottom: theme.spacing.sm,
-  },
-  waHelpBtnText: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 15,
-    color: theme.colors.textOnPrimary,
-    fontWeight: '700',
+  verifyButtonWrapper: {
+    marginTop: theme.spacing.xs,
   },
 });

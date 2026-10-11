@@ -2,6 +2,7 @@ package com.gymapp.module.auth.repository;
 
 import com.gymapp.module.auth.entity.Gym;
 import org.springframework.data.mongodb.repository.MongoRepository;
+import java.util.List;
 import java.util.Optional;
 
 public interface GymRepository extends MongoRepository<Gym, String> {
@@ -9,4 +10,5 @@ public interface GymRepository extends MongoRepository<Gym, String> {
     boolean existsByPhone(String phone);
     Optional<Gym> findByGymCode(String gymCode);
     boolean existsByGymCode(String gymCode);
+    List<Gym> findByGymCodeIsNull();
 }

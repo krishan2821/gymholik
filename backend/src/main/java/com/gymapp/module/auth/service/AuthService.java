@@ -3,166 +3,266 @@ package com.gymapp.module.auth.service;
 import com.gymapp.common.TenantContext;
 import com.gymapp.common.exception.AppException;
 import com.gymapp.common.exception.ErrorCode;
+import com.gymapp.module.audit.service.AuditLogService;
 import com.gymapp.module.auth.dto.*;
 import com.gymapp.module.auth.entity.*;
 import com.gymapp.module.auth.repository.*;
+import com.gymapp.module.plan.service.PlanService;
+import com.gymapp.module.trainer.dto.TrainerTypeResponse;
+import com.gymapp.module.trainer.repository.TrainerTypeRepository;
+import com.gymapp.module.trainer.service.TrainerTypeService;
 import com.gymapp.security.JwtUtil;
+import com.gymapp.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
+import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final GymRepository         gymRepository;
-    private final UserRepository        userRepository;
-    private final RefreshTokenRepository refreshTokenRepository;
-    private final LoginAttemptRepository loginAttemptRepository;
-    private final PasswordEncoder        passwordEncoder;
-    private final JwtUtil                jwtUtil;
-    private final com.gymapp.module.trainer.service.TrainerTypeService trainerTypeService;
-    private final com.gymapp.module.trainer.repository.TrainerTypeRepository trainerTypeRepository;
+    private static final Pattern INDIAN_PHONE_PATTERN = Pattern.compile("^[6-9]\\d{9}$");
+    private static final Pattern UDYAM_PATTERN = Pattern.compile("^UDYAM-[A-Z]{2}-\\d{2}-\\d{7}$");
+    private static final Pattern GSTIN_PATTERN = Pattern.compile("^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$");
+    private static final Pattern NIC_PATTERN = Pattern.compile("^\\d{4,5}$");
 
-    @Value("${app.trial.duration-days}")
+    private final GymRepository gymRepository;
+    private final UserRepository userRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final JwtUtil jwtUtil;
+    private final TrainerTypeService trainerTypeService;
+    private final TrainerTypeRepository trainerTypeRepository;
+    private final PlanService planService;
+    private final AuditLogService auditLogService;
+    private final GymCodeGenerator gymCodeGenerator;
+
+    @Value("${app.trial.duration-days:14}")
     private int trialDurationDays;
 
-    @Value("${app.jwt.refresh-token-expiry-days}")
+    @Value("${app.jwt.refresh-token-expiry-days:30}")
     private int refreshTokenExpiryDays;
 
-    @Value("${app.login.max-attempts}")
-    private int maxLoginAttempts;
-
-    @Value("${app.login.lockout-minutes}")
-    private int lockoutMinutes;
+    private final Map<String, java.time.Instant> usedRegistrationTokens = new ConcurrentHashMap<>();
 
     // ── Public API ────────────────────────────────────────────────────────────
 
     /**
-     * Creates a new gym tenant and its owner account, starting a trial period.
-     * Transactional: both gym and owner are rolled back if either fails.
+     * Completes gym-owner registration using a verified REGISTER-scoped JWT.
+     * Phone comes strictly from the token, never from the request body.
+     * Creates the Gym (14-day TRIAL, default plans, default trainer types) and the
+     * OWNER user (ACTIVE) in a single transaction, then issues access + refresh tokens.
      */
     @Transactional
-    public GymResponse registerGym(RegisterGymRequest request) {
-        // ownerPhone doubles as the gym's contact number; check for duplicates on it.
-        if (gymRepository.existsByPhone(request.getOwnerPhone())) {
+    public VerifyOtpResponse completeRegistration(
+            String phone,
+            String registrationToken,
+            CompleteRegistrationRequest request) {
+
+        if (!StringUtils.hasText(phone)) {
+            throw new AppException(ErrorCode.UNAUTHORIZED, "Valid registration token is required");
+        }
+        String normalizedPhone = normalizeAndValidatePhone(phone);
+
+        // Validation for registration fields
+        validateRegistrationFields(request);
+
+        java.time.Instant now = java.time.Instant.now();
+        usedRegistrationTokens.entrySet().removeIf(e -> now.isAfter(e.getValue()));
+
+        String tokenKey = StringUtils.hasText(registrationToken)
+                ? OtpService.sha256Hex(registrationToken)
+                : null;
+
+        // Enforce single-use registration token
+        if (tokenKey != null && usedRegistrationTokens.containsKey(tokenKey)) {
+            throw new AppException(ErrorCode.INVALID_TOKEN, "Registration token has already been used");
+        }
+
+        // Reject if phone already exists (e.g. race condition or added as trainer/staff while holding registrationToken) with 409 Conflict
+        if (userRepository.existsByPhone(normalizedPhone) || gymRepository.existsByPhone(normalizedPhone)) {
+            if (tokenKey != null) {
+                usedRegistrationTokens.put(tokenKey, now.plusSeconds(1800));
+            }
             throw new AppException(ErrorCode.PHONE_ALREADY_EXISTS,
                     "An account with this mobile number already exists");
         }
 
-        // Generate a unique short code for the gym (used as login identifier)
-        String gymCode = generateUniqueGymCode(request.getGymName());
+        if (tokenKey != null) {
+            usedRegistrationTokens.put(tokenKey, now.plusSeconds(1800));
+        }
 
-        LocalDateTime trialEndsAt = LocalDateTime.now().plusDays(trialDurationDays);
+        int effectiveTrialDays = trialDurationDays > 0 ? trialDurationDays : 14;
+
+        GymAddress address = GymAddress.builder()
+                .line1(request.getAddress().getLine1().trim())
+                .line2(StringUtils.hasText(request.getAddress().getLine2()) ? request.getAddress().getLine2().trim() : null)
+                .state(IndianStates.canonicalName(request.getAddress().getState()))
+                .district(request.getAddress().getDistrict().trim())
+                .pincode(request.getAddress().getPincode().trim())
+                .build();
+
+        String normalizedLegalId = StringUtils.hasText(request.getLegalIdNumber())
+                ? request.getLegalIdNumber().trim().toUpperCase()
+                : null;
 
         Gym gym = Gym.builder()
-                .name(request.getGymName())
-                .ownerName(request.getOwnerName())
-                .phone(request.getOwnerPhone())   // owner's number is the gym contact
-                .address(request.getCity())        // city stored in the address field
-                .gymCode(gymCode)
+                .name(request.getGymName().trim())
+                .gymType(request.getGymType())
+                .ownerName(request.getOwnerName().trim())
+                .phone(normalizedPhone)
+                .address(address)
+                .legalIdType(request.getLegalIdType())
+                .legalIdNumber(normalizedLegalId)
+                .legalIdVerified(false)
+                .termsAcceptedAt(Instant.now())
+                .termsVersion(request.getTermsVersion().trim())
                 .status("TRIAL")
-                .subscriptionValidTill(trialEndsAt.toLocalDate())
+                .subscriptionValidTill(LocalDate.now().plusDays(effectiveTrialDays))
                 .build();
 
-        gym = gymRepository.save(gym);
-        log.info("Gym registered: id={}, code={}", gym.getId(), gymCode);
+        String rawRefreshToken = UUID.randomUUID().toString();
+        String refreshHash = OtpService.sha256Hex(rawRefreshToken);
 
-        User owner = User.builder()
+        User owner;
+        try {
+            gym = saveGymWithUniqueGymCode(gym);
+            log.info("Gym registered via OTP: id={}", gym.getId());
+
+            String normalizedEmail = (request.getEmail() != null && !request.getEmail().isBlank())
+                    ? request.getEmail().trim()
+                    : null;
+
+            owner = User.builder()
+                    .gymId(gym.getId())
+                    .name(request.getOwnerName().trim())
+                    .phone(normalizedPhone)
+                    .email(normalizedEmail)
+                    .role("OWNER")
+                    .active(true)
+                    .status("ACTIVE")
+                    .tokenVersion(0)
+                    .refreshTokenHash(refreshHash)
+                    .build();
+
+            owner = userRepository.save(owner);
+            log.info("Owner created: userId={}, gymId={}", owner.getId(), gym.getId());
+        } catch (org.springframework.dao.DuplicateKeyException ex) {
+            throw new AppException(ErrorCode.PHONE_ALREADY_EXISTS,
+                    "An account with this mobile number already exists");
+        }
+
+        // Seed default plans and default trainer types on gym creation
+        if (planService != null) {
+            planService.seedDefaultsForGym(gym.getId());
+        }
+        if (trainerTypeService != null) {
+            trainerTypeService.seedDefaultsForGym(gym.getId());
+        }
+
+        int effectiveRefreshDays = refreshTokenExpiryDays > 0 ? refreshTokenExpiryDays : 30;
+        String accessToken = jwtUtil.generateAccessToken(owner.getId(), gym.getId(), owner.getRole());
+
+        RefreshToken refreshToken = RefreshToken.builder()
+                .token(rawRefreshToken)
+                .userId(owner.getId())
                 .gymId(gym.getId())
-                .name(request.getOwnerName())
-                .phone(request.getOwnerPhone())
-                .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .role("OWNER")
-                .active(true)
-                .status("ACTIVE")
+                .expiresAt(LocalDateTime.now().plusDays(effectiveRefreshDays))
+                .createdAt(LocalDateTime.now())
                 .build();
+        refreshTokenRepository.save(refreshToken);
 
-        userRepository.save(owner);
-        log.info("Owner created: userId={}, gymId={}", owner.getId(), gym.getId());
-
-        // Seed default trainer types on gym creation
-        trainerTypeService.seedDefaultsForGym(gym.getId());
-
-        return GymResponse.builder()
-                .gymId(gym.getId())
-                .gymName(gym.getName())
-                .gymCode(gymCode)
-                .ownerName(owner.getName())
-                .ownerPhone(owner.getPhone())
-                .trialEndsAt(gym.getSubscriptionValidTill().atStartOfDay())
+        return VerifyOtpResponse.builder()
+                .isNewUser(false)
+                .accessToken(accessToken)
+                .refreshToken(rawRefreshToken)
+                .user(VerifyOtpResponse.UserSummary.builder()
+                        .id(owner.getId())
+                        .name(owner.getName())
+                        .role(owner.getRole())
+                        .gymId(gym.getId())
+                        .gymName(gym.getName())
+                        .build())
+                .gym(VerifyOtpResponse.GymSummary.builder()
+                        .id(gym.getId())
+                        .name(gym.getName())
+                        .gymCode(gym.getGymCode())
+                        .gymType(gym.getGymType() != null ? gym.getGymType().name() : null)
+                        .build())
                 .build();
     }
 
-    /**
-     * Authenticates a user and issues access + refresh tokens.
-     *
-     * Flow:
-     *  1. If gymCode is blank → SUPER_ADMIN login path (no gym context).
-     *  2. Otherwise → resolve gym, validate its status, find user within gym.
-     *  3. Check lockout (after gym is found, keyed on gymId:phone).
-     *  4. Validate password; on failure increment lockout counter.
-     *  5. On success clear lockout counter and issue tokens.
-     */
-    public TokenResponse login(LoginRequest request) {
-        boolean isGymCodeProvided = request.getGymCode() != null
-                && !request.getGymCode().isBlank();
+    private void validateRegistrationFields(CompleteRegistrationRequest request) {
+        Map<String, String> fieldErrors = new LinkedHashMap<>();
 
-        if (!isGymCodeProvided) {
-            // 1. Check if user is SUPER_ADMIN
-            Optional<User> superAdmin = userRepository.findByPhoneAndRole(request.getPhone(), "SUPER_ADMIN");
-            if (superAdmin.isPresent()) {
-                return loginSuperAdmin(request);
+        if (request.getAddress() != null && StringUtils.hasText(request.getAddress().getState())) {
+            if (!IndianStates.isValidState(request.getAddress().getState())) {
+                fieldErrors.put("address.state", "State must be a valid Indian state or UT");
             }
-
-            // 2. Auto-detect Gym for user (e.g. Owner) via globally unique phone
-            User user = userRepository.findByPhone(request.getPhone())
-                    .orElseThrow(() -> new AppException(ErrorCode.INVALID_CREDENTIALS));
-
-            if (user.getGymId() == null) {
-                throw new AppException(ErrorCode.INVALID_CREDENTIALS);
-            }
-
-            Gym gym = gymRepository.findById(user.getGymId())
-                    .orElseThrow(() -> new AppException(ErrorCode.INVALID_CREDENTIALS));
-
-            validateGymStatus(gym);
-
-            String lockoutKey = buildLockoutKey(gym.getId(), request.getPhone());
-            enforceLoginLockout(lockoutKey);
-
-            return authenticateAndIssueTokens(user, request.getPassword(), lockoutKey);
         }
 
-        // ── Gym-user login with explicitly provided gymCode ───────────────────
+        boolean hasLegalType = request.getLegalIdType() != null;
+        boolean hasLegalNumber = StringUtils.hasText(request.getLegalIdNumber());
 
-        Gym gym = gymRepository.findByGymCode(request.getGymCode().toUpperCase())
-                .orElseThrow(() -> new AppException(ErrorCode.INVALID_CREDENTIALS));
+        if (hasLegalType != hasLegalNumber) {
+            if (!hasLegalType) {
+                fieldErrors.put("legalIdType", "legalIdType is required when legalIdNumber is provided");
+            }
+            if (!hasLegalNumber) {
+                fieldErrors.put("legalIdNumber", "legalIdNumber is required when legalIdType is provided");
+            }
+        } else if (hasLegalType) {
+            String idNum = request.getLegalIdNumber().trim().toUpperCase();
+            switch (request.getLegalIdType()) {
+                case UDYAM -> {
+                    if (!UDYAM_PATTERN.matcher(idNum).matches()) {
+                        fieldErrors.put("legalIdNumber", "UDYAM format is invalid (expected UDYAM-XX-00-0000000)");
+                    }
+                }
+                case GSTIN -> {
+                    if (!GSTIN_PATTERN.matcher(idNum).matches()) {
+                        fieldErrors.put("legalIdNumber", "GSTIN format is invalid");
+                    }
+                }
+                case NIC -> {
+                    if (!NIC_PATTERN.matcher(idNum).matches()) {
+                        fieldErrors.put("legalIdNumber", "NIC format is invalid (expected 4-5 digits)");
+                    }
+                }
+            }
+        }
 
-        validateGymStatus(gym);
+        if (!fieldErrors.isEmpty()) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Validation failed", fieldErrors);
+        }
+    }
 
-        // Lockout key is scoped to this gym so that a lockout in Gym A
-        // doesn't affect the same phone number in Gym B.
-        String lockoutKey = buildLockoutKey(gym.getId(), request.getPhone());
-        enforceLoginLockout(lockoutKey);
-
-        User user = userRepository.findByPhone(request.getPhone())
-                .filter(u -> u.getGymId().equals(gym.getId()))
-                .orElseThrow(() -> {
-                    recordFailedAttempt(lockoutKey);
-                    return new AppException(ErrorCode.INVALID_CREDENTIALS);
-                });
-
-        return authenticateAndIssueTokens(user, request.getPassword(), lockoutKey);
+    private Gym saveGymWithUniqueGymCode(Gym gym) {
+        for (int i = 0; i < 5; i++) {
+            String code = gymCodeGenerator.generate();
+            if (!gymRepository.existsByGymCode(code)) {
+                gym.setGymCode(code);
+                try {
+                    return gymRepository.save(gym);
+                } catch (org.springframework.dao.DuplicateKeyException ex) {
+                    log.warn("Collision generating gymCode (duplicate key), retrying... (attempt {})", i + 1);
+                }
+            } else {
+                log.warn("Collision generating gymCode (already exists), retrying... (attempt {})", i + 1);
+            }
+        }
+        throw new AppException(ErrorCode.INTERNAL_ERROR, "Failed to generate unique gym code. Please try again.");
     }
 
     /**
@@ -175,7 +275,7 @@ public class AuthService {
                 .orElseThrow(() -> new AppException(ErrorCode.REFRESH_TOKEN_NOT_FOUND));
 
         if (stored.isExpired()) {
-            refreshTokenRepository.delete(stored);   // clean up expired token
+            refreshTokenRepository.delete(stored);
             throw new AppException(ErrorCode.REFRESH_TOKEN_NOT_FOUND,
                     "Refresh token has expired. Please log in again.");
         }
@@ -189,6 +289,36 @@ public class AuthService {
                     .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
         }
 
+        if (!user.isActive() || "INACTIVE".equalsIgnoreCase(user.getStatus())) {
+            refreshTokenRepository.delete(stored);
+            throw new AppException(ErrorCode.ACCOUNT_INACTIVE);
+        }
+
+        String presentedHash = OtpService.sha256Hex(request.getRefreshToken());
+        if (StringUtils.hasText(user.getRefreshTokenHash())
+                && !user.getRefreshTokenHash().equals(presentedHash)) {
+            // Replay / mismatch detected: revoke all refresh tokens and bump tokenVersion
+            refreshTokenRepository.deleteByUserId(user.getId());
+            user.setRefreshTokenHash(null);
+            user.setTokenVersion(user.getTokenVersion() + 1);
+            userRepository.save(user);
+            throw new AppException(ErrorCode.REFRESH_TOKEN_NOT_FOUND,
+                    "Refresh token has already been rotated or invalidated.");
+        }
+
+        if (user.getGymId() != null && gymRepository != null) {
+            gymRepository.findById(user.getGymId()).ifPresent(gym -> {
+                if ("SUSPENDED".equalsIgnoreCase(gym.getStatus())) {
+                    throw new AppException(ErrorCode.GYM_SUSPENDED);
+                }
+                if ("EXPIRED".equalsIgnoreCase(gym.getStatus())
+                        || (gym.getSubscriptionValidTill() != null
+                            && LocalDate.now().isAfter(gym.getSubscriptionValidTill()))) {
+                    throw new AppException(ErrorCode.SUBSCRIPTION_EXPIRED);
+                }
+            });
+        }
+
         // Rotate: delete old token, issue new pair
         refreshTokenRepository.delete(stored);
         return buildTokenResponse(user);
@@ -199,232 +329,127 @@ public class AuthService {
      * gymId is taken from TenantContext (set by JwtFilter) — never from request body.
      */
     @Transactional
-    public void createStaff(CreateStaffRequest request) {
-        if (com.gymapp.security.SecurityUtils.getCurrentRole() != null && !com.gymapp.security.SecurityUtils.isOwner()) {
+    public StaffResponse createStaff(CreateStaffRequest request) {
+        if (SecurityUtils.getCurrentRole() != null && !SecurityUtils.isOwner()) {
             throw new AppException(ErrorCode.ACCESS_DENIED, "Access denied");
         }
 
-        String gymId = TenantContext.getGymId(); // always set by JwtFilter for authenticated requests
+        String gymId = TenantContext.getGymId();
+        String phone = normalizeAndValidatePhone(request.getPhone());
 
-        if (userRepository.existsByPhone(request.getPhone())) {
-            throw new AppException(ErrorCode.USER_ALREADY_EXISTS);
+        if (userRepository.existsByPhone(phone)) {
+            throw new AppException(ErrorCode.PHONE_ALREADY_REGISTERED,
+                    "This phone number is already registered");
         }
 
         User staff = User.builder()
                 .gymId(gymId)
-                .name(request.getName())
-                .phone(request.getPhone())
-                .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .name(request.getName().trim())
+                .phone(phone)
                 .role("STAFF")
                 .active(true)
                 .status("ACTIVE")
+                .tokenVersion(0)
                 .build();
 
-        userRepository.save(staff);
-        log.info("Staff created: phone={}, gymId={}", com.gymapp.common.PhoneMasker.mask(request.getPhone()), gymId);
+        staff = userRepository.save(staff);
+        auditLogService.log("STAFF_CREATED", staff.getId(), "name=" + staff.getName());
+        log.info("Created STAFF user id={} for gymId={}", staff.getId(), gymId);
+        return toStaffResponse(staff);
+    }
+
+    @Transactional
+    public StaffResponse updateStaff(String staffId, UpdateStaffRequest request) {
+        if (SecurityUtils.getCurrentRole() != null && !SecurityUtils.isOwner()) {
+            throw new AppException(ErrorCode.ACCESS_DENIED, "Access denied");
+        }
+
+        String gymId = TenantContext.getGymId();
+        User staff = userRepository.findByIdAndGymId(staffId, gymId)
+                .filter(u -> "STAFF".equals(u.getRole()))
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND, "Staff member not found"));
+
+        if (request.getName() != null && !request.getName().isBlank()) {
+            staff.setName(request.getName().trim());
+        }
+
+        if (request.getActive() != null) {
+            boolean willBeActive = request.getActive();
+            staff.setActive(willBeActive);
+            staff.setStatus(willBeActive ? "ACTIVE" : "INACTIVE");
+            if (!willBeActive) {
+                staff.setTokenVersion(staff.getTokenVersion() + 1);
+                staff.setRefreshTokenHash(null);
+                refreshTokenRepository.deleteByUserId(staff.getId());
+            }
+        }
+
+        if (request.getPhone() != null && !request.getPhone().isBlank()) {
+            String normalized = normalizeAndValidatePhone(request.getPhone());
+            if (!normalized.equals(staff.getPhone())) {
+                if (userRepository.existsByPhone(normalized)) {
+                    throw new AppException(ErrorCode.PHONE_ALREADY_REGISTERED, "This phone number is already registered");
+                }
+                staff.setPhone(normalized);
+                staff.setTokenVersion(staff.getTokenVersion() + 1);
+                staff.setRefreshTokenHash(null);
+                refreshTokenRepository.deleteByUserId(staff.getId());
+            }
+        }
+
+        staff = userRepository.save(staff);
+        return toStaffResponse(staff);
+    }
+
+    @Transactional
+    public void deleteStaff(String staffId) {
+        if (SecurityUtils.getCurrentRole() != null && !SecurityUtils.isOwner()) {
+            throw new AppException(ErrorCode.ACCESS_DENIED, "Access denied");
+        }
+
+        String gymId = TenantContext.getGymId();
+        User staff = userRepository.findByIdAndGymId(staffId, gymId)
+                .filter(u -> "STAFF".equals(u.getRole()))
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND, "Staff member not found"));
+
+        refreshTokenRepository.deleteByUserId(staff.getId());
+        userRepository.delete(staff);
+    }
+
+    @Transactional
+    public StaffResponse toggleStaffStatus(String staffId) {
+        if (SecurityUtils.getCurrentRole() != null && !SecurityUtils.isOwner()) {
+            throw new AppException(ErrorCode.ACCESS_DENIED, "Access denied");
+        }
+
+        String gymId = TenantContext.getGymId();
+        User staff = userRepository.findByIdAndGymId(staffId, gymId)
+                .filter(u -> "STAFF".equals(u.getRole()))
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND, "Staff member not found"));
+
+        boolean willBeActive = !staff.isActive();
+        staff.setActive(willBeActive);
+        staff.setStatus(willBeActive ? "ACTIVE" : "INACTIVE");
+
+        if (!willBeActive) {
+            staff.setTokenVersion(staff.getTokenVersion() + 1);
+            staff.setRefreshTokenHash(null);
+            refreshTokenRepository.deleteByUserId(staff.getId());
+        }
+
+        staff = userRepository.save(staff);
+        return toStaffResponse(staff);
     }
 
     public List<StaffResponse> getStaffList() {
-        if (com.gymapp.security.SecurityUtils.getCurrentRole() != null && !com.gymapp.security.SecurityUtils.isOwner()) {
+        if (SecurityUtils.getCurrentRole() != null && !SecurityUtils.isOwner()) {
             throw new AppException(ErrorCode.ACCESS_DENIED, "Access denied");
         }
 
         String gymId = TenantContext.getGymId();
         return userRepository.findByGymIdAndRole(gymId, "STAFF").stream()
-                .map(u -> StaffResponse.builder()
-                        .id(u.getId())
-                        .gymId(u.getGymId())
-                        .name(u.getName())
-                        .phone(u.getPhone())
-                        .role(u.getRole())
-                        .active(u.isActive())
-                        .status(u.getStatus())
-                        .createdAt(u.getCreatedAt())
-                        .build())
+                .map(this::toStaffResponse)
                 .toList();
-    }
-
-    /**
-     * Public self-registration for TRAINER accounts.
-     * Starts with status = PENDING_APPROVAL and active = false.
-     */
-    @Transactional
-    public void registerTrainer(RegisterTrainerRequest request) {
-        Gym gym = gymRepository.findByGymCode(request.getGymCode().toUpperCase())
-                .orElseThrow(() -> new AppException(ErrorCode.GYM_NOT_FOUND, "Invalid gym code"));
-
-        validateGymStatus(gym);
-
-        if (userRepository.existsByPhone(request.getPhone())) {
-            throw new AppException(ErrorCode.PHONE_ALREADY_EXISTS,
-                    "An account with this mobile number already exists");
-        }
-
-        User trainer = User.builder()
-                .gymId(gym.getId())
-                .name(request.getName())
-                .phone(request.getPhone())
-                .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .role("TRAINER")
-                .active(false)
-                .status("PENDING_APPROVAL")
-                .trainerTypeIds(new java.util.ArrayList<>())
-                .build();
-
-        userRepository.save(trainer);
-        log.info("Trainer registered (pending approval): phone={}, gymId={}",
-                com.gymapp.common.PhoneMasker.mask(request.getPhone()), gym.getId());
-    }
-
-    @Transactional
-    public void changePassword(String userId, ChangePasswordRequest request) {
-        String gymId = TenantContext.getGymId();
-        User user = (gymId != null)
-                ? userRepository.findByIdAndGymId(userId, gymId).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND))
-                : userRepository.findById(userId).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
-
-        if (!passwordEncoder.matches(request.getOldPassword(), user.getPasswordHash())) {
-            throw new AppException(ErrorCode.INVALID_CREDENTIALS, "Incorrect old password");
-        }
-
-        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
-        userRepository.save(user);
-    }
-
-    // ── Private helpers ───────────────────────────────────────────────────────
-
-    private TokenResponse loginSuperAdmin(LoginRequest request) {
-        String lockoutKey = "SUPER:" + request.getPhone();
-        enforceLoginLockout(lockoutKey);
-
-        User user = userRepository.findByPhoneAndRole(request.getPhone(), "SUPER_ADMIN")
-                .orElseThrow(() -> {
-                    recordFailedAttempt(lockoutKey);
-                    return new AppException(ErrorCode.INVALID_CREDENTIALS);
-                });
-
-        return authenticateAndIssueTokens(user, request.getPassword(), lockoutKey);
-    }
-
-    private TokenResponse authenticateAndIssueTokens(User user, String rawPassword, String lockoutKey) {
-        if ("PENDING_APPROVAL".equalsIgnoreCase(user.getStatus())) {
-            throw new AppException(ErrorCode.TRAINER_PENDING_APPROVAL);
-        }
-
-        if ("REJECTED".equalsIgnoreCase(user.getStatus())) {
-            throw new AppException(ErrorCode.ACCESS_DENIED, "Your trainer account registration was rejected");
-        }
-
-        if (!user.isActive()) {
-            throw new AppException(ErrorCode.ACCESS_DENIED, "This account is inactive");
-        }
-
-        if (!passwordEncoder.matches(rawPassword, user.getPasswordHash())) {
-            recordFailedAttempt(lockoutKey);
-            throw new AppException(ErrorCode.INVALID_CREDENTIALS);
-        }
-
-        // Success — clear any accumulated failed attempts
-        loginAttemptRepository.deleteByKey(lockoutKey);
-
-        return buildTokenResponse(user);
-    }
-
-    private TokenResponse buildTokenResponse(User user) {
-        String accessToken = jwtUtil.generateAccessToken(
-                user.getId(), user.getGymId(), user.getRole());
-
-        RefreshToken refreshToken = RefreshToken.builder()
-                .token(UUID.randomUUID().toString())
-                .userId(user.getId())
-                .gymId(user.getGymId())
-                .expiresAt(LocalDateTime.now().plusDays(refreshTokenExpiryDays))
-                .createdAt(LocalDateTime.now())
-                .build();
-
-        refreshTokenRepository.save(refreshToken);
-
-        String gymCode = null;
-        if (user.getGymId() != null) {
-            gymCode = gymRepository.findById(user.getGymId())
-                    .map(Gym::getGymCode)
-                    .orElse(null);
-        }
-
-        return TokenResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken.getToken())
-                .tokenType("Bearer")
-                .expiresIn(jwtUtil.getAccessTokenExpiryMs() / 1000)
-                .userId(user.getId())
-                .gymId(user.getGymId())
-                .gymCode(gymCode)
-                .role(user.getRole())
-                .build();
-    }
-
-    private void enforceLoginLockout(String lockoutKey) {
-        loginAttemptRepository.findByKey(lockoutKey).ifPresent(attempt -> {
-            if (attempt.isLocked()) {
-                throw new AppException(ErrorCode.ACCOUNT_LOCKED,
-                        "Account locked until " + attempt.getLockedUntil()
-                        + ". Too many failed login attempts.");
-            }
-        });
-    }
-
-    private void recordFailedAttempt(String lockoutKey) {
-        LoginAttempt attempt = loginAttemptRepository.findByKey(lockoutKey)
-                .orElse(LoginAttempt.builder().key(lockoutKey).attemptCount(0).build());
-
-        attempt.setAttemptCount(attempt.getAttemptCount() + 1);
-        attempt.setLastAttemptAt(LocalDateTime.now());
-
-        // Lock the account after maxLoginAttempts consecutive failures
-        if (attempt.getAttemptCount() >= maxLoginAttempts) {
-            attempt.setLockedUntil(LocalDateTime.now().plusMinutes(lockoutMinutes));
-            String maskedKey = lockoutKey;
-            if (lockoutKey != null && lockoutKey.contains(":")) {
-                String[] parts = lockoutKey.split(":", 2);
-                maskedKey = parts[0] + ":" + com.gymapp.common.PhoneMasker.mask(parts[1]);
-            }
-            log.warn("Account locked [key={}] after {} failed attempts", maskedKey, attempt.getAttemptCount());
-        }
-
-        loginAttemptRepository.save(attempt);
-    }
-
-    private void validateGymStatus(Gym gym) {
-        if ("SUSPENDED".equals(gym.getStatus())) {
-            throw new AppException(ErrorCode.GYM_SUSPENDED);
-        }
-        if ("TRIAL".equals(gym.getStatus())
-                && LocalDateTime.now().isAfter(gym.getSubscriptionValidTill().atStartOfDay())) {
-            throw new AppException(ErrorCode.GYM_TRIAL_EXPIRED);
-        }
-    }
-
-    private String buildLockoutKey(String gymId, String phone) {
-        return gymId + ":" + phone;
-    }
-
-    /**
-     * Generates a unique gym code: up to 6 alphanumeric chars from the gym name
-     * followed by a random 4-digit suffix. Retries up to 5 times on collision.
-     */
-    private String generateUniqueGymCode(String gymName) {
-        String prefix = gymName.toUpperCase()
-                .replaceAll("[^A-Z0-9]", "");
-        prefix = prefix.length() > 6 ? prefix.substring(0, 6) : prefix;
-
-        for (int i = 0; i < 5; i++) {
-            String code = prefix + (1000 + (int)(Math.random() * 9000));
-            if (!gymRepository.existsByGymCode(code)) {
-                return code;
-            }
-        }
-        // Fallback: fully random 10-char code
-        return UUID.randomUUID().toString().replaceAll("[^A-Z0-9]", "").substring(0, 10).toUpperCase();
     }
 
     public MeResponse getMe(String userId) {
@@ -432,19 +457,35 @@ public class AuthService {
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND, "User not found"));
 
         String gymName = null;
+        String gymType = null;
         String gymCode = null;
+        MeResponse.GymSummary gymSummary = null;
+
         if (user.getGymId() != null) {
             Optional<Gym> gymOpt = gymRepository.findById(user.getGymId());
             if (gymOpt.isPresent()) {
-                gymName = gymOpt.get().getName();
-                gymCode = gymOpt.get().getGymCode();
+                Gym gym = gymOpt.get();
+                gymName = gym.getName();
+                if (gym.getGymType() != null) {
+                    gymType = gym.getGymType().name();
+                }
+                boolean isOwner = "OWNER".equalsIgnoreCase(user.getRole());
+                if (isOwner) {
+                    gymCode = gym.getGymCode();
+                }
+                gymSummary = MeResponse.GymSummary.builder()
+                        .id(gym.getId())
+                        .name(gymName)
+                        .gymType(gymType)
+                        .gymCode(isOwner ? gym.getGymCode() : null)
+                        .build();
             }
         }
 
-        List<com.gymapp.module.trainer.dto.TrainerTypeResponse> trainerTypes = new java.util.ArrayList<>();
+        List<TrainerTypeResponse> trainerTypes = new ArrayList<>();
         if ("TRAINER".equals(user.getRole()) && user.getTrainerTypeIds() != null && !user.getTrainerTypeIds().isEmpty()) {
             trainerTypes = trainerTypeRepository.findByGymIdAndIdIn(user.getGymId(), user.getTrainerTypeIds()).stream()
-                    .map(t -> com.gymapp.module.trainer.dto.TrainerTypeResponse.builder()
+                    .map(t -> TrainerTypeResponse.builder()
                             .id(t.getId())
                             .name(t.getName())
                             .active(t.isActive())
@@ -457,10 +498,13 @@ public class AuthService {
                 .userId(user.getId())
                 .name(user.getName())
                 .phone(user.getPhone())
+                .email(user.getEmail())
                 .role(user.getRole())
                 .gymId(user.getGymId())
                 .gymName(gymName)
+                .gymType(gymType)
                 .gymCode(gymCode)
+                .gym(gymSummary)
                 .active(user.isActive())
                 .status(user.getStatus())
                 .trainerTypes(trainerTypes)
@@ -472,30 +516,102 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND, "User not found"));
 
+        boolean phoneChanged = false;
         if (request.getName() != null && !request.getName().isBlank()) {
             user.setName(request.getName().trim());
         }
-        if (request.getPhone() != null && !request.getPhone().isBlank() && !request.getPhone().equals(user.getPhone())) {
-            if (userRepository.existsByPhone(request.getPhone())) {
-                throw new AppException(ErrorCode.PHONE_ALREADY_EXISTS, "Phone number already in use");
+        if (request.getPhone() != null && !request.getPhone().isBlank()) {
+            String normalizedPhone = normalizeAndValidatePhone(request.getPhone());
+            if (!normalizedPhone.equals(user.getPhone())) {
+                if (userRepository.existsByPhone(normalizedPhone) || gymRepository.existsByPhone(normalizedPhone)) {
+                    throw new AppException(ErrorCode.PHONE_ALREADY_REGISTERED, "This phone number is already registered");
+                }
+                user.setPhone(normalizedPhone);
+                user.setTokenVersion(user.getTokenVersion() + 1);
+                user.setRefreshTokenHash(null);
+                refreshTokenRepository.deleteByUserId(user.getId());
+                phoneChanged = true;
             }
-            user.setPhone(request.getPhone().trim());
         }
-        user = userRepository.save(user);
+        try {
+            user = userRepository.save(user);
+        } catch (org.springframework.dao.DuplicateKeyException ex) {
+            throw new AppException(ErrorCode.PHONE_ALREADY_REGISTERED, "This phone number is already registered");
+        }
+
+        if (phoneChanged && auditLogService != null && "TRAINER".equalsIgnoreCase(user.getRole())) {
+            auditLogService.log("TRAINER_PHONE_CHANGED", user.getId(), "Updated trainer phone number");
+        }
 
         // If OWNER and gym exists, update gym ownerName and phone
+        final String updatedPhone = user.getPhone();
+        final boolean isPhoneChanged = phoneChanged;
         if ("OWNER".equals(user.getRole()) && user.getGymId() != null) {
             gymRepository.findById(user.getGymId()).ifPresent(gym -> {
                 if (request.getName() != null && !request.getName().isBlank()) {
                     gym.setOwnerName(request.getName().trim());
                 }
-                if (request.getPhone() != null && !request.getPhone().isBlank()) {
-                    gym.setPhone(request.getPhone().trim());
+                if (isPhoneChanged) {
+                    gym.setPhone(updatedPhone);
                 }
                 gymRepository.save(gym);
             });
         }
 
         return getMe(user.getId());
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    private StaffResponse toStaffResponse(User u) {
+        return StaffResponse.builder()
+                .id(u.getId())
+                .gymId(u.getGymId())
+                .name(u.getName())
+                .phone(u.getPhone())
+                .role(u.getRole())
+                .active(u.isActive())
+                .status(u.getStatus())
+                .createdAt(u.getCreatedAt())
+                .build();
+    }
+
+    private String normalizeAndValidatePhone(String rawPhone) {
+        String normalized = SendOtpRequest.normalizePhone(rawPhone);
+        if (!StringUtils.hasText(normalized) || !INDIAN_PHONE_PATTERN.matcher(normalized).matches()) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Enter a valid 10-digit Indian mobile number");
+        }
+        return normalized;
+    }
+
+    private TokenResponse buildTokenResponse(User user) {
+        String accessToken = user.getTokenVersion() > 0
+                ? jwtUtil.generateAccessToken(user.getId(), user.getGymId(), user.getRole(), user.getTokenVersion())
+                : jwtUtil.generateAccessToken(user.getId(), user.getGymId(), user.getRole());
+
+        int effectiveRefreshDays = refreshTokenExpiryDays > 0 ? refreshTokenExpiryDays : 30;
+        String rawRefreshToken = UUID.randomUUID().toString();
+        RefreshToken refreshToken = RefreshToken.builder()
+                .token(rawRefreshToken)
+                .userId(user.getId())
+                .gymId(user.getGymId())
+                .expiresAt(LocalDateTime.now().plusDays(effectiveRefreshDays))
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        refreshTokenRepository.save(refreshToken);
+
+        user.setRefreshTokenHash(OtpService.sha256Hex(rawRefreshToken));
+        userRepository.save(user);
+
+        return TokenResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(rawRefreshToken)
+                .tokenType("Bearer")
+                .expiresIn(jwtUtil.getAccessTokenExpiryMs() / 1000)
+                .userId(user.getId())
+                .gymId(user.getGymId())
+                .role(user.getRole())
+                .build();
     }
 }

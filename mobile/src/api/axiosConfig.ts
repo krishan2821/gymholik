@@ -2,8 +2,21 @@ import axios, { AxiosError } from 'axios';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { getAccessToken, getRefreshToken, saveTokens, clearTokens } from '../utils/tokenUtils';
-import { useAuthStore } from '../store/useAuthStore';
 import { router } from 'expo-router';
+
+type RegistrationTokenGetter = () => string | null;
+type SessionExpiredHandler = () => void | Promise<void>;
+
+let getRegistrationTokenFn: RegistrationTokenGetter | null = null;
+let onSessionExpiredFn: SessionExpiredHandler | null = null;
+
+export const setAuthInterceptorsHandlers = (handlers: {
+  getRegistrationToken?: RegistrationTokenGetter;
+  onSessionExpired?: SessionExpiredHandler;
+}) => {
+  if (handlers.getRegistrationToken) getRegistrationTokenFn = handlers.getRegistrationToken;
+  if (handlers.onSessionExpired) onSessionExpiredFn = handlers.onSessionExpired;
+};
 
 // Dynamically resolve base URL:
 // - Physical devices (Expo Go): Metro host IP (e.g. http://192.168.31.214:8080)
@@ -34,7 +47,17 @@ export const resolveBaseUrl = (): string => {
 export const BASE_URL = resolveBaseUrl();
 
 // ─── Helper: dev-only structured logging (never log member/PII data) ────────
-const SENSITIVE_PATTERNS = ['/members', '/attendance', '/notes', '/trainer-assignments', '/payments', '/dues', '/auth'];
+const SENSITIVE_PATTERNS = [
+  '/members',
+  '/attendance',
+  '/notes',
+  '/trainer-assignments',
+  '/payments',
+  '/dues',
+  '/api/auth/send-otp',
+  '/api/auth/verify-otp',
+  '/api/auth/complete-registration',
+];
 
 const isSensitiveUrl = (url?: string): boolean => {
   if (!url) return false;
@@ -43,9 +66,9 @@ const isSensitiveUrl = (url?: string): boolean => {
 
 const devLog = (label: string, payload: any) => {
   if (__DEV__) {
-    // Sanitize any payload that might contain member data
+    // Sanitize any payload that might contain member or auth PII data
     if (payload && typeof payload === 'object' && payload.body && isSensitiveUrl(label)) {
-      const sanitized = { ...payload, body: '[REDACTED_MEMBER_DATA]' };
+      const sanitized = { ...payload, body: '[REDACTED_SENSITIVE_DATA]' };
       console.error(`[API ${label}]`, sanitized);
     } else {
       console.error(`[API ${label}]`, payload);
@@ -57,10 +80,12 @@ const devLog = (label: string, payload: any) => {
 export interface ApiError {
   /** Human-readable message safe to show in the UI */
   message: string;
-  /** Raw backend errorCode string, e.g. "INVALID_CREDENTIALS" */
+  /** Raw backend errorCode string, e.g. "INVALID_OTP", "RATE_LIMITED" */
   errorCode: string | null;
   /** HTTP status, null for network/timeout errors */
   status: number | null;
+  /** Optional retry countdown in seconds returned by rate-limiting endpoints */
+  retryAfterSeconds?: number | null;
   /**
    * Field-level errors from 400 validation failures.
    * Key = backend field name, value = first error message.
@@ -69,7 +94,13 @@ export interface ApiError {
 }
 
 export function classifyError(error: unknown): ApiError {
-  const base: ApiError = { message: '', errorCode: null, status: null, fieldErrors: {} };
+  const base: ApiError = {
+    message: '',
+    errorCode: null,
+    status: null,
+    retryAfterSeconds: null,
+    fieldErrors: {},
+  };
 
   if (!axios.isAxiosError(error)) {
     devLog('non-axios', error);
@@ -83,25 +114,41 @@ export function classifyError(error: unknown): ApiError {
   if (!response) {
     devLog('network', { message: axErr.message, url: axErr.config?.url });
     if (axErr.code === 'ECONNABORTED' || axErr.message.toLowerCase().includes('timeout')) {
-      return { ...base, message: 'Request timed out. Check your internet connection and try again.' };
+      return {
+        ...base,
+        errorCode: 'NETWORK_ERROR',
+        message: 'Cannot connect to the server. Please check your internet connection and try again.',
+      };
     }
-    return { ...base, message: 'Cannot reach the server. Check your internet connection.' };
+    return {
+      ...base,
+      errorCode: 'NETWORK_ERROR',
+      message: 'Cannot connect to the server. Please check your internet connection and try again.',
+    };
   }
 
   const status = response.status;
   const body = response.data ?? {};
   const errorCode: string = body.errorCode ?? body.error ?? '';
   const serverMessage: string = body.message ?? '';
+  const retryAfterSeconds: number | null =
+    typeof body.retryAfterSeconds === 'number'
+      ? body.retryAfterSeconds
+      : typeof body?.data?.retryAfterSeconds === 'number'
+      ? body.data.retryAfterSeconds
+      : null;
 
   devLog(`${status} ${axErr.config?.url}`, { errorCode, serverMessage, body });
 
   base.status = status;
   base.errorCode = errorCode || null;
+  base.retryAfterSeconds = retryAfterSeconds;
 
   // ── 400 Bad Request / Validation ──────────────────────────────────────────
   if (status === 400) {
     // Spring's @Valid produces body.error as a map of fieldName → [messages]
-    const rawErrors: Record<string, string[]> = body.error ?? {};
+    const rawErrors: Record<string, string[]> =
+      body.error && typeof body.error === 'object' ? body.error : {};
     const fieldErrors: Record<string, string> = {};
     Object.entries(rawErrors).forEach(([field, msgs]) => {
       fieldErrors[field] = Array.isArray(msgs) ? msgs[0] : String(msgs);
@@ -113,12 +160,18 @@ export function classifyError(error: unknown): ApiError {
     };
   }
 
-  // ── 401 Unauthorised / Invalid credentials ────────────────────────────────
+  // ── 401 Unauthorised / Invalid OTP or credentials ─────────────────────────
   if (status === 401) {
+    if (errorCode === 'INVALID_OTP') {
+      return {
+        ...base,
+        message: 'Invalid or expired OTP. Please try again or request a new code.',
+      };
+    }
     if (errorCode === 'REFRESH_TOKEN_NOT_FOUND' || errorCode === 'TOKEN_EXPIRED') {
       return { ...base, message: 'Your session has expired. Please log in again.' };
     }
-    return { ...base, message: 'Invalid phone number or password. Please try again.' };
+    return { ...base, message: serverMessage || 'Invalid credentials. Please try again.' };
   }
 
   // ── 402 Payment Required (subscription / trial) ───────────────────────────
@@ -131,26 +184,69 @@ export function classifyError(error: unknown): ApiError {
     }
     return {
       ...base,
-      message: 'Your gym subscription has expired. Please contact the gym owner.',
+      message: 'Your gym subscription has expired. Please contact your gym owner to renew.',
     };
   }
 
   // ── 403 Forbidden ─────────────────────────────────────────────────────────
   if (status === 403) {
+    if (errorCode === 'ACCOUNT_INACTIVE') {
+      return {
+        ...base,
+        message: 'Your account is inactive. Please contact your gym owner',
+      };
+    }
     if (errorCode === 'GYM_SUSPENDED') {
-      return { ...base, message: 'This gym account has been suspended. Contact support.' };
+      return {
+        ...base,
+        message: 'This gym account has been suspended. Please contact support for assistance.',
+      };
     }
     if (errorCode === 'SUBSCRIPTION_EXPIRED') {
-      return { ...base, message: 'Gym subscription expired. Please contact the gym owner.' };
+      return {
+        ...base,
+        message: 'Your gym subscription has expired. Please contact your gym owner to renew.',
+      };
     }
     return { ...base, message: 'You do not have permission to perform this action.' };
   }
 
-  // ── 423 / 429 Account locked ──────────────────────────────────────────────
-  if (status === 423 || status === 429 || errorCode === 'ACCOUNT_LOCKED') {
+  // ── 409 Conflict (already registered) ─────────────────────────────────────
+  if (
+    status === 409 ||
+    errorCode === 'PHONE_ALREADY_EXISTS' ||
+    errorCode === 'PHONE_ALREADY_REGISTERED'
+  ) {
     return {
       ...base,
-      message: 'Too many failed attempts. Your account is temporarily locked. Try again in 15 minutes.',
+      errorCode: errorCode || 'PHONE_ALREADY_EXISTS',
+      message:
+        serverMessage ||
+        'This mobile number is already registered. Please sign in with your mobile number.',
+    };
+  }
+
+  // ── 423 / 429 Rate limited or locked ──────────────────────────────────────
+  if (status === 423 || status === 429 || errorCode === 'RATE_LIMITED' || errorCode === 'ACCOUNT_LOCKED') {
+    if (retryAfterSeconds && retryAfterSeconds > 0) {
+      const mins = Math.floor(retryAfterSeconds / 60);
+      const secs = retryAfterSeconds % 60;
+      const retryLabel =
+        mins > 0
+          ? secs > 0
+            ? `${mins}m ${secs}s`
+            : `${mins} minute${mins === 1 ? '' : 's'}`
+          : `${secs} second${secs === 1 ? '' : 's'}`;
+      return {
+        ...base,
+        errorCode: errorCode || 'RATE_LIMITED',
+        message: `Too many attempts. Please try again in ${retryLabel}.`,
+      };
+    }
+    return {
+      ...base,
+      errorCode: errorCode || 'RATE_LIMITED',
+      message: serverMessage || 'Too many attempts. Please wait a moment and try again.',
     };
   }
 
@@ -172,12 +268,42 @@ export const apiClient = axios.create({
   },
 });
 
-// ── Request interceptor: attach access token ──────────────────────────────────
+// ── Request interceptor: attach access token (and isolate registrationToken) ──
 apiClient.interceptors.request.use(
   async (config) => {
+    const url = config.url || '';
+    const isPublicAuthRoute =
+      url.includes('/api/auth/send-otp') ||
+      url.includes('/api/auth/verify-otp') ||
+      url.includes('/api/auth/refresh');
+    const isCompleteRegistrationRoute = url.includes('/api/auth/complete-registration');
+    const regToken = getRegistrationTokenFn ? getRegistrationTokenFn() : null;
+
+    if (isPublicAuthRoute) {
+      if (config.headers) {
+        delete config.headers.Authorization;
+      }
+      return config;
+    }
+
+    // Registration token is ONLY ever allowed on POST /api/auth/complete-registration
+    if (isCompleteRegistrationRoute) {
+      if (regToken && config.headers && !config.headers.Authorization) {
+        config.headers.Authorization = `Bearer ${regToken}`;
+      }
+      return config;
+    }
+
+    // For all other routes, never attach the registrationToken
+    if (regToken && config.headers?.Authorization === `Bearer ${regToken}`) {
+      delete config.headers.Authorization;
+    }
+
     const token = await getAccessToken();
-    if (token && config.headers) {
+    if (token && token !== regToken && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else if (config.headers) {
+      delete config.headers.Authorization;
     }
     return config;
   },
@@ -206,14 +332,21 @@ apiClient.interceptors.response.use(
     const body = axErr.response?.data;
     const errorCode: string = body?.errorCode ?? body?.error ?? '';
 
-    // Log the error to console in development only (excluding member data)
+    // Auth endpoints should never trigger automatic navigation or token refresh
+    const isAuthRoute =
+      url.includes('/api/auth/send-otp') ||
+      url.includes('/api/auth/verify-otp') ||
+      url.includes('/api/auth/complete-registration') ||
+      url.includes('/api/auth/refresh');
+
+    // Log the error to console in development only (excluding member/auth PII data)
     if (__DEV__) {
       console.error(
         `[API Error] Status: ${status ?? 'NO_RESPONSE'} | URL: ${url}`,
         {
           status,
           url,
-          responseBody: isSensitiveUrl(url) ? '[REDACTED_MEMBER_DATA]' : body,
+          responseBody: isSensitiveUrl(url) ? '[REDACTED_SENSITIVE_DATA]' : body,
           message: axErr.message,
         }
       );
@@ -221,6 +354,7 @@ apiClient.interceptors.response.use(
 
     // ── Redirect on subscription expiry (402 / 403 SUBSCRIPTION_EXPIRED) ─────
     if (
+      !isAuthRoute &&
       (status === 402 || status === 403) &&
       (errorCode === 'SUBSCRIPTION_EXPIRED' || errorCode === 'GYM_TRIAL_EXPIRED')
     ) {
@@ -228,18 +362,25 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Auth endpoints (/login, /register-gym, /refresh) should never attempt token refresh
-    const isAuthRoute =
-      url.includes('/api/auth/login') ||
-      url.includes('/api/auth/register-gym') ||
-      url.includes('/api/auth/refresh');
-
     // ── Token refresh on 401 or unauthenticated 403 ─────────────────────────
     const isUnauthenticated =
       status === 401 ||
-      (status === 403 && (errorCode === 'UNAUTHORIZED' || (!errorCode && (!body || body === ''))));
+      (status === 403 && (
+        errorCode === 'UNAUTHORIZED' ||
+        errorCode === 'ACCESS_DENIED' ||
+        errorCode === 'TOKEN_EXPIRED' ||
+        errorCode === 'INVALID_TOKEN' ||
+        url.includes('/api/auth/me') ||
+        (!errorCode && (!body || body === ''))
+      ));
 
-    if (isUnauthenticated && !originalRequest?._retry && !isAuthRoute && errorCode !== 'INVALID_CREDENTIALS') {
+    if (
+      isUnauthenticated &&
+      !originalRequest?._retry &&
+      !isAuthRoute &&
+      errorCode !== 'INVALID_CREDENTIALS' &&
+      errorCode !== 'INVALID_OTP'
+    ) {
       if (isRefreshing) {
         return new Promise<string>((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -275,7 +416,13 @@ apiClient.interceptors.response.use(
       } catch (err) {
         processQueue(err, null);
         await clearTokens();
-        useAuthStore.getState().logout();
+        if (onSessionExpiredFn) {
+          try {
+            await onSessionExpiredFn();
+          } catch {
+            // ignore
+          }
+        }
         router.replace('/(auth)/login');
         return Promise.reject(err);
       } finally {

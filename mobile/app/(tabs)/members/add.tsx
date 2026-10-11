@@ -9,6 +9,7 @@ import {
   Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { safeBack } from '../../../src/utils/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -161,7 +162,7 @@ export default function AddMemberScreen() {
         }
       }
 
-      router.back();
+      safeBack('/(tabs)/members');
     } catch (error: any) {
       if (
         error.response?.data?.message?.includes('duplicate key') ||

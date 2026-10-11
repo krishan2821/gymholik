@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { User, Lock, LogOut, ChevronRight, Building2, Dumbbell } from 'lucide-react-native';
+import { User, LogOut, ChevronRight, Building2, Dumbbell } from 'lucide-react-native';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import { useCurrentUser } from '../../src/api/auth';
 import { queryClient } from '../../src/api/queryClient';
@@ -16,7 +16,7 @@ export default function TrainerProfileScreen() {
   const user = useAuthStore((state) => state.user);
   const role = user?.role || useAuthStore((state) => state.role);
   const { logout } = useAuthStore();
-  const { data: currentUser, isLoading } = useCurrentUser();
+  const { data: currentUser } = useCurrentUser();
 
   React.useEffect(() => {
     if (role && role !== 'TRAINER') {
@@ -45,12 +45,12 @@ export default function TrainerProfileScreen() {
 
   const displayName = currentUser?.name || user?.name || 'Trainer';
   const displayRole = currentUser?.role || role || 'TRAINER';
-  const gymName = currentUser?.gymName || 'Gymholik Fitness';
+  const gymName = currentUser?.gymName || user?.gymName || 'Gymholik Fitness';
   const trainerTypes = currentUser?.trainerTypes || [];
 
   return (
     <Screen scrollable contentContainerStyle={styles.scroll}>
-      {/* ── Profile Card ─────────────────────────────────────────── */}
+      {/* ── Profile Card (Name, Role, Gym Name) ──────────────────── */}
       <GlassCard style={styles.profileCard} contentStyle={styles.profileContent}>
         <View style={styles.avatar}>
           <User color={theme.colors.primary} size={36} />
@@ -66,7 +66,7 @@ export default function TrainerProfileScreen() {
 
           {/* Gym Name Display */}
           <View style={styles.gymRow}>
-            <Building2 size={14} color={theme.colors.textMuted} style={{ marginRight: 5 }} />
+            <Building2 size={14} color={theme.colors.textMuted} style={styles.gymIcon} />
             <Text style={styles.gymNameText} numberOfLines={1}>
               {gymName}
             </Text>
@@ -74,57 +74,43 @@ export default function TrainerProfileScreen() {
         </View>
       </GlassCard>
 
-      {/* ── Specializations (Trainer Types Chips) ────────────────── */}
-      {trainerTypes.length > 0 && (
-        <View style={styles.chipsSection}>
-          <Text style={styles.sectionHeader}>Specializations</Text>
-          <View style={styles.chipRow}>
-            {trainerTypes.map((type) => (
+      {/* ── Trainer Type Chips ───────────────────────────────────── */}
+      <View style={styles.chipsSection}>
+        <Text style={styles.sectionHeader}>Specializations</Text>
+        <View style={styles.chipRow}>
+          {trainerTypes.length > 0 ? (
+            trainerTypes.map((type) => (
               <View key={type.id} style={styles.chip}>
-                <Dumbbell size={12} color={theme.colors.primary} style={{ marginRight: 5 }} />
+                <Dumbbell size={12} color={theme.colors.primary} style={styles.chipIcon} />
                 <Text style={styles.chipText}>{type.name}</Text>
               </View>
-            ))}
-          </View>
+            ))
+          ) : (
+            <Text style={styles.emptyChipsText}>No specializations assigned yet.</Text>
+          )}
         </View>
-      )}
+      </View>
 
-      {/* ── Account Section ───────────────────────────────────────── */}
-      <Text style={styles.sectionHeader}>{MORE.SECTION_ACCOUNT}</Text>
-      <GlassCard style={styles.sectionCard} contentStyle={styles.sectionContent}>
-        <TouchableOpacity
-          style={styles.menuItem}
-          onPress={() => router.push('/(tabs)/more/password')}
-          accessibilityRole="button"
-          accessibilityLabel="Change password"
-        >
-          <View style={styles.iconBox}>
-            <Lock color={theme.colors.primary} size={20} />
-          </View>
-          <Text style={styles.menuTitle}>{MORE.MENU_CHANGE_PASSWORD}</Text>
-          <ChevronRight color={theme.colors.textMuted} size={18} />
-        </TouchableOpacity>
-      </GlassCard>
-
-      {/* ── Logout Section ────────────────────────────────────────── */}
-      <GlassCard style={[styles.sectionCard, { marginTop: theme.spacing.lg }]} contentStyle={styles.sectionContent}>
+      {/* ── Sign Out Section ──────────────────────────────────────── */}
+      <GlassCard
+        style={[styles.sectionCard, styles.logoutCard]}
+        contentStyle={styles.sectionContent}
+      >
         <TouchableOpacity
           style={styles.menuItem}
           onPress={handleLogout}
           accessibilityRole="button"
-          accessibilityLabel="Sign out"
+          accessibilityLabel={MORE.MENU_LOGOUT}
         >
-          <View style={[styles.iconBox, { backgroundColor: 'rgba(255, 107, 107, 0.15)' }]}>
+          <View style={styles.iconBox}>
             <LogOut color={theme.colors.error} size={20} />
           </View>
-          <Text style={[styles.menuTitle, { color: theme.colors.error }]}>
-            {MORE.MENU_LOGOUT}
-          </Text>
+          <Text style={styles.menuTitle}>{MORE.MENU_LOGOUT}</Text>
           <ChevronRight color={theme.colors.textMuted} size={18} />
         </TouchableOpacity>
       </GlassCard>
 
-      <View style={{ height: 120 }} />
+      <View style={styles.bottomSpacer} />
     </Screen>
   );
 }
@@ -146,7 +132,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: 'rgba(142, 182, 155, 0.15)',
+    backgroundColor: theme.colors.raised,
     borderWidth: 1.5,
     borderColor: theme.colors.primary,
     alignItems: 'center',
@@ -177,6 +163,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 2,
   },
+  gymIcon: {
+    marginRight: 5,
+  },
   gymNameText: {
     ...theme.typography.caption,
     color: theme.colors.textMuted,
@@ -194,17 +183,25 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(142, 182, 155, 0.12)',
+    backgroundColor: theme.colors.raised,
     borderWidth: 1,
-    borderColor: 'rgba(142, 182, 155, 0.25)',
+    borderColor: theme.colors.borderLight,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: theme.radius.full,
+  },
+  chipIcon: {
+    marginRight: 5,
   },
   chipText: {
     fontFamily: theme.fonts.headingMedium,
     fontSize: 12,
     color: theme.colors.primary,
+  },
+  emptyChipsText: {
+    ...theme.typography.caption,
+    color: theme.colors.textMuted,
+    marginLeft: theme.spacing.xs,
   },
   sectionHeader: {
     ...theme.typography.caption,
@@ -216,6 +213,9 @@ const styles = StyleSheet.create({
   },
   sectionCard: {
     marginBottom: theme.spacing.sm,
+  },
+  logoutCard: {
+    marginTop: theme.spacing.sm,
   },
   sectionContent: {
     padding: 0,
@@ -230,14 +230,19 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(142, 182, 155, 0.1)',
+    backgroundColor: theme.colors.raised,
+    borderWidth: 1,
+    borderColor: theme.colors.error,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: theme.spacing.md,
   },
   menuTitle: {
     ...theme.typography.body,
-    color: theme.colors.text,
+    color: theme.colors.error,
     flex: 1,
+  },
+  bottomSpacer: {
+    height: 120,
   },
 });

@@ -19,11 +19,12 @@ public class SwaggerConfig {
         return new OpenAPI()
                 .info(new Info()
                         .title("Gym Management API")
-                        .description("Multi-tenant SaaS Gym Management System — all protected endpoints require a Bearer JWT.")
+                        .description("Multi-tenant SaaS Gym Management System — OTP authentication (/api/auth/send-otp, /api/auth/verify-otp) and gym-owner registration (/api/auth/complete-registration). Protected endpoints require a Bearer JWT.")
                         .version("1.0.0")
                         .contact(new Contact()
                                 .name("GymHolik Team")
                                 .email("dev@gymholik.com")))
+
                 // Attach the security scheme globally so Swagger sends the token on every call
                 .addSecurityItem(new SecurityRequirement().addList(schemeName))
                 .components(new Components()

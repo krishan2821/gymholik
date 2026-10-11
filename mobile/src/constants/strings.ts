@@ -36,6 +36,8 @@ export const COMMON = {
   OPEN_SETTINGS: 'Open settings',
   GOT_IT: 'Got it',
   YES_DELETE: 'Yes, delete',
+  ERROR: 'Error',
+  SUCCESS: 'Saved',
 } as const;
 
 // ─── Common errors ────────────────────────────────────────────────────────────
@@ -56,8 +58,6 @@ export const FIELDS = {
   NAME: 'Full name',
   PHONE: 'Mobile number',
   PHONE_PLACEHOLDER: '98765 43210',
-  PASSWORD: 'Password',
-  CONFIRM_PASSWORD: 'Confirm password',
   GENDER: 'Gender',
   ADDRESS: 'Address',
   ADDRESS_PLACEHOLDER: 'Optional',
@@ -69,7 +69,6 @@ export const FIELDS = {
   SELECT_PLAN: 'Select a plan',
   DURATION_DAYS: 'Duration (days)',
   PRICE: 'Price (₹)',
-  GYM_CODE: 'Gym code',
   CITY: 'City',
   CITY_OPTIONAL: 'City (optional)',
 } as const;
@@ -81,12 +80,15 @@ export const VALIDATION = {
   MAX_LENGTH: (field: string, n: number) => `${field} is too long (max ${n} characters)`,
   PHONE_INVALID: 'Enter a valid 10-digit mobile number starting with 6–9',
   PHONE_DUPLICATE: 'This mobile number is already registered. Try signing in.',
-  PASSWORD_CONFIRM: 'Passwords do not match',
-  PASSWORD_MIN: 'Password must be at least 8 characters',
-  PASSWORD_NUMBER: 'Password must contain at least one number',
   TERMS_REQUIRED: 'You must agree to the terms to continue',
   POSITIVE_NUMBER: 'Enter a positive number',
   INTEGER: 'Enter a whole number',
+  UDYAM_INVALID: 'Enter a valid Udyam number (e.g. UDYAM-MH-12-0012345)',
+  GSTIN_INVALID: 'Enter a valid 15-character GSTIN (e.g. 27AAPFU0939F1ZV)',
+  NIC_INVALID: 'NIC code must be 4 or 5 digits',
+  PINCODE_INVALID: 'Enter a valid 6-digit Indian PIN code',
+  STATE_REQUIRED: 'Please select a state or union territory',
+  DISTRICT_REQUIRED: 'Please select or enter a district',
 } as const;
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
@@ -98,42 +100,157 @@ export const TABS = {
   MORE: 'More',
 } as const;
 
-// ─── Login ────────────────────────────────────────────────────────────────────
+// ─── Login (Single-screen OTP) ────────────────────────────────────────────────
 export const LOGIN = {
   TITLE: 'Welcome back',
-  SUBTITLE: 'Sign in to continue',
-  GYM_CODE_LABEL: 'Gym code',
+  SUBTITLE: 'Enter your mobile number to continue',
   PHONE_LABEL: 'Mobile number',
-  PHONE_HELPER: 'This number is your login ID.',
-  FORGOT_PASSWORD: 'Forgot password?',
-  SUBMIT: 'Sign In',
-  REGISTER_PROMPT: 'New gym?',
-  REGISTER_LINK: 'Create an account',
-  FORGOT_SHEET_TITLE: 'Forgot password?',
-  FORGOT_SHEET_MESSAGE: 'Please contact your gym owner to reset your password.',
-  FORGOT_SHEET_NOTE: 'Your gym owner can reset passwords from the admin panel.',
+  PHONE_PREFIX: '+91',
+  PHONE_PLACEHOLDER: '9876543210',
+  GET_OTP: 'Get OTP',
+  STAFF_HELPER: 'Trainer or staff? Sign in with the number your gym owner added.',
+  CHANGE_NUMBER: 'Change number',
+  OTP_SECTION_LABEL: 'Enter 6-digit OTP',
+  RESEND_OTP: 'Resend OTP',
+  RESEND_IN: (formattedTime: string) => `Resend in ${formattedTime}`,
+  VERIFY_AND_PROCEED: 'Verify & Proceed',
+  DEV_OTP_HINT: 'Dev OTP: 123456',
+  OTP_SENT_TOAST: 'OTP sent to your mobile number',
+  VERIFY_SUCCESS_TOAST: 'Mobile number verified',
+  ERRORS: {
+    INVALID_OTP: 'Invalid or expired OTP. Please try again or request a new code.',
+    RATE_LIMITED: (retryText?: string) =>
+      retryText
+        ? `Too many attempts. Please try again in ${retryText}.`
+        : 'Too many attempts. Please wait a moment and try again.',
+    NETWORK: 'Cannot connect to the server. Please check your internet connection and try again.',
+    ACCOUNT_INACTIVE: 'Your account is inactive. Please contact your gym owner',
+    SUBSCRIPTION_EXPIRED:
+      'Your gym subscription has expired. Please contact your gym owner to renew.',
+    GYM_SUSPENDED:
+      'This gym account has been suspended. Please contact support for assistance.',
+    GENERIC: 'Something went wrong. Please try again.',
+  },
 } as const;
 
-// ─── Register ─────────────────────────────────────────────────────────────────
+// ─── Register (OTP-verified Owner Registration) ───────────────────────────────
 export const REGISTER = {
   TITLE: 'Create your gym account',
-  SUBTITLE: 'Start your 14-day free trial. No card required.',
+  SUBTITLE: 'Your number is verified. Start your 14-day free trial. No card required.',
+  VERIFIED_PHONE_LABEL: 'Verified mobile number',
+  VERIFIED_BADGE: 'Verified',
   GYM_NAME_LABEL: 'Gym name',
   GYM_NAME_PLACEHOLDER: 'e.g. FitZone Gym',
   OWNER_NAME_LABEL: 'Your name',
   OWNER_NAME_PLACEHOLDER: 'e.g. Rahul Sharma',
-  PHONE_HELPER: 'This number will be your login ID.',
-  TERMS: 'I agree to the Terms and Privacy Policy',
+  EMAIL_LABEL: 'Email (optional)',
+  EMAIL_PLACEHOLDER: 'e.g. rahul@fitzone.in',
+  EMAIL_INVALID: 'Enter a valid email address',
+  TERMS_PREFIX: 'I agree to the ',
+  TERMS_LINK: 'Terms and Privacy Policy',
+  TERMS_REQUIRED: 'You must agree to the Terms and Privacy Policy to continue',
   SUBMIT: 'Start free trial',
-  LOGIN_PROMPT: 'Already have an account?',
-  LOGIN_LINK: 'Sign in',
-} as const;
-
-// ─── Super Admin login ────────────────────────────────────────────────────────
-export const SUPER_ADMIN_LOGIN = {
-  TITLE: 'Super Admin',
-  SUBTITLE: 'Restricted access. Authorised personnel only.',
-  SUBMIT: 'Sign In',
+  TRAINER_STAFF_NOTE:
+    'Trainer or staff? Ask your gym owner to add your number, then sign in again.',
+  USE_DIFFERENT_NUMBER: 'Use a different number',
+  BACK_CONFIRM_TITLE: 'Cancel registration?',
+  BACK_CONFIRM_MESSAGE:
+    'Going back will cancel your registration and you will need to verify your mobile number again.',
+  BACK_CONFIRM_STAY: 'Continue setup',
+  BACK_CONFIRM_LEAVE: 'Go back',
+  STEP_OF: (current: number, total: number) => `Step ${current} of ${total}`,
+  GYM_TYPE_LABEL: 'Gym type',
+  GYM_TYPE_PLACEHOLDER: 'Select gym type',
+  GYM_TYPES: {
+    COMMERCIAL: 'Commercial Gyms',
+    BOUTIQUE_STUDIO: 'Boutique Fitness Studios',
+    CROSSFIT_BOX: 'CrossFit Boxes',
+    BODYBUILDING_POWERLIFTING: 'Bodybuilding & Powerlifting Gyms',
+    PREMIUM_LUXURY: 'Luxury / Premium Gyms',
+    WOMEN_ONLY: 'Women-Only Gyms',
+    HOME_GYM: 'Home Gyms',
+  },
+  LEGAL_DOC_SECTION_TITLE: 'Business / Legal verification',
+  LEGAL_DOC_TYPE_LABEL: 'Document type (optional)',
+  LEGAL_DOC_PLACEHOLDER: 'Select document type',
+  LEGAL_DOC_NUMBER_LABEL: 'Document number',
+  LEGAL_DOCS: {
+    UDYAM: {
+      LABEL: 'Udyam Registration Number',
+      PLACEHOLDER: 'UDYAM-XX-00-0000000',
+      HINT: 'Format: UDYAM-XX-00-0000000 (XX is 2-letter state code)',
+    },
+    GSTIN: {
+      LABEL: 'GSTIN Number',
+      PLACEHOLDER: 'e.g. 27AAPFU0939F1ZV',
+      HINT: '15-character Goods and Services Tax Identification Number',
+    },
+    NIC: {
+      LABEL: 'NIC Code Number',
+      PLACEHOLDER: 'e.g. 93110',
+      HINT: '4 or 5-digit National Industrial Classification code',
+    },
+  },
+  ADDRESS: {
+    SECTION_TITLE: 'Gym Address',
+    LINE1_LABEL: 'Address line 1',
+    LINE1_PLACEHOLDER: 'Building, shop number, street name',
+    LINE2_LABEL: 'Address line 2 (optional)',
+    LINE2_PLACEHOLDER: 'Landmark, floor, area',
+    PINCODE_LABEL: 'PIN code',
+    PINCODE_PLACEHOLDER: '6-digit PIN code',
+    STATE_LABEL: 'State / Union Territory',
+    STATE_PLACEHOLDER: 'Select state',
+    DISTRICT_LABEL: 'District',
+    DISTRICT_PLACEHOLDER: 'Select district',
+    LOOKUP_SUGGESTION: (district: string, state: string) => `Auto-filled: ${district}, ${state}`,
+  },
+  SEARCHABLE_SELECT: {
+    SEARCH_PLACEHOLDER: 'Search…',
+    NO_RESULTS: 'No results found',
+    OTHER_ROW: 'Other',
+    OTHER_INPUT_PLACEHOLDER: 'Type custom value…',
+    CONFIRM_OTHER: 'Use this',
+  },
+  DISTRICT_DATASET_MISSING:
+    'District dataset file is not available. Please enter your district manually using Other.',
+  STEP_1_TITLE: 'Gym details',
+  STEP_1_SUBTITLE: 'Tell us about your fitness center',
+  STEP_2_TITLE: 'Business registration (optional)',
+  STEP_2_SUBTITLE: 'Add your business identity document or skip for now',
+  STEP_3_TITLE: 'Gym address',
+  STEP_3_SUBTITLE: 'Where is your gym located?',
+  GYM_NAME_PLACEHOLDER_NEW: 'Enter Gym Name',
+  SKIP_FOR_NOW: 'Skip for now',
+  LEGAL_DOC_HELPER_TEXT:
+    'You can add this later from Gym profile. We do not verify it yet.',
+  ADDRESS_LINE1_PLACEHOLDER: 'Building, shop name or street',
+  ADDRESS_LINE2_PLACEHOLDER: 'City and landmark',
+  COMPLETE_REGISTRATION_BTN: 'Complete Registration',
+  NEXT_BTN: 'Next',
+  BACK_BTN: 'Back',
+  SESSION_EXPIRED_MSG: 'Your session expired. Please verify your number again',
+  PHONE_VERIFIED_LABEL: (phone: string) => `${phone} verified`,
+  TRAINER_STAFF_BOTTOM_NOTE:
+    'Trainer or staff? Ask your gym owner to add your mobile number, then sign in.',
+  WELCOME_SHEET: {
+    TITLE: 'Your gym is ready',
+    SUBTITLE:
+      'Congratulations! Your gym account has been set up with a 14-day free trial.',
+    CODE_LABEL: 'YOUR UNIQUE GYM CODE',
+    COPY_BTN: 'Copy Code',
+    COPIED_TOAST: 'Gym code copied to clipboard',
+    DASHBOARD_BTN: 'Go to Dashboard',
+  },
+  ERRORS: {
+    TOKEN_EXPIRED:
+      'Your session expired. Please verify your number again.',
+    ALREADY_REGISTERED:
+      'This mobile number is already registered. Please sign in with your mobile number.',
+    NETWORK:
+      'Cannot connect to the server. Please check your internet connection and try again.',
+    GENERIC: 'Could not complete registration. Please try again.',
+  },
 } as const;
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
@@ -301,14 +418,58 @@ export const MORE = {
   MENU_STAFF: 'Staff',
   MENU_TRAINERS: 'Trainers',
   MENU_AUDIT: 'Audit log',
+  MENU_GYM_PROFILE: 'Gym profile',
   MENU_SETTINGS: 'Gym settings',
   MENU_SUBSCRIPTION: 'Subscription',
-  MENU_CHANGE_PASSWORD: 'Change password',
   MENU_LOGOUT: 'Sign out',
   LOGOUT_CONFIRM_TITLE: 'Sign out?',
   LOGOUT_CONFIRM_MSG: 'You will need to sign in again to access your gym.',
   LOGOUT_BTN: 'Sign out',
+  GYM_CODE_LABEL: 'Gym code',
+  COPY_CODE: 'Copy',
+  SHARE_CODE: 'Share',
+  GYM_CODE_COPIED: 'Gym code copied',
+  GYM_CODE_SHARE_TEXT: (gymName: string, code: string) =>
+    `${gymName} on Gymholik. Gym code: ${code}`,
 } as const;
+
+// ─── Gym profile ──────────────────────────────────────────────────────────────
+export const GYM_PROFILE = {
+  SCREEN_TITLE: 'Gym profile',
+  SECTION_DETAILS: 'Gym details',
+  SECTION_LEGAL: 'Legal & Business verification',
+  SECTION_ADDRESS: 'Gym address',
+  GYM_NAME_LABEL: 'Gym name',
+  GYM_TYPE_LABEL: 'Gym type',
+  GYM_CODE_LABEL: 'Gym code',
+  LEGAL_DOC_TYPE_LABEL: 'Document type',
+  LEGAL_DOC_NUMBER_LABEL: 'Document number',
+  LEGAL_VERIFIED_BADGE: 'Verified',
+  LEGAL_UNVERIFIED_BADGE: 'Not verified',
+  NO_LEGAL_DOC: 'No business document added',
+  SHOW_DOC_NUMBER: 'Show',
+  HIDE_DOC_NUMBER: 'Hide',
+  EDIT_BTN: 'Edit profile',
+  EDIT_MODAL_TITLE: 'Edit Gym Profile',
+  SAVE_CHANGES_BTN: 'Save changes',
+  CANCEL_BTN: 'Cancel',
+  IMMUTABLE_CODE_HINT: 'Gym code cannot be changed',
+  LOAD_ERROR: 'Failed to load gym profile.',
+  UPDATE_SUCCESS: 'Gym profile updated successfully.',
+  COPY_BTN: 'Copy',
+  SHARE_BTN: 'Share',
+  COPIED_TOAST: 'Gym code copied',
+  SHARE_TEXT: (gymName: string, code: string) =>
+    `${gymName} on Gymholik. Gym code: ${code}`,
+} as const;
+
+// ─── Complete profile banner ──────────────────────────────────────────────────
+export const COMPLETE_GYM_PROFILE_BANNER = {
+  TITLE: 'Complete your gym profile',
+  SUBTITLE: 'Add your gym type and address details to complete setup.',
+  ACTION: 'Complete profile',
+} as const;
+
 
 // ─── Manage plans ─────────────────────────────────────────────────────────────
 export const PLANS = {
@@ -335,17 +496,40 @@ export const PLANS = {
 export const STAFF = {
   SCREEN_TITLE: 'Staff',
   ADD_BTN: 'Add staff',
-  MODAL_TITLE: 'Add staff member',
-  NAME_LABEL: 'Full name',
+  MODAL_TITLE: 'Add staff',
+  EDIT_MODAL_TITLE: 'Edit staff',
+  NAME_LABEL: 'Name',
+  NAME_PLACEHOLDER: 'e.g. Vikram Singh',
   PHONE_LABEL: 'Mobile number',
-  PASSWORD_LABEL: 'Temporary password',
-  SUBMIT: 'Add staff member',
-  REMOVE: 'Remove',
-  REMOVE_CONFIRM_TITLE: 'Remove staff member?',
-  REMOVE_CONFIRM_MSG: (name: string) => `${name} will no longer be able to sign in.`,
+  PHONE_PREFIX: '+91',
+  PHONE_PLACEHOLDER: '9876543210',
+  PHONE_ALREADY_REGISTERED: 'This number is already registered',
+  SUBMIT: 'Add staff',
+  SAVE_CHANGES: 'Save changes',
+  STATUS_ACTIVE: 'Active',
+  STATUS_INACTIVE: 'Inactive',
+  DEACTIVATE_BTN: 'Deactivate',
+  REACTIVATE_BTN: 'Reactivate',
+  DEACTIVATE_CONFIRM_TITLE: 'Deactivate staff member?',
+  DEACTIVATE_CONFIRM_MSG: (name: string) =>
+    `${name} will be signed out immediately and will no longer be able to sign in.`,
+  REACTIVATE_CONFIRM_TITLE: 'Reactivate staff member?',
+  REACTIVATE_CONFIRM_MSG: (name: string) =>
+    `${name} will be able to sign in again with their mobile number using an OTP.`,
+  PHONE_CHANGE_CONFIRM_TITLE: 'Change mobile number?',
+  PHONE_CHANGE_CONFIRM_MSG: (name: string) =>
+    `Changing ${name}'s mobile number will sign them out of all active sessions immediately.`,
+  SUCCESS_SHEET_TITLE: 'Staff added',
+  SUCCESS_SHEET_DESC:
+    'Staff added. They can sign in with this mobile number using an OTP.',
+  SHARE_WHATSAPP_BTN: 'Share on WhatsApp',
+  DONE_BTN: 'Done',
+  WHATSAPP_INVITE_MSG: (name: string, gymName: string) =>
+    `Hi ${name}, I added you to ${gymName} on Gymholik. Download the app and sign in with this mobile number.`,
   EMPTY: 'No staff added yet.',
   LOAD_ERROR: 'Failed to load staff.',
   ADD_ERROR: 'Could not add staff member. Please try again.',
+  UPDATE_ERROR: 'Could not update staff member. Please try again.',
 } as const;
 
 // ─── Gym settings ─────────────────────────────────────────────────────────────
@@ -369,44 +553,78 @@ export const SETTINGS = {
 // ─── Trainers management ──────────────────────────────────────────────────────
 export const TRAINERS = {
   SCREEN_TITLE: 'Trainers',
+  ADD_SCREEN_TITLE: 'Add trainer',
   DETAIL_TITLE: 'Trainer Details',
   ASSIGN_MEMBERS_TITLE: 'Assign Members',
+  ADD_BTN: 'Add trainer',
   MANAGE_TYPES_BTN: 'Manage Types',
-  APPROVE_BTN: 'Approve',
-  REJECT_BTN: 'Reject',
-  DEACTIVATE_BTN: 'Deactivate Trainer',
-  DEACTIVATE_CONFIRM_TITLE: 'Deactivate Trainer?',
+  NAME_LABEL: 'Name',
+  NAME_PLACEHOLDER: 'e.g. Arjun Mehta',
+  PHONE_LABEL: 'Mobile number',
+  PHONE_PREFIX: '+91',
+  PHONE_PLACEHOLDER: '9876543210',
+  PHONE_ALREADY_REGISTERED: 'This number is already registered',
+  TYPES_LABEL: 'Trainer types',
+  TYPES_HELPER: 'Select at least one specialty for this trainer.',
+  TYPES_REQUIRED_ERROR: 'Select at least one trainer type',
+  ADD_NEW_TYPE_LINK: 'Add new type',
+  ADD_NEW_TYPE_MODAL_TITLE: 'Add new trainer type',
+  ADD_NEW_TYPE_PLACEHOLDER: 'e.g. CrossFit, Zumba, HIIT',
+  ASSIGN_MEMBERS_NOW_LABEL: 'Assign members now (optional)',
+  ASSIGN_MEMBERS_NOW_BTN: 'Assign members now',
+  SELECTED_MEMBERS_COUNT: (count: number) =>
+    `${count} member${count === 1 ? '' : 's'} selected`,
+  SUCCESS_SHEET_TITLE: 'Trainer added',
+  SUCCESS_SHEET_DESC:
+    'Trainer added. They can sign in with this mobile number using an OTP.',
+  SHARE_WHATSAPP_BTN: 'Share on WhatsApp',
+  DONE_BTN: 'Done',
+  WHATSAPP_INVITE_MSG: (name: string, gymName: string) =>
+    `Hi ${name}, I added you to ${gymName} on Gymholik. Download the app and sign in with this mobile number.`,
+  EDIT_DETAILS_BTN: 'Edit details',
+  EDIT_NAME_TYPES_TITLE: 'Edit trainer details',
+  CHANGE_PHONE_BTN: 'Change mobile number',
+  CHANGE_PHONE_MODAL_TITLE: 'Change mobile number',
+  CHANGE_PHONE_WARNING:
+    'Changing the mobile number will immediately sign this trainer out of all devices.',
+  CHANGE_PHONE_CONFIRM_TITLE: 'Change mobile number?',
+  CHANGE_PHONE_CONFIRM_MSG: (name: string) =>
+    `${name} will be signed out of all active sessions immediately and must sign in with the new number.`,
+  SAVE_CHANGES_BTN: 'Save changes',
+  DEACTIVATE_BTN: 'Deactivate trainer',
+  REACTIVATE_BTN: 'Reactivate trainer',
+  DEACTIVATE_CONFIRM_TITLE: 'Deactivate trainer?',
   DEACTIVATE_CONFIRM_MSG: (name: string) =>
-    `Deactivating ${name} will automatically end all their active member assignments.`,
-  REJECT_CONFIRM_TITLE: 'Reject Trainer?',
-  REJECT_CONFIRM_MSG: (name: string) =>
-    `Are you sure you want to reject ${name}'s registration request?`,
-  APPROVE_MODAL_TITLE: 'Select Trainer Types',
-  APPROVE_MODAL_DESC: 'Select at least one specialty or type for this trainer.',
-  APPROVE_CONFIRM_BTN: 'Confirm & Approve',
+    `Deactivating ${name} will sign them out immediately and end all their active member assignments.`,
+  REACTIVATE_CONFIRM_TITLE: 'Reactivate trainer?',
+  REACTIVATE_CONFIRM_MSG: (name: string) =>
+    `Reactivating ${name} will allow them to sign in again with their mobile number.`,
   ADD_TYPE_SHORTCUT: '+ Add new type',
-  EDIT_TYPES_BTN: 'Edit Specialties',
+  EDIT_TYPES_BTN: 'Edit specialties',
   ASSIGNED_MEMBERS: 'Assigned Members',
-  ASSIGN_MEMBERS_BTN: 'Assign Members',
+  ASSIGN_MEMBERS_BTN: 'Assign members',
   NO_MEMBERS_ASSIGNED: 'No members assigned to this trainer yet.',
   REMOVE_ASSIGNMENT: 'Remove',
   REMOVE_CONFIRM_TITLE: 'End Assignment?',
   REMOVE_CONFIRM_MSG: (memberName: string) =>
     `Remove ${memberName} from this trainer?`,
-  DEACTIVATED_BANNER_TITLE: 'Deactivated Trainer Detected',
+  DEACTIVATED_BANNER_TITLE: 'Trainer Deactivated',
   DEACTIVATED_BANNER_MSG:
-    'One or more trainers are inactive. Reassign their members to keep them covered.',
-  REASSIGN_BTN: 'Reassign Members',
+    'This trainer is inactive. Reassign any members left without a trainer to an active trainer.',
+  DEACTIVATED_LIST_BANNER_DESC: (names: string) =>
+    `${names} is inactive. Members left without a trainer can be reassigned below.`,
+  REASSIGN_BTN: 'Reassign members',
   REASSIGN_MODAL_TITLE: 'Reassign Members',
-  REASSIGN_DESC: 'Move all active members from one trainer to another.',
+  REASSIGN_DESC: 'Move members from an inactive or previous trainer to an active trainer.',
   SELECT_SOURCE_TRAINER: 'From Trainer',
   SELECT_TARGET_TRAINER: 'To Trainer',
   REASSIGN_CONFIRM_BTN: 'Confirm Reassignment',
-  STATUS_PENDING: 'Pending',
   STATUS_ACTIVE: 'Active',
   STATUS_INACTIVE: 'Inactive',
+  ASSIGNED_COUNT_LABEL: (count: number) =>
+    `${count} assigned member${count === 1 ? '' : 's'}`,
   LOAD_ERROR: 'Failed to load trainers.',
-  EMPTY: 'No trainers found.',
+  EMPTY: 'No trainers added yet.',
 } as const;
 
 // ─── Trainer Types ────────────────────────────────────────────────────────────
@@ -451,16 +669,6 @@ export const AUDIT_LOGS = {
   SCREEN_TITLE: 'Audit Log',
   EMPTY: 'No audit records found.',
   LOAD_ERROR: 'Failed to load audit logs.',
-} as const;
-
-// ─── Change password ──────────────────────────────────────────────────────────
-export const CHANGE_PASSWORD = {
-  SCREEN_TITLE: 'Change password',
-  OLD_PASSWORD: 'Current password',
-  NEW_PASSWORD: 'New password',
-  CONFIRM_PASSWORD: 'Confirm new password',
-  SUBMIT: 'Update password',
-  SUCCESS: 'Password updated successfully.',
 } as const;
 
 // ─── Subscription ─────────────────────────────────────────────────────────────

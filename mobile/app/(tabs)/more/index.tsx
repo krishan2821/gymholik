@@ -1,24 +1,23 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Share } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Share, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
+import * as Clipboard from 'expo-clipboard';
+import Toast from 'react-native-toast-message';
 import {
   User,
   Users,
   ClipboardList,
   Settings,
   CreditCard,
-  Lock,
   LogOut,
   ChevronRight,
-  Copy,
-  Check,
-  Share2,
   Dumbbell,
   History,
+  Building2,
+  Copy,
+  Share2,
 } from 'lucide-react-native';
-import * as Clipboard from 'expo-clipboard';
-import * as Haptics from 'expo-haptics';
 import { theme } from '../../../src/theme/theme';
 import { useAuthStore } from '../../../src/store/useAuthStore';
 import { useCurrentUser } from '../../../src/api/auth';
@@ -26,15 +25,14 @@ import { Screen } from '../../../src/components/Screen';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Badge } from '../../../src/components/Badge';
 import { MORE, COMMON } from '../../../src/constants/strings';
+import { formatGymCode } from '../../../src/utils/registrationValidation';
 
 export default function MoreScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { role, user, logout, gymId, gymCode } = useAuthStore();
+  const { role, user, logout } = useAuthStore();
   const { data: currentUser } = useCurrentUser();
   const isOwner = (currentUser?.role || role) === 'OWNER';
-  const effectiveGymCode = currentUser?.gymCode || gymCode;
-  const [copiedCode, setCopiedCode] = useState(false);
 
   React.useEffect(() => {
     if (role === 'TRAINER') {
@@ -45,25 +43,6 @@ export default function MoreScreen() {
   if (role === 'TRAINER') {
     return null;
   }
-
-  const handleCopyGymCode = async () => {
-    if (!effectiveGymCode) return;
-    await Clipboard.setStringAsync(effectiveGymCode);
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
-  };
-
-  const handleShareGymCode = async () => {
-    if (!effectiveGymCode) return;
-    try {
-      await Share.share({
-        message: `Join ${currentUser?.gymName || 'our gym'} on Gymholik! Use Gym Code: ${effectiveGymCode}`,
-      });
-    } catch {
-      // User cancelled
-    }
-  };
 
   const handleLogout = async () => {
     Alert.alert(MORE.LOGOUT_CONFIRM_TITLE, MORE.LOGOUT_CONFIRM_MSG, [
@@ -89,28 +68,53 @@ export default function MoreScreen() {
       <View
         style={[
           styles.iconBox,
-          destructive && { backgroundColor: 'rgba(255, 107, 107, 0.15)' },
+          destructive && styles.destructiveIconBox,
         ]}
       >
         <Icon color={destructive ? theme.colors.error : theme.colors.primary} size={20} />
       </View>
-      <Text style={[styles.menuTitle, destructive && { color: theme.colors.error }]}>
+      <Text style={[styles.menuTitle, destructive && styles.destructiveMenuTitle]}>
         {title}
       </Text>
       <ChevronRight color={theme.colors.textMuted} size={18} />
     </TouchableOpacity>
   );
 
+  const gymName = currentUser?.gymName || user?.gymName;
+  const gymCode = currentUser?.gymCode || user?.gymCode;
+  const formattedGymCode = formatGymCode(gymCode);
+
+  const handleCopyGymCode = async () => {
+    if (!formattedGymCode) return;
+    await Clipboard.setStringAsync(formattedGymCode);
+    Toast.show({
+      type: 'success',
+      text1: MORE.GYM_CODE_COPIED,
+    });
+  };
+
+  const handleShareGymCode = async () => {
+    if (!formattedGymCode) return;
+    try {
+      await Share.share({
+        message: MORE.GYM_CODE_SHARE_TEXT(gymName || 'Gym', formattedGymCode),
+      });
+    } catch {
+      // dismissed
+    }
+  };
+
   return (
     <Screen scrollable contentContainerStyle={styles.scroll}>
       {/* ── Profile Card (Tappable to Edit Profile) ───────────────── */}
-      <TouchableOpacity
-        activeOpacity={0.88}
-        onPress={() => router.push('/(tabs)/more/profile')}
-        accessibilityRole="button"
-        accessibilityLabel="Edit profile"
-      >
-        <GlassCard style={styles.profileCard} contentStyle={styles.profileContent}>
+      <GlassCard style={styles.profileCard}>
+        <TouchableOpacity
+          activeOpacity={0.88}
+          onPress={() => router.push('/(tabs)/more/profile')}
+          style={styles.profileContent}
+          accessibilityRole="button"
+          accessibilityLabel="Edit profile"
+        >
           <View style={styles.avatar}>
             <User color={theme.colors.primary} size={36} />
           </View>
@@ -127,43 +131,57 @@ export default function MoreScreen() {
                 variant={isOwner ? 'success' : 'neutral'}
                 size="sm"
               />
-              {currentUser?.phone ? (
-                <Text style={styles.phoneText}>•  {currentUser.phone}</Text>
+              {currentUser?.phone || user?.phone ? (
+                <Text style={styles.phoneText}>
+                  •  {currentUser?.phone || user?.phone}
+                </Text>
               ) : null}
             </View>
-            {isOwner && effectiveGymCode ? (
-              <View style={styles.gymCodeRow}>
-                <TouchableOpacity
-                  style={styles.gymCodePill}
-                  onPress={handleCopyGymCode}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Copy gym code"
-                >
-                  <Text style={styles.gymCodeLabel}>Gym Code:</Text>
-                  <Text style={styles.gymCodeValue}>{effectiveGymCode}</Text>
-                  {copiedCode ? (
-                    <Check size={13} color={theme.colors.primary} />
-                  ) : (
-                    <Copy size={13} color={theme.colors.primary} />
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.shareBtn}
-                  onPress={handleShareGymCode}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Share gym code"
-                >
-                  <Share2 size={15} color={theme.colors.primary} />
-                </TouchableOpacity>
+            {gymName ? (
+              <View style={styles.gymRow}>
+                <Building2 size={14} color={theme.colors.textMuted} style={styles.gymIcon} />
+                <Text style={styles.gymText} numberOfLines={1}>
+                  {gymName}
+                </Text>
               </View>
             ) : null}
           </View>
-        </GlassCard>
-      </TouchableOpacity>
+        </TouchableOpacity>
+
+        {isOwner && !!gymCode && (
+          <>
+            <View style={styles.profileDivider} />
+            <View style={styles.codeRow}>
+              <View style={styles.codeInfo}>
+                <Text style={styles.codeLabel}>{MORE.GYM_CODE_LABEL.toUpperCase()}</Text>
+                <Text style={styles.codeValue}>{formattedGymCode}</Text>
+              </View>
+              <View style={styles.codeActions}>
+                <TouchableOpacity
+                  style={styles.codeBtn}
+                  onPress={handleCopyGymCode}
+                  accessibilityRole="button"
+                  accessibilityLabel="Copy gym code"
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Copy size={16} color={theme.colors.primary} />
+                  <Text style={styles.codeBtnText}>{MORE.COPY_CODE}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.codeBtn}
+                  onPress={handleShareGymCode}
+                  accessibilityRole="button"
+                  accessibilityLabel="Share gym code"
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Share2 size={16} color={theme.colors.primary} />
+                  <Text style={styles.codeBtnText}>{MORE.SHARE_CODE}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </>
+        )}
+      </GlassCard>
 
       {/* ── Account Section ───────────────────────────────────────── */}
       <Text style={styles.sectionHeader}>{MORE.SECTION_ACCOUNT}</Text>
@@ -173,12 +191,6 @@ export default function MoreScreen() {
           title={MORE.MENU_SUBSCRIPTION}
           onPress={() => router.push('/(tabs)/more/subscription')}
         />
-        <View style={styles.divider} />
-        <MenuItem
-          icon={Lock}
-          title={MORE.MENU_CHANGE_PASSWORD}
-          onPress={() => router.push('/(tabs)/more/password')}
-        />
       </GlassCard>
 
       {/* ── Manage Section ────────────────────────────────────────── */}
@@ -186,6 +198,12 @@ export default function MoreScreen() {
         <>
           <Text style={styles.sectionHeader}>{MORE.SECTION_MANAGE}</Text>
           <GlassCard style={styles.sectionCard} contentStyle={styles.sectionContent}>
+            <MenuItem
+              icon={Building2}
+              title={MORE.MENU_GYM_PROFILE}
+              onPress={() => router.push('/(tabs)/more/gym-profile')}
+            />
+            <View style={styles.divider} />
             <MenuItem
               icon={Users}
               title={MORE.MENU_STAFF}
@@ -220,7 +238,10 @@ export default function MoreScreen() {
       )}
 
       {/* ── Logout Section ────────────────────────────────────────── */}
-      <GlassCard style={[styles.sectionCard, { marginTop: theme.spacing.lg }]} contentStyle={styles.sectionContent}>
+      <GlassCard
+        style={[styles.sectionCard, styles.logoutCard]}
+        contentStyle={styles.sectionContent}
+      >
         <MenuItem
           icon={LogOut}
           title={MORE.MENU_LOGOUT}
@@ -229,7 +250,7 @@ export default function MoreScreen() {
         />
       </GlassCard>
 
-      <View style={{ height: 40 }} />
+      <View style={styles.bottomSpacer} />
     </Screen>
   );
 }
@@ -284,48 +305,17 @@ const styles = StyleSheet.create({
     ...theme.typography.caption,
     color: theme.colors.textMuted,
   },
-  gymCodeRow: {
+  gymRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
     marginTop: 2,
+  },
+  gymIcon: {
+    marginRight: 5,
   },
   gymText: {
     ...theme.typography.caption,
     color: theme.colors.textMuted,
-  },
-  gymCodePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: theme.colors.raised,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: theme.radius.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignSelf: 'flex-start',
-  },
-  shareBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: theme.radius.sm,
-    backgroundColor: theme.colors.raised,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gymCodeLabel: {
-    ...theme.typography.small,
-    color: theme.colors.textMuted,
-    fontFamily: theme.fonts.bodyRegular,
-  },
-  gymCodeValue: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 13,
-    color: theme.colors.text,
-    letterSpacing: 1,
   },
   sectionHeader: {
     ...theme.typography.caption,
@@ -340,13 +330,16 @@ const styles = StyleSheet.create({
   sectionCard: {
     marginBottom: theme.spacing.lg,
   },
+  logoutCard: {
+    marginTop: theme.spacing.lg,
+  },
   sectionContent: {
     paddingHorizontal: theme.spacing.md,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 56, // 44px+ tap target
+    minHeight: 56,
   },
   iconBox: {
     width: 40,
@@ -358,14 +351,74 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
+  destructiveIconBox: {
+    borderColor: theme.colors.error,
+  },
   menuTitle: {
     flex: 1,
     ...theme.typography.bodyMedium,
     color: theme.colors.text,
     marginLeft: theme.spacing.md,
   },
+  destructiveMenuTitle: {
+    color: theme.colors.error,
+  },
   divider: {
     height: 1,
     backgroundColor: theme.colors.borderLight,
+  },
+  bottomSpacer: {
+    height: 40,
+  },
+  profileDivider: {
+    height: 1,
+    backgroundColor: theme.colors.borderLight,
+    marginHorizontal: theme.spacing.lg,
+  },
+  codeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+  },
+  codeInfo: {
+    flex: 1,
+  },
+  codeLabel: {
+    ...theme.typography.caption,
+    fontSize: 10,
+    fontWeight: '700',
+    color: theme.colors.textMuted,
+    letterSpacing: 0.8,
+    marginBottom: 2,
+  },
+  codeValue: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 16,
+    color: theme.colors.primary,
+    letterSpacing: 1.5,
+    fontWeight: '700',
+  },
+  codeActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  codeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: theme.colors.raised,
+    paddingHorizontal: 12,
+    minHeight: 44,
+    borderRadius: theme.radius.full,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  codeBtnText: {
+    ...theme.typography.caption,
+    color: theme.colors.text,
+    fontWeight: '600',
   },
 });

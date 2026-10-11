@@ -8,8 +8,12 @@ const USER_PROFILE_KEY = 'userProfile';
 export interface StoredUserProfile {
   userId: string;
   gymId: string | null;
-  gymCode?: string | null;
   role: string;
+  name?: string;
+  phone?: string;
+  gymName?: string | null;
+  gymCode?: string | null;
+  gymType?: string | null;
 }
 
 export const saveTokens = async (accessToken: string, refreshToken: string) => {

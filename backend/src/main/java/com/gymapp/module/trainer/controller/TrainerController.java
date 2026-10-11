@@ -2,13 +2,16 @@ package com.gymapp.module.trainer.controller;
 
 import com.gymapp.common.ApiResponse;
 import com.gymapp.module.trainer.dto.ApproveTrainerRequest;
+import com.gymapp.module.trainer.dto.CreateTrainerRequest;
 import com.gymapp.module.trainer.dto.TrainerResponse;
+import com.gymapp.module.trainer.dto.UpdateTrainerRequest;
 import com.gymapp.module.trainer.service.TrainerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -18,15 +21,29 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/trainers")
 @RequiredArgsConstructor
-@Tag(name = "Trainers", description = "Trainer management and approval — OWNER only")
-@SecurityRequirement(name = "bearerAuth")
+@Tag(name = "Trainers", description = "Trainer management — OWNER only")
+@SecurityRequirement(name = "Bearer Auth")
 public class TrainerController {
 
     private final TrainerService trainerService;
 
+    @PostMapping
+    @PreAuthorize("hasRole('OWNER')")
+    @Operation(
+        summary = "Create a trainer",
+        description = "Creates an ACTIVE TRAINER user in the owner's gym (gymId from JWT only) with required trainerTypeIds and optional immediate member assignments."
+    )
+    public ResponseEntity<ApiResponse<TrainerResponse>> createTrainer(
+            @Valid @RequestBody CreateTrainerRequest request) {
+        TrainerResponse response = trainerService.createTrainer(request);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Trainer created successfully", response));
+    }
+
     @GetMapping
     @PreAuthorize("hasRole('OWNER')")
-    @Operation(summary = "List trainers", description = "List all trainers for this gym, optionally filter by status")
+    @Operation(summary = "List trainers", description = "List all trainers for this gym, optionally filter by status (ACTIVE or INACTIVE)")
     public ResponseEntity<ApiResponse<List<TrainerResponse>>> listTrainers(
             @RequestParam(required = false) String status) {
         List<TrainerResponse> response = trainerService.getTrainers(status);
@@ -41,22 +58,17 @@ public class TrainerController {
         return ResponseEntity.ok(ApiResponse.success("Trainer fetched successfully", response));
     }
 
-    @PostMapping("/{id}/approve")
+    @PatchMapping("/{id}")
     @PreAuthorize("hasRole('OWNER')")
-    @Operation(summary = "Approve pending trainer", description = "Approve pending trainer and assign required trainer types")
-    public ResponseEntity<ApiResponse<TrainerResponse>> approveTrainer(
+    @Operation(
+        summary = "Update trainer (name, types, phone, deactivate/reactivate)",
+        description = "Updates trainer details. Changing phone or deactivating bumps tokenVersion and invalidates sessions; deactivating also ends all active assignments."
+    )
+    public ResponseEntity<ApiResponse<TrainerResponse>> patchTrainer(
             @PathVariable String id,
-            @Valid @RequestBody ApproveTrainerRequest request) {
-        TrainerResponse response = trainerService.approveTrainer(id, request);
-        return ResponseEntity.ok(ApiResponse.success("Trainer approved successfully", response));
-    }
-
-    @PostMapping("/{id}/reject")
-    @PreAuthorize("hasRole('OWNER')")
-    @Operation(summary = "Reject pending trainer", description = "Reject trainer registration and auto-end assignments")
-    public ResponseEntity<ApiResponse<TrainerResponse>> rejectTrainer(@PathVariable String id) {
-        TrainerResponse response = trainerService.rejectTrainer(id);
-        return ResponseEntity.ok(ApiResponse.success("Trainer rejected successfully", response));
+            @RequestBody UpdateTrainerRequest request) {
+        TrainerResponse response = trainerService.updateTrainer(id, request);
+        return ResponseEntity.ok(ApiResponse.success("Trainer updated successfully", response));
     }
 
     @PutMapping("/{id}/types")
@@ -71,7 +83,7 @@ public class TrainerController {
 
     @PutMapping("/{id}/deactivate")
     @PreAuthorize("hasRole('OWNER')")
-    @Operation(summary = "Deactivate trainer", description = "Deactivates trainer and auto-ends all active assignments")
+    @Operation(summary = "Deactivate trainer", description = "Deactivates trainer, invalidates tokens, and auto-ends all active assignments")
     public ResponseEntity<ApiResponse<TrainerResponse>> deactivateTrainer(@PathVariable String id) {
         TrainerResponse response = trainerService.deactivateTrainer(id);
         return ResponseEntity.ok(ApiResponse.success("Trainer deactivated successfully", response));
