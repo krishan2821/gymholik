@@ -42,6 +42,11 @@ export const Input = React.forwardRef<TextInput, InputProps>(
       inputStyle,
       placeholder,
       editable = true,
+      keyboardType,
+      inputMode,
+      autoComplete,
+      onSubmitEditing,
+      onKeyPress,
       ...props
     },
     ref
@@ -49,6 +54,31 @@ export const Input = React.forwardRef<TextInput, InputProps>(
     const [isFocused, setIsFocused] = useState(false);
     const hasValue = !!(value || defaultValue);
     const isFloated = isFocused || hasValue || !!prefix;
+
+    // Determine smart defaults for inputMode and autoComplete if not explicitly passed
+    const resolvedInputMode: TextInputProps['inputMode'] =
+      inputMode ??
+      (keyboardType === 'phone-pad'
+        ? 'tel'
+        : keyboardType === 'email-address'
+        ? 'email'
+        : keyboardType === 'numeric' || keyboardType === 'number-pad'
+        ? 'numeric'
+        : keyboardType === 'decimal-pad'
+        ? 'decimal'
+        : keyboardType === 'url'
+        ? 'url'
+        : 'text');
+
+    const resolvedAutoComplete: TextInputProps['autoComplete'] =
+      autoComplete ??
+      (keyboardType === 'phone-pad'
+        ? 'tel'
+        : keyboardType === 'email-address'
+        ? 'email'
+        : props.secureTextEntry
+        ? 'current-password'
+        : undefined);
 
     // Floating label animation
     const animatedIsFocused = useRef(
@@ -73,6 +103,18 @@ export const Input = React.forwardRef<TextInput, InputProps>(
       onBlur?.(e);
     };
 
+    // On Web, ensure pressing Enter triggers form submission (onSubmitEditing)
+    const handleKeyPress = (e: any) => {
+      if (
+        Platform.OS === 'web' &&
+        (e.nativeEvent?.key === 'Enter' || e.key === 'Enter') &&
+        !props.multiline
+      ) {
+        onSubmitEditing?.(e);
+      }
+      onKeyPress?.(e);
+    };
+
     const labelTop = animatedIsFocused.interpolate({
       inputRange: [0, 1],
       outputRange: [18, 6],
@@ -92,7 +134,7 @@ export const Input = React.forwardRef<TextInput, InputProps>(
     const borderColor = error
       ? theme.colors.error
       : isFocused
-      ? theme.colors.primary
+      ? theme.colors.primary // 2px sage focus
       : theme.colors.border;
 
     return (
@@ -115,9 +157,9 @@ export const Input = React.forwardRef<TextInput, InputProps>(
                 fontSize: labelFontSize,
                 color: labelColor,
                 left: leftIcon ? 42 : 16,
+                pointerEvents: 'none',
               },
             ]}
-            pointerEvents="none"
           >
             {label}
           </Animated.Text>
@@ -135,11 +177,16 @@ export const Input = React.forwardRef<TextInput, InputProps>(
           {/* Main Input */}
           <TextInput
             ref={ref}
-            value={value}
+            value={value !== undefined ? (value ?? '') : (defaultValue !== undefined ? undefined : '')}
             defaultValue={defaultValue}
             onChangeText={onChangeText}
             onFocus={handleFocus}
             onBlur={handleBlur}
+            onKeyPress={handleKeyPress}
+            onSubmitEditing={onSubmitEditing}
+            keyboardType={keyboardType}
+            inputMode={resolvedInputMode}
+            autoComplete={resolvedAutoComplete}
             editable={editable}
             placeholder={isFloated || !label ? placeholder : ''}
             placeholderTextColor="rgba(218, 241, 222, 0.40)"
@@ -153,6 +200,7 @@ export const Input = React.forwardRef<TextInput, InputProps>(
               !editable && styles.disabledTextOpacity,
               inputStyle,
             ]}
+            {...(Platform.OS === 'web' ? ({ tabIndex: 0 } as any) : {})}
             {...props}
           />
 
@@ -192,6 +240,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   focusGlow: {
+    borderWidth: 2,
+    borderColor: '#8EB69B', // Visible 2px sage focus ring
     ...Platform.select({
       ios: {
         shadowColor: theme.colors.primary,
@@ -202,6 +252,9 @@ const styles = StyleSheet.create({
       android: {
         elevation: 4,
       },
+      web: {
+        boxShadow: '0 0 0 2px rgba(142, 182, 155, 0.25)',
+      } as any,
     }),
   },
   errorGlow: {
@@ -215,6 +268,9 @@ const styles = StyleSheet.create({
       android: {
         elevation: 3,
       },
+      web: {
+        boxShadow: '0 0 0 2px rgba(255, 107, 107, 0.25)',
+      } as any,
     }),
   },
   disabledContainer: {
@@ -252,6 +308,11 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     minHeight: 52,
     paddingVertical: 8,
+    ...(Platform.OS === 'web'
+      ? ({
+          outlineStyle: 'none',
+        } as any)
+      : {}),
   },
   rightAction: {
     minWidth: 44,

@@ -42,6 +42,7 @@ public class PaymentService {
     private final MemberRepository memberRepository;
     private final SequenceService sequenceService;
     private final MongoTemplate mongoTemplate;
+    private final com.gymapp.module.dashboard.service.DashboardService dashboardService;
 
     @Transactional
     public PaymentResponse createPayment(CreatePaymentRequest request) {
@@ -108,6 +109,10 @@ public class PaymentService {
                 new org.springframework.data.mongodb.core.query.Update().inc("currentDuePaise", -request.getAmountPaise()),
                 Member.class
         );
+
+        if (dashboardService != null) {
+            dashboardService.evictCache(gymId);
+        }
 
         return mapToResponse(payment);
     }
@@ -311,6 +316,18 @@ public class PaymentService {
                 update,
                 Membership.class
         );
+
+        mongoTemplate.updateFirst(
+                new org.springframework.data.mongodb.core.query.Query(
+                        Criteria.where("_id").is(originalPayment.getMemberId()).and("gymId").is(gymId)
+                ),
+                new org.springframework.data.mongodb.core.query.Update().inc("currentDuePaise", originalPayment.getAmountPaise()),
+                com.gymapp.module.member.entity.Member.class
+        );
+
+        if (dashboardService != null) {
+            dashboardService.evictCache(gymId);
+        }
 
         return mapToResponse(reversal);
     }

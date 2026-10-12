@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { safeOpenURL } from '../../../src/utils/safeLinking';
 import { Phone, MessageCircle } from 'lucide-react-native';
 import { theme } from '../../../src/theme/theme';
 import { useAbsentMembers, AbsentRecord } from '../../../src/api/attendance';
@@ -19,11 +20,11 @@ export default function AbsentMembersScreen() {
 
   const openWhatsApp = (record: AbsentRecord) => {
     const message = ABSENT.WHATSAPP_MSG(record.memberName);
-    Linking.openURL(`https://wa.me/91${record.phone}?text=${encodeURIComponent(message)}`);
+    safeOpenURL(`https://wa.me/91${record.phone}?text=${encodeURIComponent(message)}`);
   };
 
   const openPhone = (record: AbsentRecord) => {
-    Linking.openURL(`tel:${record.phone}`);
+    safeOpenURL(`tel:${record.phone}`);
   };
 
   const renderItem = ({ item }: { item: AbsentRecord }) => {

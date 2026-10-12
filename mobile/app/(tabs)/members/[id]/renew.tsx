@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { safeBack } from '../../../../src/utils/navigation';
 import { useForm, Controller } from 'react-hook-form';
@@ -97,7 +98,11 @@ export default function RenewMemberScreen() {
       await renewMutation.mutateAsync({ id: id as string, payload });
       safeBack('/(tabs)/members');
     } catch (error: any) {
-      Alert.alert(RENEW.ERROR_TITLE, error.response?.data?.message || 'Failed to renew membership');
+      Toast.show({
+        type: 'error',
+        text1: RENEW.ERROR_TITLE,
+        text2: error.response?.data?.message || 'Failed to renew membership',
+      });
     }
   };
 

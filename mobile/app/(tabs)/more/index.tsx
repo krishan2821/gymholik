@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Share, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Share, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import * as Clipboard from 'expo-clipboard';
+import { safeSetClipboardString } from '../../../src/utils/safeClipboard';
 import Toast from 'react-native-toast-message';
+import { showConfirmDialog } from '../../../src/components/ConfirmDialog';
 import {
   User,
   Users,
@@ -22,6 +23,7 @@ import { theme } from '../../../src/theme/theme';
 import { useAuthStore } from '../../../src/store/useAuthStore';
 import { useCurrentUser } from '../../../src/api/auth';
 import { Screen } from '../../../src/components/Screen';
+import { PageHeader } from '../../../src/components/PageHeader';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Badge } from '../../../src/components/Badge';
 import { MORE, COMMON } from '../../../src/constants/strings';
@@ -45,18 +47,18 @@ export default function MoreScreen() {
   }
 
   const handleLogout = async () => {
-    Alert.alert(MORE.LOGOUT_CONFIRM_TITLE, MORE.LOGOUT_CONFIRM_MSG, [
-      { text: COMMON.CANCEL, style: 'cancel' },
-      {
-        text: MORE.LOGOUT_BTN,
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-          queryClient.clear();
-          router.replace('/(auth)/login');
-        },
+    showConfirmDialog({
+      title: MORE.LOGOUT_CONFIRM_TITLE,
+      message: MORE.LOGOUT_CONFIRM_MSG,
+      confirmText: MORE.LOGOUT_BTN,
+      cancelText: COMMON.CANCEL,
+      isDestructive: true,
+      onConfirm: async () => {
+        await logout();
+        queryClient.clear();
+        router.replace('/(auth)/login');
       },
-    ]);
+    });
   };
 
   const MenuItem = ({ icon: Icon, title, onPress, destructive = false }: any) => (
@@ -86,7 +88,7 @@ export default function MoreScreen() {
 
   const handleCopyGymCode = async () => {
     if (!formattedGymCode) return;
-    await Clipboard.setStringAsync(formattedGymCode);
+    await safeSetClipboardString(formattedGymCode);
     Toast.show({
       type: 'success',
       text1: MORE.GYM_CODE_COPIED,
@@ -95,9 +97,18 @@ export default function MoreScreen() {
 
   const handleShareGymCode = async () => {
     if (!formattedGymCode) return;
+    const msg = MORE.GYM_CODE_SHARE_TEXT(gymName || 'Gym', formattedGymCode);
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && !navigator.share) {
+      await safeSetClipboardString(msg);
+      Toast.show({
+        type: 'success',
+        text1: 'Gym code details copied to clipboard',
+      });
+      return;
+    }
     try {
       await Share.share({
-        message: MORE.GYM_CODE_SHARE_TEXT(gymName || 'Gym', formattedGymCode),
+        message: msg,
       });
     } catch {
       // dismissed
@@ -106,6 +117,7 @@ export default function MoreScreen() {
 
   return (
     <Screen scrollable contentContainerStyle={styles.scroll}>
+      <PageHeader title="More" />
       {/* ── Profile Card (Tappable to Edit Profile) ───────────────── */}
       <GlassCard style={styles.profileCard}>
         <TouchableOpacity

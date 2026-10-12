@@ -24,8 +24,17 @@ export const setAuthInterceptorsHandlers = (handlers: {
 // - iOS Simulator / Web: http://localhost:8080
 export const resolveBaseUrl = (): string => {
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
-    return envUrl;
+
+  if (Platform.OS === 'web') {
+    // If an external production URL is specified, use it
+    if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1') && !envUrl.startsWith('http://192.168.')) {
+      return envUrl;
+    }
+    // When running web dev on localhost, connect directly to localhost:8080
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+      return 'http://localhost:8080';
+    }
+    return envUrl || 'http://localhost:8080';
   }
 
   // Detect Metro dev host IP automatically
@@ -104,16 +113,31 @@ export function classifyError(error: unknown): ApiError {
 
   if (!axios.isAxiosError(error)) {
     devLog('non-axios', error);
+    const msg = (error as any)?.message || '';
+    if (Platform.OS === 'web' && (msg.includes('Network') || msg.includes('Failed to fetch'))) {
+      return {
+        ...base,
+        errorCode: 'NETWORK_OR_CORS_ERROR',
+        message: 'Unable to reach the server. The server may be down or the request was blocked by CORS.',
+      };
+    }
     return { ...base, message: 'An unexpected error occurred. Please try again.' };
   }
 
   const axErr = error as AxiosError<any>;
   const response = axErr.response;
 
-  // ── Network / timeout (no response received) ──────────────────────────────
+  // ── Network / timeout / CORS (no response received) ──────────────────────────────
   if (!response) {
     devLog('network', { message: axErr.message, url: axErr.config?.url });
-    if (axErr.code === 'ECONNABORTED' || axErr.message.toLowerCase().includes('timeout')) {
+    if (Platform.OS === 'web') {
+      return {
+        ...base,
+        errorCode: 'NETWORK_OR_CORS_ERROR',
+        message: 'Unable to reach the server. The server may be down or the request was blocked by CORS.',
+      };
+    }
+    if (axErr.code === 'ECONNABORTED' || axErr.message?.toLowerCase().includes('timeout')) {
       return {
         ...base,
         errorCode: 'NETWORK_ERROR',

@@ -37,6 +37,7 @@ class PaymentServiceTest {
     @Mock private MemberRepository memberRepository;
     @Mock private SequenceService sequenceService;
     @Mock private MongoTemplate mongoTemplate;
+    @Mock private com.gymapp.module.dashboard.service.DashboardService dashboardService;
 
     @InjectMocks
     private PaymentService paymentService;

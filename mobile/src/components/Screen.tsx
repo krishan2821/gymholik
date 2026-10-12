@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { theme } from '../theme/theme';
 import { BackgroundImage } from './BackgroundImage';
+import { AppContainer } from './AppContainer';
 
 export interface ScreenProps {
   children?: React.ReactNode;
@@ -26,6 +27,7 @@ export interface ScreenProps {
   safeBottom?: boolean;
   safeTop?: boolean;
   keyboardAvoiding?: boolean;
+  contained?: boolean;
 }
 
 export const TAB_BAR_HEIGHT = 64;
@@ -50,8 +52,10 @@ export const Screen: React.FC<ScreenProps> = ({
   safeBottom = true,
   safeTop = true,
   keyboardAvoiding = false,
+  contained = true,
 }) => {
-  const insets = useSafeAreaInsets();
+  const rawInsets = useSafeAreaInsets();
+  const insets = Platform.OS === 'web' ? { top: 0, right: 0, bottom: 0, left: 0 } : (rawInsets ?? { top: 0, right: 0, bottom: 0, left: 0 });
 
   // Top padding: insets.top + 12 so nothing sits under status bar or Dynamic Island
   const topPad = safeTop ? insets.top + 12 : 0;
@@ -85,9 +89,8 @@ export const Screen: React.FC<ScreenProps> = ({
     <View style={[styles.content, style, { paddingTop: topPad }]}>{children}</View>
   );
 
-  return (
-    // Root fills whole screen edge-to-edge — background extends under status bar & home indicator
-    <View style={styles.root}>
+  const innerContent = (
+    <>
       <StatusBar style="light" />
       {withHeroImage && <BackgroundImage opacity={heroOpacity} />}
       {keyboardAvoiding ? (
@@ -100,6 +103,21 @@ export const Screen: React.FC<ScreenProps> = ({
       ) : (
         content
       )}
+    </>
+  );
+
+  if (contained) {
+    return (
+      <AppContainer style={styles.root}>
+        {innerContent}
+      </AppContainer>
+    );
+  }
+
+  return (
+    // Root fills whole screen edge-to-edge — background extends under status bar & home indicator
+    <View style={styles.root}>
+      {innerContent}
     </View>
   );
 };

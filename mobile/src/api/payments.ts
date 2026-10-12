@@ -1,8 +1,9 @@
 import { apiClient, BASE_URL } from './axiosConfig';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
+import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
+import { safeShareAsync, safeIsAvailableAsync } from '../utils/safeSharing';
 import { getAccessToken } from '../utils/tokenUtils';
 
 import { components } from './types';
@@ -99,6 +100,21 @@ export const downloadAndShareReceipt = async (paymentId: string, receiptNumber: 
   try {
     const token = await getAccessToken();
     const url = `${BASE_URL}/api/payments/${paymentId}/receipt`;
+
+    if (Platform.OS === 'web') {
+      const response = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) throw new Error('Failed to download PDF');
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      await safeShareAsync(blobUrl, {
+        mimeType: 'application/pdf',
+        dialogTitle: `Receipt_${receiptNumber}`,
+      });
+      return;
+    }
+
     const fileUri = `${(FileSystem as any).documentDirectory || ''}Receipt_${receiptNumber}.pdf`;
 
     const downloadResult = await FileSystem.downloadAsync(url, fileUri, {
@@ -111,8 +127,8 @@ export const downloadAndShareReceipt = async (paymentId: string, receiptNumber: 
       throw new Error('Failed to download PDF');
     }
 
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(downloadResult.uri, {
+    if (await safeIsAvailableAsync()) {
+      await safeShareAsync(downloadResult.uri, {
         mimeType: 'application/pdf',
         dialogTitle: 'Share Receipt',
       });

@@ -21,6 +21,7 @@ public class GymProfileResponse {
     private GymType gymType;
     private String status;
     private LocalDate subscriptionValidTill;
+    private Long daysRemaining;
     private boolean legalIdVerified;
     private LegalIdType legalIdType;
     private String legalIdNumber;

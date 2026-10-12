@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme/theme';
 
 const bgGymAsset = require('../../assets/images/bg-gym.webp');
+const bgGymWebAsset = require('../../assets/images/bg-gym-web.jpg');
 
 export interface BackgroundImageProps {
   style?: StyleProp<ViewStyle>;
@@ -23,10 +24,12 @@ export const BackgroundImage: React.FC<BackgroundImageProps> = ({
   overlayColors = ['rgba(5, 31, 32, 0.90)', 'rgba(5, 31, 32, 0.75)', 'rgba(5, 31, 32, 0.92)'],
   locations = [0, 0.45, 1.0],
 }) => {
+  const imageAsset = Platform.OS === 'web' ? bgGymWebAsset : bgGymAsset;
+
   return (
     <View style={[styles.container, style]}>
       <Image
-        source={bgGymAsset}
+        source={imageAsset}
         style={[styles.image, { opacity }]}
         resizeMode="cover"
       />
@@ -45,11 +48,20 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     backgroundColor: theme.colors.background,
     overflow: 'hidden',
+    width: '100%',
+    maxWidth: theme.layout.maxWidth.column,
+    alignSelf: 'center',
   },
   image: {
     ...StyleSheet.absoluteFill,
     width: '100%',
     height: '100%',
+    ...(Platform.OS === 'web'
+      ? ({
+          objectPosition: 'top',
+          objectFit: 'cover',
+        } as any)
+      : {}),
   },
 });
 

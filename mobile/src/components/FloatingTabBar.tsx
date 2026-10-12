@@ -6,7 +6,7 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '../utils/safeHaptics';
 import {
   Home,
   Users,
@@ -43,7 +43,8 @@ export const FloatingTabBar: React.FC<FloatingTabBarProps> = ({
   descriptors,
   navigation,
 }) => {
-  const insets = useSafeAreaInsets();
+  const rawInsets = useSafeAreaInsets();
+  const insets = Platform.OS === 'web' ? { top: 0, right: 0, bottom: 0, left: 0 } : rawInsets;
   const user = useAuthStore((state) => state.user);
   const role = user?.role;
 
@@ -73,11 +74,12 @@ export const FloatingTabBar: React.FC<FloatingTabBarProps> = ({
         styles.wrapper,
         {
           bottom: (insets.bottom || 0) + 8,
+          pointerEvents: 'box-none',
         },
       ]}
-      pointerEvents="box-none"
     >
-      <View style={styles.container}>
+      <View style={styles.columnWrapper}>
+        <View style={styles.container}>
         {allowedTabs.map((tabConfig) => {
           const route = state.routes.find((r: any) => r.name === tabConfig.name);
           if (!route) return null;
@@ -111,8 +113,13 @@ export const FloatingTabBar: React.FC<FloatingTabBarProps> = ({
                 activeOpacity={0.85}
                 style={[styles.tabItem, styles.centerTabItem]}
                 accessibilityRole="button"
-                accessibilityLabel="Check-in attendance"
+                accessibilityLabel="Check-in"
+                aria-label="Check-in"
                 accessibilityState={{ selected: isFocused }}
+                {...({
+                  dataSet: { tabItem: 'center' },
+                  title: 'Check-in',
+                } as any)}
               >
                 <View style={styles.raisedCenterBtn}>
                   <CalendarCheck
@@ -133,10 +140,13 @@ export const FloatingTabBar: React.FC<FloatingTabBarProps> = ({
               key={route.key}
               onPress={onPress}
               activeOpacity={0.75}
-              style={styles.tabItem}
+              style={[styles.tabItem, isFocused && styles.tabItemFocused]}
               accessibilityRole="button"
               accessibilityLabel={label}
               accessibilityState={{ selected: isFocused }}
+              {...({
+                dataSet: { tabItem: 'regular' },
+              } as any)}
             >
               <View style={styles.iconWrap}>
                 <Icon
@@ -170,6 +180,7 @@ export const FloatingTabBar: React.FC<FloatingTabBarProps> = ({
             </TouchableOpacity>
           );
         })}
+        </View>
       </View>
     </View>
   );
@@ -178,10 +189,16 @@ export const FloatingTabBar: React.FC<FloatingTabBarProps> = ({
 const styles = StyleSheet.create({
   wrapper: {
     position: 'absolute',
-    left: 16,
-    right: 16,
+    left: 0,
+    right: 0,
     alignItems: 'center',
     zIndex: 99,
+  },
+  columnWrapper: {
+    width: '100%',
+    maxWidth: theme.layout.maxWidth.column,
+    paddingHorizontal: 16,
+    alignItems: 'center',
   },
   container: {
     flexDirection: 'row',
@@ -211,6 +228,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: 6,
+    borderRadius: 24,
+    backgroundColor: 'transparent',
+  },
+  tabItemFocused: {
+    backgroundColor: 'transparent',
   },
   iconWrap: {
     marginBottom: 2,

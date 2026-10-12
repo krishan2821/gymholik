@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { safeOpenURL } from '../../../src/utils/safeLinking';
 import { useRouter } from 'expo-router';
 import { MessageCircle, Wallet } from 'lucide-react-native';
 import { theme } from '../../../src/theme/theme';
 import { useDues, DueRecord } from '../../../src/api/payments';
 import { Screen } from '../../../src/components/Screen';
+import { PageHeader } from '../../../src/components/PageHeader';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Button } from '../../../src/components/Button';
 import { ErrorState } from '../../../src/components/ErrorState';
@@ -12,6 +14,7 @@ import { EmptyState } from '../../../src/components/EmptyState';
 import { useAuthStore } from '../../../src/store/useAuthStore';
 import { MaskedPhone, isPhoneMasked } from '../../../src/components/MaskedPhone';
 import { DUES, ERRORS } from '../../../src/constants/strings';
+import { formatMoney } from '../../../src/utils/formatters';
 
 export default function DuesListScreen() {
   const router = useRouter();
@@ -52,9 +55,9 @@ export default function DuesListScreen() {
   const totalDue = sortedDues.reduce((sum, item) => sum + (item.totalDuePaise || 0), 0);
 
   const openWhatsApp = (record: DueRecord) => {
-    const dueFormatted = record.totalDuePaise / 100;
-    const message = DUES.WHATSAPP_MSG(record.memberName, String(dueFormatted));
-    Linking.openURL(`https://wa.me/91${record.phone}?text=${encodeURIComponent(message)}`);
+    const dueFormatted = formatMoney(record.totalDuePaise);
+    const message = DUES.WHATSAPP_MSG(record.memberName, dueFormatted);
+    safeOpenURL(`https://wa.me/91${record.phone}?text=${encodeURIComponent(message)}`);
   };
 
   const renderItem = ({ item }: { item: DueRecord }) => {
@@ -68,7 +71,7 @@ export default function DuesListScreen() {
           </View>
           <View style={styles.dueBox}>
             <Text style={styles.dueLabel}>Due</Text>
-            <Text style={styles.dueAmount}>₹{item.totalDuePaise / 100}</Text>
+            <Text style={styles.dueAmount}>{formatMoney(item.totalDuePaise)}</Text>
           </View>
         </View>
 
@@ -103,10 +106,15 @@ export default function DuesListScreen() {
   };
 
   return (
-    <Screen>
+    <Screen safeTop={false}>
+      <PageHeader
+        title="Pending Dues"
+        showBack
+        onBack={() => router.back()}
+      />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{DUES.HEADER_TOTAL}</Text>
-        <Text style={styles.totalAmount}>₹{totalDue / 100}</Text>
+        <Text style={styles.totalAmount}>{formatMoney(totalDue)}</Text>
       </View>
 
       <FlatList
@@ -114,7 +122,7 @@ export default function DuesListScreen() {
         keyExtractor={(item, index) => item?.memberId || `due-${index}`}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
-        ListEmptyComponent={<EmptyState message={DUES.EMPTY} />}
+        ListEmptyComponent={<EmptyState type="payments" message={DUES.EMPTY} />}
       />
     </Screen>
   );

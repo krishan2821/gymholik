@@ -5,12 +5,12 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  ActivityIndicator,
-  Alert,
   Modal,
   FlatList,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { safeBack } from '../../../src/utils/navigation';
 import { CheckCircle, Search, X } from 'lucide-react-native';
@@ -18,12 +18,15 @@ import { theme } from '../../../src/theme/theme';
 import { useMember, useMembers } from '../../../src/api/members';
 import { useCollectPayment, downloadAndShareReceipt } from '../../../src/api/payments';
 import { Screen } from '../../../src/components/Screen';
+import { PageHeader } from '../../../src/components/PageHeader';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Button } from '../../../src/components/Button';
 import { Avatar } from '../../../src/components/Avatar';
 import { useAuthStore } from '../../../src/store/useAuthStore';
 import { ErrorState } from '../../../src/components/ErrorState';
 import { COLLECT, ERRORS, COMMON, FIELDS } from '../../../src/constants/strings';
+import { useBreakpoint } from '../../../src/hooks/useBreakpoint';
+import { formatMoney } from '../../../src/utils/formatters';
 
 export default function CollectPaymentScreen() {
   const { memberId: initialMemberId } = useLocalSearchParams<{ memberId?: string }>();
@@ -63,15 +66,15 @@ export default function CollectPaymentScreen() {
 
   const handleSubmit = async () => {
     if (!memberId) {
-      Alert.alert('Error', ERRORS.SELECT_MEMBER);
+      Toast.show({ type: 'error', text1: 'Error', text2: ERRORS.SELECT_MEMBER });
       return;
     }
     if (inputAmount <= 0) {
-      Alert.alert('Error', ERRORS.AMOUNT_ZERO);
+      Toast.show({ type: 'error', text1: 'Error', text2: ERRORS.AMOUNT_ZERO });
       return;
     }
     if (inputAmount > dueAmount) {
-      Alert.alert('Error', ERRORS.AMOUNT_EXCEEDS_DUE);
+      Toast.show({ type: 'error', text1: 'Error', text2: ERRORS.AMOUNT_EXCEEDS_DUE });
       return;
     }
 
@@ -85,7 +88,7 @@ export default function CollectPaymentScreen() {
 
       setSuccessData({ id: res.id, receiptNumber: res.receiptNumber });
     } catch (e: any) {
-      Alert.alert('Error', e.response?.data?.message || ERRORS.GENERIC);
+      Toast.show({ type: 'error', text1: 'Error', text2: e.response?.data?.message || ERRORS.GENERIC });
     }
   };
 
@@ -117,7 +120,12 @@ export default function CollectPaymentScreen() {
   }
 
   return (
-    <Screen scrollable keyboardAvoiding contentContainerStyle={styles.scroll}>
+    <Screen safeTop={false} scrollable keyboardAvoiding contentContainerStyle={styles.scroll}>
+      <PageHeader
+        title="Collect Payment"
+        showBack
+        onBack={() => safeBack('/(tabs)/payments')}
+      />
       {/* ── Member Selection ───────────────────────────────────────── */}
       <GlassCard style={styles.card} contentStyle={styles.cardContent}>
         <Text style={styles.sectionTitle}>Member Details</Text>
@@ -150,15 +158,15 @@ export default function CollectPaymentScreen() {
           <View style={styles.dueSummary}>
             <View style={styles.dueRow}>
               <Text style={styles.dueLabel}>Plan Total:</Text>
-              <Text style={styles.dueValue}>₹{member.currentMembership.totalPaise / 100}</Text>
+              <Text style={styles.dueValue}>{formatMoney(member.currentMembership.totalPaise)}</Text>
             </View>
             <View style={styles.dueRow}>
               <Text style={styles.dueLabel}>Already Paid:</Text>
-              <Text style={styles.dueValue}>₹{member.currentMembership.paidPaise / 100}</Text>
+              <Text style={styles.dueValue}>{formatMoney(member.currentMembership.paidPaise)}</Text>
             </View>
             <View style={[styles.dueRow, styles.dueRowHighlight]}>
               <Text style={styles.dueLabelHighlight}>Remaining Due:</Text>
-              <Text style={styles.dueValueHighlight}>₹{dueAmount / 100}</Text>
+              <Text style={styles.dueValueHighlight}>{formatMoney(dueAmount)}</Text>
             </View>
           </View>
         )}
@@ -190,7 +198,7 @@ export default function CollectPaymentScreen() {
             )}
           </View>
           {inputAmount > dueAmount && (
-            <Text style={styles.errorText}>Amount exceeds due (₹{dueAmount / 100})</Text>
+            <Text style={styles.errorText}>Amount exceeds due ({formatMoney(dueAmount)})</Text>
           )}
 
           <Text style={[styles.label, { marginTop: 14 }]}>{FIELDS.PAYMENT_MODE}</Text>
@@ -248,10 +256,10 @@ export default function CollectPaymentScreen() {
   );
 }
 
-// Inline component for picking member
 const MemberPickerModal = ({ visible, onClose, onSelect }: any) => {
   const [term, setTerm] = useState('');
   const [debouncedTerm, setDebouncedTerm] = useState('');
+  const { isPhone } = useBreakpoint();
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedTerm(term), 400);
@@ -261,52 +269,66 @@ const MemberPickerModal = ({ visible, onClose, onSelect }: any) => {
   const { data, isLoading } = useMembers({ term: debouncedTerm, status: 'DUE' });
   const members = data?.pages.flatMap((p) => p.content) || [];
 
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <SafeAreaView style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Select Member</Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close">
-            <X color={theme.colors.text} size={22} />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.searchBox}>
-          <Search color={theme.colors.primary} size={20} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder={COLLECT.SELECT_MEMBER_PLACEHOLDER}
-            placeholderTextColor={theme.colors.textMuted}
-            value={term}
-            onChangeText={setTerm}
-          />
-        </View>
+  const content = (
+    <View style={isPhone ? styles.modalContainer : styles.modalCard}>
+      <View style={styles.modalHeader}>
+        <Text style={styles.modalTitle}>Select Member</Text>
+        <TouchableOpacity onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close">
+          <X color={theme.colors.text} size={22} />
+        </TouchableOpacity>
+      </View>
+      <View style={styles.searchBox}>
+        <Search color={theme.colors.primary} size={20} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder={COLLECT.SELECT_MEMBER_PLACEHOLDER}
+          placeholderTextColor={theme.colors.textMuted}
+          value={term}
+          onChangeText={setTerm}
+        />
+      </View>
 
-        {isLoading ? (
-          <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 24 }} />
-        ) : (
-          <FlatList
-            data={members}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.pickerList}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.pickerItem}
-                onPress={() => onSelect(item.id)}
-                accessibilityRole="button"
-              >
-                <Avatar name={item.name} photoUrl={item.photoUrl} size="sm" />
-                <View style={styles.pickerInfo}>
-                  <Text style={styles.pickerItemName}>{item.name}</Text>
-                  <Text style={styles.pickerItemPhone}>{item.phone}</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-            ListEmptyComponent={
-              <Text style={styles.emptySearchText}>No members with due found</Text>
-            }
-          />
-        )}
-      </SafeAreaView>
+      {isLoading ? (
+        <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 24 }} />
+      ) : (
+        <FlatList
+          data={members}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.pickerList}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.pickerItem}
+              onPress={() => onSelect(item.id)}
+              accessibilityRole="button"
+            >
+              <Avatar name={item.name} photoUrl={item.photoUrl} size="sm" />
+              <View style={styles.pickerInfo}>
+                <Text style={styles.pickerItemName}>{item.name}</Text>
+                <Text style={styles.pickerItemPhone}>{item.phone}</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+          ListEmptyComponent={
+            <Text style={styles.emptySearchText}>No members with due found</Text>
+          }
+        />
+      )}
+    </View>
+  );
+
+  return (
+    <Modal
+      visible={visible}
+      animationType={isPhone ? 'slide' : 'fade'}
+      transparent={!isPhone}
+      presentationStyle={isPhone ? 'pageSheet' : 'overFullScreen'}
+      onRequestClose={onClose}
+    >
+      {isPhone ? (
+        <SafeAreaView style={styles.modalContainer}>{content}</SafeAreaView>
+      ) : (
+        <View style={styles.modalOverlay}>{content}</View>
+      )}
     </Modal>
   );
 };
@@ -527,6 +549,23 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 440,
+    maxHeight: '80%',
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.radius.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    overflow: 'hidden',
   },
   modalHeader: {
     flexDirection: 'row',

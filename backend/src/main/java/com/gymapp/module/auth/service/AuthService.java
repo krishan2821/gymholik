@@ -129,7 +129,7 @@ public class AuthService {
                 .termsAcceptedAt(Instant.now())
                 .termsVersion(request.getTermsVersion().trim())
                 .status("TRIAL")
-                .subscriptionValidTill(LocalDate.now().plusDays(effectiveTrialDays))
+                .subscriptionValidTill(LocalDate.now(java.time.ZoneId.of("Asia/Kolkata")).plusDays(effectiveTrialDays))
                 .build();
 
         String rawRefreshToken = UUID.randomUUID().toString();

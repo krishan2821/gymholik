@@ -172,6 +172,18 @@ export const shadows = {
   },
 } as const;
 
+export const layout = {
+  maxWidth: {
+    column: 480,
+    form: 420,
+    content: 480,
+  },
+  breakpoints: {
+    phone: 640,
+    tablet: 1024,
+  },
+} as const;
+
 export const theme = {
   name: 'Forest Iron',
   colors,
@@ -181,6 +193,7 @@ export const theme = {
   radius,
   gradients,
   shadows,
+  layout,
 };
 
 export default theme;

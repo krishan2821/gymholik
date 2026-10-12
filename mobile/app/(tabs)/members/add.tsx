@@ -5,15 +5,15 @@ import {
   TextInput,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   Animated,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useRouter } from 'expo-router';
 import { safeBack } from '../../../src/utils/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import * as Haptics from 'expo-haptics';
+import { safeImpactAsync, ImpactFeedbackStyle } from '../../../src/utils/safeHaptics';
 import { addDays, format } from 'date-fns';
 import {
   ArrowLeft,
@@ -27,6 +27,7 @@ import {
 
 import { theme } from '../../../src/theme/theme';
 import { Screen } from '../../../src/components/Screen';
+import { PageHeader } from '../../../src/components/PageHeader';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Button } from '../../../src/components/Button';
 import { PhotoPicker } from '../../../src/components/PhotoPicker';
@@ -34,6 +35,7 @@ import { PlanPicker } from '../../../src/components/PlanPicker';
 import { useAddMember, uploadMemberPhoto } from '../../../src/api/members';
 import { usePlans } from '../../../src/api/plans';
 import { MEMBERS, FIELDS } from '../../../src/constants/strings';
+import { formatMoney } from '../../../src/utils/formatters';
 
 const memberSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -109,7 +111,7 @@ export default function AddMemberScreen() {
   }
 
   const changeStep = (nextStep: 1 | 2 | 3) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    safeImpactAsync(ImpactFeedbackStyle.Light);
     setStep(nextStep);
     Animated.spring(progressAnim, {
       toValue: nextStep === 1 ? 0.33 : nextStep === 2 ? 0.66 : 1,
@@ -171,13 +173,18 @@ export default function AddMemberScreen() {
         setError('phone', { message: 'This mobile number is already registered' });
         changeStep(1);
       } else {
-        Alert.alert('Error', error.response?.data?.message || 'Failed to add member');
+        Toast.show({ type: 'error', text1: 'Error', text2: error.response?.data?.message || 'Failed to add member' });
       }
     }
   };
 
   return (
-    <Screen scrollable keyboardAvoiding contentContainerStyle={styles.scroll}>
+    <Screen safeTop={false} scrollable keyboardAvoiding contentContainerStyle={styles.scroll}>
+      <PageHeader
+        title="Add Member"
+        showBack
+        onBack={() => safeBack('/(tabs)/members')}
+      />
       {/* ── Progress Bar & Step Indicator ─────────────────────────────── */}
       <View style={styles.progressContainer}>
         {/* Track & Filled Progress Bar */}
@@ -371,7 +378,7 @@ export default function AddMemberScreen() {
                 <View style={styles.planSummaryRow}>
                   <Text style={styles.planSummaryLabel}>Total Plan Fee</Text>
                   <Text style={[styles.planSummaryValue, styles.planPriceText]}>
-                    ₹{totalAmount / 100}
+                    {formatMoney(totalAmount)}
                   </Text>
                 </View>
               </View>
@@ -424,7 +431,7 @@ export default function AddMemberScreen() {
               <View style={styles.recapRow}>
                 <Text style={styles.recapLabel}>Total Fee</Text>
                 <Text style={[styles.recapValue, { color: theme.colors.primary, fontFamily: theme.fonts.headingBold }]}>
-                  ₹{totalAmount / 100}
+                  {formatMoney(totalAmount)}
                 </Text>
               </View>
             </View>
@@ -440,7 +447,7 @@ export default function AddMemberScreen() {
               render={({ field: { onChange, value } }) => (
                 <TextInput
                   style={[styles.input, errors.paidAmount && styles.inputError]}
-                  placeholder={`Full amount: ${totalAmount / 100}`}
+                  placeholder={`Full amount: ${formatMoney(totalAmount)}`}
                   placeholderTextColor={theme.colors.textMuted}
                   value={value}
                   onChangeText={onChange}
@@ -455,7 +462,7 @@ export default function AddMemberScreen() {
             {dueAmount > 0 && selectedPlan && (
               <View style={styles.dueAlertBox}>
                 <Text style={styles.dueAlertText}>
-                  Pending Due: ₹{dueAmount / 100}
+                  Pending Due: {formatMoney(dueAmount)}
                 </Text>
               </View>
             )}

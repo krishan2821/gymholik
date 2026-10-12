@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,11 +43,10 @@ import { Screen, TAB_BAR_HEIGHT, getScreenBottomPadding } from '../../src/compon
 import { GlassCard } from '../../src/components/GlassCard';
 import { Badge, BadgeVariant } from '../../src/components/Badge';
 import { Button } from '../../src/components/Button';
+import { useBreakpoint } from '../../src/hooks/useBreakpoint';
 import { Avatar } from '../../src/components/Avatar';
 import { EmptyState } from '../../src/components/EmptyState';
 import { ErrorState } from '../../src/components/ErrorState';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const NOTE_TYPES: { type: NoteType; label: string; icon: any; variant: BadgeVariant }[] = [
   { type: 'WORKOUT', label: 'Workout', icon: Dumbbell, variant: 'neutral' },
@@ -58,11 +57,14 @@ const NOTE_TYPES: { type: NoteType; label: string; icon: any; variant: BadgeVari
 
 export default function NotesScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
+  const rawInsets = useSafeAreaInsets();
+  const insets = Platform.OS === 'web' ? { top: 0, right: 0, bottom: 0, left: 0 } : (rawInsets ?? { top: 0, right: 0, bottom: 0, left: 0 });
   const user = useAuthStore((state) => state.user);
   const role = user?.role || useAuthStore((state) => state.role);
   const { userId } = useAuthStore();
   const isTrainer = role === 'TRAINER';
+  const { isPhone } = useBreakpoint();
 
   React.useEffect(() => {
     if (role && role !== 'TRAINER') {
@@ -323,7 +325,7 @@ export default function NotesScreen() {
             <View style={styles.chartWrapper}>
               <LineChart
                 data={weightChartData}
-                width={SCREEN_WIDTH - 64}
+                width={Math.min(screenWidth, 480) - 64}
                 height={180}
                 color={theme.colors.primary}
                 thickness={2.5}
@@ -412,8 +414,7 @@ export default function NotesScreen() {
             colors={['transparent', theme.colors.background]}
             start={{ x: 0, y: 0.5 }}
             end={{ x: 1, y: 0.5 }}
-            style={styles.fadeGradientRight}
-            pointerEvents="none"
+            style={[styles.fadeGradientRight, { pointerEvents: 'none' }]}
           />
         </View>
 
@@ -513,9 +514,9 @@ export default function NotesScreen() {
       <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
+          style={[styles.modalOverlay, !isPhone && styles.modalOverlayWide]}
         >
-          <View style={styles.modalSheet}>
+          <View style={[styles.modalSheet, !isPhone && styles.modalSheetWide]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
                 {editingNote ? 'Edit Note' : 'Add Note'}
@@ -931,8 +932,13 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.65)',
+    backgroundColor: 'rgba(5, 31, 32, 0.85)',
     justifyContent: 'flex-end',
+  },
+  modalOverlayWide: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
   },
   modalSheet: {
     backgroundColor: theme.colors.surface,
@@ -940,6 +946,13 @@ const styles = StyleSheet.create({
     borderTopRightRadius: theme.radius.xl,
     padding: theme.spacing.lg,
     maxHeight: '85%',
+    width: '100%',
+  },
+  modalSheetWide: {
+    maxWidth: 440,
+    borderRadius: theme.radius.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   modalHeader: {
     flexDirection: 'row',

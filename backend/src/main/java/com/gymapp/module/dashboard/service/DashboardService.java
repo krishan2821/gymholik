@@ -43,6 +43,12 @@ public class DashboardService {
 
     private record CachedDashboard(DashboardResponse data, LocalDateTime expiry) {}
 
+    public void evictCache(String gymId) {
+        if (gymId != null) {
+            cache.remove(gymId);
+        }
+    }
+
     public DashboardResponse getDashboardData() {
         if (com.gymapp.security.SecurityUtils.isTrainer()) {
             throw new com.gymapp.common.exception.AppException(
@@ -97,10 +103,13 @@ public class DashboardService {
 
     private DashboardResponse computeDashboardData(String gymId, LocalDateTime now) {
 
-        LocalDate today = LocalDate.now();
+        java.time.ZoneId kolkata = java.time.ZoneId.of("Asia/Kolkata");
+        LocalDate today = LocalDate.now(kolkata);
         LocalDateTime startOfToday = today.atStartOfDay();
         LocalDateTime endOfToday = today.plusDays(1).atStartOfDay();
-        LocalDateTime startOfMonth = YearMonth.from(today).atDay(1).atStartOfDay();
+        LocalDate startOfMonth = YearMonth.from(today).atDay(1);
+        LocalDate endOfMonth = YearMonth.from(today).atEndOfMonth();
+        LocalDateTime startOfMonthTime = startOfMonth.atStartOfDay();
         LocalDate next5Days = today.plusDays(5);
         LocalDateTime last7DaysStart = today.minusDays(6).atStartOfDay();
 
@@ -126,7 +135,7 @@ public class DashboardService {
         var monthColFuture = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
             Aggregation monthColAgg = Aggregation.newAggregation(
                     Aggregation.match(Criteria.where("gymId").is(gymId)
-                            .and("paidAt").gte(startOfMonth).lt(endOfToday)
+                            .and("paidAt").gte(startOfMonthTime).lt(endOfToday)
                             .and("type").is("PAYMENT")),
                     Aggregation.group().sum("amountPaise").as("total")
             );
@@ -154,7 +163,7 @@ public class DashboardService {
         var newJoiningsFuture = java.util.concurrent.CompletableFuture.supplyAsync(() ->
             mongoTemplate.count(
                     new Query(Criteria.where("gymId").is(gymId)
-                            .and("joiningDate").gte(startOfMonth.toLocalDate())),
+                            .and("joiningDate").gte(startOfMonth).lte(endOfMonth)),
                     "members")
         );
 

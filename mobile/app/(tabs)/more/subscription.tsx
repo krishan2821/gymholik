@@ -1,39 +1,77 @@
 import React from 'react';
-import { View, Text, StyleSheet, Linking } from 'react-native';
-import { MessageCircle, QrCode, ShieldCheck, Sparkles } from 'lucide-react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
+import { safeOpenURL } from '../../../src/utils/safeLinking';
+import { MessageCircle, ShieldCheck, Sparkles } from 'lucide-react-native';
 import { theme } from '../../../src/theme/theme';
 import { useAuthStore } from '../../../src/store/useAuthStore';
 import { Screen } from '../../../src/components/Screen';
+import { PageHeader } from '../../../src/components/PageHeader';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Button } from '../../../src/components/Button';
 import { Badge } from '../../../src/components/Badge';
 import { ErrorState } from '../../../src/components/ErrorState';
 import { SUBSCRIPTION, ERRORS } from '../../../src/constants/strings';
+import { safeBack } from '../../../src/utils/navigation';
+import { useGymProfile } from '../../../src/api/more';
 
 export default function SubscriptionScreen() {
   const { gymId, role } = useAuthStore();
+  const { data: gymProfile } = useGymProfile();
+  const upiId = process.env.EXPO_PUBLIC_UPI_ID;
 
   if (role !== 'OWNER') {
     return (
       <Screen safeTop={false}>
+        <PageHeader title="Subscription" showBack onBack={() => safeBack('/(tabs)/more')} />
         <ErrorState message={ERRORS.PERMISSION_DENIED} onRetry={() => {}} />
       </Screen>
     );
   }
 
+  const isTrial = gymProfile?.status === 'TRIAL' || !gymProfile?.status;
+  const statusText = isTrial ? 'Active Trial' : (gymProfile?.status || 'Active');
+
+  let validTillText = '14 Days';
+  if (gymProfile?.subscriptionValidTill) {
+    try {
+      const [y, m, d] = gymProfile.subscriptionValidTill.split('-').map(Number);
+      const dateObj = new Date(y, m - 1, d);
+      validTillText = dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch {
+      validTillText = gymProfile.subscriptionValidTill;
+    }
+  }
+
+  let daysLeftText = '14 Days';
+  if (typeof gymProfile?.daysRemaining === 'number') {
+    daysLeftText = `${gymProfile.daysRemaining} Days`;
+  } else if (gymProfile?.subscriptionValidTill) {
+    const [y, m, d] = gymProfile.subscriptionValidTill.split('-').map(Number);
+    const target = new Date(y, m - 1, d).getTime();
+    const now = new Date().setHours(0, 0, 0, 0);
+    const diff = Math.max(0, Math.round((target - now) / (1000 * 60 * 60 * 24)));
+    daysLeftText = `${diff} Days`;
+  }
+
   const openWhatsApp = () => {
     const msg = SUBSCRIPTION.WHATSAPP_MSG(gymId || '');
-    Linking.openURL(`https://wa.me/919999999999?text=${encodeURIComponent(msg)}`);
+    safeOpenURL(`https://wa.me/919999999999?text=${encodeURIComponent(msg)}`);
   };
+
+  const upiPayLink = upiId ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=Gymholik&cu=INR` : '';
 
   return (
     <Screen safeTop={false} scrollable contentContainerStyle={styles.container}>
-      <GlassCard style={styles.heroCard}>
+      <PageHeader title="Subscription" showBack onBack={() => safeBack('/(tabs)/more')} />
+
+      {/* ── Single Plan Summary Card ─────────────────────────────── */}
+      <GlassCard style={styles.card} contentStyle={styles.cardContent}>
         <View style={styles.planBadgeContainer}>
           <View style={styles.planIconCircle}>
             <Sparkles size={20} color={theme.colors.primary} />
           </View>
-          <Badge label="Active Trial" variant="success" size="md" />
+          <Badge label={statusText} variant="success" size="md" />
         </View>
 
         <Text style={styles.planTitle}>{SUBSCRIPTION.PLAN_NAME}</Text>
@@ -42,41 +80,56 @@ export default function SubscriptionScreen() {
 
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>{SUBSCRIPTION.STATUS_LABEL}</Text>
-          <Text style={styles.infoValueActive}>Active Trial</Text>
+          <Text style={styles.infoValueActive}>{statusText}</Text>
         </View>
 
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>{SUBSCRIPTION.VALID_TILL_LABEL}</Text>
-          <Text style={styles.infoValue}>31 Dec 2026</Text>
+          <Text style={styles.infoValue}>{validTillText}</Text>
         </View>
 
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>{SUBSCRIPTION.DAYS_LEFT_LABEL}</Text>
-          <Text style={styles.infoValueHighlight}>30 Days</Text>
+          <Text style={styles.infoValueHighlight}>{daysLeftText}</Text>
         </View>
       </GlassCard>
 
-      <GlassCard style={styles.renewCard}>
+      {/* ── Renewal / Support Section ────────────────────────────── */}
+      <GlassCard style={styles.card} contentStyle={styles.cardContent}>
         <View style={styles.headerRow}>
           <ShieldCheck size={22} color={theme.colors.primary} style={styles.headerIcon} />
           <Text style={styles.sectionTitle}>{SUBSCRIPTION.HOW_TO_RENEW_TITLE}</Text>
         </View>
 
-        <Text style={styles.desc}>{SUBSCRIPTION.HOW_TO_RENEW_DESC}</Text>
+        <Text style={styles.desc}>
+          {upiId ? SUBSCRIPTION.HOW_TO_RENEW_DESC : 'Contact support to renew your Gymholik subscription.'}
+        </Text>
 
-        <View style={styles.qrContainer}>
-          <View style={styles.qrBox}>
-            <QrCode color={theme.colors.text} size={110} />
+        {upiId ? (
+          <View style={styles.qrContainer}>
+            <View style={styles.qrBox}>
+              <QRCode
+                value={upiPayLink}
+                size={140}
+                color="#051F20"
+                backgroundColor="#FFFFFF"
+              />
+            </View>
+            <Text style={styles.upiText}>{upiId}</Text>
+            <Text style={styles.upiSubtext}>Scan with any UPI App (GPay / PhonePe / Paytm)</Text>
           </View>
-          <Text style={styles.upiText}>{SUBSCRIPTION.UPI_ID}</Text>
-          <Text style={styles.upiSubtext}>Scan with any UPI App (GPay / PhonePe / Paytm)</Text>
-        </View>
+        ) : (
+          <View style={styles.noUpiContainer}>
+            <Text style={styles.noUpiText}>Contact support to renew</Text>
+          </View>
+        )}
 
         <Button
-          title={SUBSCRIPTION.WHATSAPP_BTN}
+          title={upiId ? 'Send screenshot on WhatsApp' : 'Contact support on WhatsApp'}
           onPress={openWhatsApp}
           variant="primary"
-          size="lg"
+          size="md"
+          fullWidth
           icon={<MessageCircle color={theme.colors.textOnPrimary} size={20} />}
         />
       </GlassCard>
@@ -88,12 +141,15 @@ export default function SubscriptionScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: theme.spacing.lg,
+    paddingHorizontal: 0,
     paddingBottom: 40,
   },
-  heroCard: {
-    padding: theme.spacing.xl,
+  card: {
+    marginHorizontal: 20,
     marginBottom: theme.spacing.lg,
+  },
+  cardContent: {
+    padding: theme.spacing.lg,
   },
   planBadgeContainer: {
     flexDirection: 'row',
@@ -113,7 +169,7 @@ const styles = StyleSheet.create({
   },
   planTitle: {
     fontFamily: theme.fonts.headingBold,
-    fontSize: 24,
+    fontSize: 22,
     color: theme.colors.text,
     marginBottom: 4,
   },
@@ -147,9 +203,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: theme.colors.text,
   },
-  renewCard: {
-    padding: theme.spacing.xl,
-  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -167,22 +220,19 @@ const styles = StyleSheet.create({
     ...theme.typography.body,
     color: theme.colors.textMuted,
     lineHeight: 22,
-    marginBottom: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
   },
   qrContainer: {
     alignItems: 'center',
-    marginBottom: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
   },
   qrBox: {
-    width: 170,
-    height: 170,
-    backgroundColor: theme.colors.raised,
-    borderRadius: theme.radius.lg,
-    justifyContent: 'center',
+    padding: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: theme.radius.md,
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    marginBottom: theme.spacing.md,
+    justifyContent: 'center',
+    marginBottom: theme.spacing.sm,
   },
   upiText: {
     fontFamily: theme.fonts.headingMedium,
@@ -194,6 +244,16 @@ const styles = StyleSheet.create({
     ...theme.typography.small,
     color: theme.colors.textMuted,
     textAlign: 'center',
+  },
+  noUpiContainer: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  noUpiText: {
+    fontFamily: theme.fonts.headingMedium,
+    fontSize: 16,
+    color: theme.colors.primary,
   },
   bottomSpacer: {
     height: 24,

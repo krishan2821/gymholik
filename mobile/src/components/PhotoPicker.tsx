@@ -16,15 +16,19 @@ export const PhotoPicker: React.FC<PhotoPickerProps> = ({
   label = 'Add photo',
 }) => {
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
 
-    if (!result.canceled && result.assets?.[0]?.uri) {
-      onChange(result.assets[0].uri);
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        onChange(result.assets[0].uri);
+      }
+    } catch (err) {
+      console.warn('Image picker error:', err);
     }
   };
 

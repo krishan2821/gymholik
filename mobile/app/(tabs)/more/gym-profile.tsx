@@ -13,8 +13,8 @@ import {
   Share,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
-import * as Clipboard from 'expo-clipboard';
-import * as Haptics from 'expo-haptics';
+import { safeSetClipboardString } from '../../../src/utils/safeClipboard';
+import { safeNotificationAsync, NotificationFeedbackType } from '../../../src/utils/safeHaptics';
 import Toast from 'react-native-toast-message';
 import {
   Building2,
@@ -43,6 +43,8 @@ import {
 } from '../../../src/api/more';
 import { apiClient } from '../../../src/api/axiosConfig';
 import { Screen } from '../../../src/components/Screen';
+import { PageHeader } from '../../../src/components/PageHeader';
+import { safeBack } from '../../../src/utils/navigation';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Badge } from '../../../src/components/Badge';
 import { Button } from '../../../src/components/Button';
@@ -64,6 +66,7 @@ import {
   REGISTER,
   COMMON,
 } from '../../../src/constants/strings';
+import { useBreakpoint } from '../../../src/hooks/useBreakpoint';
 
 const LEGAL_DOC_SELECT_OPTIONS = [
   { label: 'None (No document)', value: 'NONE' },
@@ -75,6 +78,7 @@ export default function GymProfileScreen() {
   const { user, role } = useAuthStore();
   const { data: currentUser } = useCurrentUser();
   const isOwner = (currentUser?.role || role) === 'OWNER';
+  const { isPhone } = useBreakpoint();
 
   // Guard: OWNER only
   useEffect(() => {
@@ -170,8 +174,8 @@ export default function GymProfileScreen() {
 
   const handleCopyCode = async () => {
     if (!formattedGymCode) return;
-    await Clipboard.setStringAsync(formattedGymCode);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    await safeSetClipboardString(formattedGymCode);
+    safeNotificationAsync(NotificationFeedbackType.Success).catch(() => {});
     Toast.show({
       type: 'success',
       text1: GYM_PROFILE.COPIED_TOAST,
@@ -330,7 +334,21 @@ export default function GymProfileScreen() {
 
   return (
     <Screen scrollable contentContainerStyle={styles.container}>
-      <Stack.Screen options={{ title: GYM_PROFILE.SCREEN_TITLE }} />
+      <Stack.Screen options={{ title: GYM_PROFILE.SCREEN_TITLE, headerShown: false }} />
+      <PageHeader
+        title={GYM_PROFILE.SCREEN_TITLE}
+        showBack
+        onBack={() => safeBack('/(tabs)/more')}
+        rightAction={
+          <Button
+            title="Edit"
+            size="sm"
+            variant="secondary"
+            icon={<Edit3 size={15} color={theme.colors.primary} />}
+            onPress={handleOpenEdit}
+          />
+        }
+      />
 
       {/* ── Top Header / Gym Code Card ──────────────────────────────── */}
       <GlassCard style={styles.topCard} contentStyle={styles.topCardContent}>
@@ -436,8 +454,8 @@ export default function GymProfileScreen() {
         )}
       </GlassCard>
 
-      {/* ── Legal & Business Section ─────────────────────────────────── */}
-      <Text style={styles.sectionTitle}>{GYM_PROFILE.SECTION_LEGAL}</Text>
+      {/* ── Business Registration Section ───────────────────────────── */}
+      <Text style={styles.sectionTitle}>Business registration</Text>
       <GlassCard style={styles.sectionCard} contentStyle={styles.cardPad}>
         {profile.legalIdType && profile.legalIdNumber ? (
           <>
@@ -522,15 +540,17 @@ export default function GymProfileScreen() {
       {/* ── Edit Gym Profile Modal ─────────────────────────────────── */}
       <Modal
         visible={isEditModalVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
+        animationType={isPhone ? 'slide' : 'fade'}
+        transparent={!isPhone}
+        presentationStyle={isPhone ? 'pageSheet' : 'overFullScreen'}
         onRequestClose={() => setIsEditModalVisible(false)}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalBackdrop}
+          style={isPhone ? styles.modalBackdrop : styles.modalOverlay}
         >
-          <View style={styles.modalHeader}>
+          <View style={isPhone ? styles.modalBackdrop : styles.modalCard}>
+            <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{GYM_PROFILE.EDIT_MODAL_TITLE}</Text>
             <TouchableOpacity
               style={styles.modalCloseBtn}
@@ -562,7 +582,7 @@ export default function GymProfileScreen() {
             <Text style={styles.inputLabel}>{REGISTER.GYM_NAME_LABEL} *</Text>
             <TextInput
               style={[styles.textInput, fieldErrors.name && styles.textInputError]}
-              value={editName}
+              value={editName ?? ''}
               onChangeText={setEditName}
               placeholder={REGISTER.GYM_NAME_PLACEHOLDER_NEW}
               placeholderTextColor={theme.colors.textMuted}
@@ -601,7 +621,7 @@ export default function GymProfileScreen() {
                 </Text>
                 <TextInput
                   style={[styles.textInput, fieldErrors.legalIdNumber && styles.textInputError]}
-                  value={editLegalIdNumber}
+                  value={editLegalIdNumber ?? ''}
                   onChangeText={(val) => {
                     const cfg = LEGAL_DOC_CONFIGS[editLegalIdType as LegalDocDataKey];
                     const nextVal = cfg?.autoUppercase ? val.toUpperCase() : val;
@@ -632,7 +652,7 @@ export default function GymProfileScreen() {
             <Text style={styles.inputLabel}>{REGISTER.ADDRESS.LINE1_LABEL} *</Text>
             <TextInput
               style={[styles.textInput, fieldErrors.line1 && styles.textInputError]}
-              value={editLine1}
+              value={editLine1 ?? ''}
               onChangeText={setEditLine1}
               placeholder={REGISTER.ADDRESS_LINE1_PLACEHOLDER}
               placeholderTextColor={theme.colors.textMuted}
@@ -644,7 +664,7 @@ export default function GymProfileScreen() {
             <Text style={styles.inputLabel}>{REGISTER.ADDRESS.LINE2_LABEL}</Text>
             <TextInput
               style={[styles.textInput, fieldErrors.line2 && styles.textInputError]}
-              value={editLine2}
+              value={editLine2 ?? ''}
               onChangeText={setEditLine2}
               placeholder={REGISTER.ADDRESS_LINE2_PLACEHOLDER}
               placeholderTextColor={theme.colors.textMuted}
@@ -683,7 +703,7 @@ export default function GymProfileScreen() {
             <Text style={styles.inputLabel}>{REGISTER.ADDRESS.PINCODE_LABEL} *</Text>
             <TextInput
               style={[styles.textInput, fieldErrors.pincode && styles.textInputError]}
-              value={editPincode}
+              value={editPincode ?? ''}
               onChangeText={setEditPincode}
               placeholder={REGISTER.ADDRESS.PINCODE_PLACEHOLDER}
               placeholderTextColor={theme.colors.textMuted}
@@ -714,6 +734,7 @@ export default function GymProfileScreen() {
               </TouchableOpacity>
             </View>
           </ScrollView>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
     </Screen>
@@ -925,6 +946,23 @@ const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 440,
+    maxHeight: '85%',
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.radius.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    overflow: 'hidden',
   },
   modalHeader: {
     flexDirection: 'row',

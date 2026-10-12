@@ -8,10 +8,10 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
-  Alert,
   ScrollView,
   TextInput,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useRouter } from 'expo-router';
 import {
   Users,
@@ -39,6 +39,7 @@ import { FilterChips } from '../../../../src/components/FilterChips';
 import { EmptyState } from '../../../../src/components/EmptyState';
 import { ErrorState } from '../../../../src/components/ErrorState';
 import { TRAINERS, COMMON, ERRORS } from '../../../../src/constants/strings';
+import { useBreakpoint } from '../../../../src/hooks/useBreakpoint';
 
 const STATUS_FILTERS = [
   { value: 'ALL', label: 'All' },
@@ -49,6 +50,7 @@ const STATUS_FILTERS = [
 export default function TrainersScreen() {
   const router = useRouter();
   const { role } = useAuthStore();
+  const { isPhone } = useBreakpoint();
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const reassignLockRef = useRef(false);
 
@@ -89,11 +91,11 @@ export default function TrainersScreen() {
   const handleExecuteReassign = async () => {
     if (reassignLockRef.current || reassignTrainer.isPending) return;
     if (!fromTrainerId || !toTrainerId) {
-      Alert.alert(COMMON.ERROR, 'Please select both source and destination trainers.');
+      Toast.show({ type: 'error', text1: COMMON.ERROR, text2: 'Please select both source and destination trainers.' });
       return;
     }
     if (fromTrainerId === toTrainerId) {
-      Alert.alert(COMMON.ERROR, 'Source and target trainer cannot be the same.');
+      Toast.show({ type: 'error', text1: COMMON.ERROR, text2: 'Source and target trainer cannot be the same.' });
       return;
     }
 
@@ -270,11 +272,11 @@ export default function TrainersScreen() {
       <Modal
         visible={reassignModalVisible}
         transparent
-        animationType="slide"
+        animationType={isPhone ? 'slide' : 'fade'}
         onRequestClose={() => !reassignTrainer.isPending && setReassignModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.bottomSheetContainer}>
+        <View style={[styles.modalOverlay, !isPhone && styles.modalOverlayDesktop]}>
+          <View style={[styles.bottomSheetContainer, !isPhone && styles.bottomSheetContainerDesktop]}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>{TRAINERS.REASSIGN_MODAL_TITLE}</Text>
               <TouchableOpacity
@@ -562,6 +564,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.overlayEnd,
     justifyContent: 'flex-end',
   },
+  modalOverlayDesktop: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
   bottomSheetContainer: {
     backgroundColor: theme.colors.surface,
     borderTopLeftRadius: theme.radius.xl,
@@ -570,6 +577,11 @@ const styles = StyleSheet.create({
     maxHeight: '85%',
     borderWidth: 1,
     borderColor: theme.colors.border,
+  },
+  bottomSheetContainerDesktop: {
+    borderRadius: theme.radius.xl,
+    width: '100%',
+    maxWidth: 440,
   },
   sheetHeader: {
     flexDirection: 'row',

@@ -8,10 +8,10 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -25,6 +25,10 @@ import { Screen } from '../../../src/components/Screen';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Button } from '../../../src/components/Button';
 import { PLANS, ERRORS } from '../../../src/constants/strings';
+import { useBreakpoint } from '../../../src/hooks/useBreakpoint';
+import { PageHeader } from '../../../src/components/PageHeader';
+import { formatMoney } from '../../../src/utils/formatters';
+import { safeBack } from '../../../src/utils/navigation';
 
 const schema = z.object({
   name: z.string().min(2, 'Name is required'),
@@ -35,6 +39,7 @@ type FormData = z.infer<typeof schema>;
 
 export default function PlansScreen() {
   const { role } = useAuthStore();
+  const { isPhone } = useBreakpoint();
   const [showModal, setShowModal] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
 
@@ -106,7 +111,7 @@ export default function PlansScreen() {
       }
       setShowModal(false);
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.message || PLANS.SAVE_ERROR);
+      Toast.show({ type: 'error', text1: 'Error', text2: error.response?.data?.message || PLANS.SAVE_ERROR });
     }
   };
 
@@ -119,7 +124,7 @@ export default function PlansScreen() {
             <Calendar size={13} color={theme.colors.primary} style={{ marginRight: 4 }} />
             <Text style={styles.durationText}>{item.durationDays} Days</Text>
           </View>
-          <Text style={styles.priceText}>₹{item.pricePaise / 100}</Text>
+          <Text style={styles.priceText}>{formatMoney(item.pricePaise)}</Text>
         </View>
       </View>
       <TouchableOpacity
@@ -136,6 +141,11 @@ export default function PlansScreen() {
 
   return (
     <Screen safeTop={false} style={styles.container}>
+      <PageHeader
+        title="Membership Plans"
+        showBack
+        onBack={() => safeBack('/(tabs)/more')}
+      />
       <View style={styles.actionHeader}>
         <View>
           <Text style={styles.counterText}>
@@ -163,14 +173,14 @@ export default function PlansScreen() {
       <Modal
         visible={showModal}
         transparent
-        animationType="slide"
+        animationType={isPhone ? 'slide' : 'fade'}
         onRequestClose={() => setShowModal(false)}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
+          style={[styles.modalOverlay, !isPhone && styles.modalOverlayDesktop]}
         >
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, !isPhone && styles.modalContentDesktop]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
                 {editingPlan ? PLANS.MODAL_EDIT_TITLE : PLANS.MODAL_ADD_TITLE}
@@ -338,6 +348,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(5, 31, 32, 0.85)',
     justifyContent: 'flex-end',
   },
+  modalOverlayDesktop: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
   modalContent: {
     backgroundColor: theme.colors.surface,
     padding: theme.spacing.xl,
@@ -345,6 +360,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: theme.radius.xl,
     borderWidth: 1,
     borderColor: theme.colors.border,
+  },
+  modalContentDesktop: {
+    borderRadius: theme.radius.xl,
+    width: '100%',
+    maxWidth: 440,
   },
   modalHeader: {
     flexDirection: 'row',

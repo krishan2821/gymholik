@@ -1,14 +1,17 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { SearchX } from 'lucide-react-native';
+import { Receipt, CalendarCheck, Users, Search } from 'lucide-react-native';
 import { theme } from '../theme/theme';
 import { STATES } from '../constants/strings';
 import { Button } from './Button';
+
+export type EmptyStateType = 'payments' | 'attendance' | 'members' | 'search' | 'default';
 
 export interface EmptyStateProps {
   title?: string;
   message?: string;
   icon?: React.ReactNode;
+  type?: EmptyStateType;
   onAction?: () => void;
   actionLabel?: string;
 }
@@ -17,13 +20,30 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   title,
   message = STATES.EMPTY_TITLE,
   icon,
+  type = 'default',
   onAction,
   actionLabel,
 }) => {
+  const resolveIcon = () => {
+    if (icon) return icon;
+    switch (type) {
+      case 'payments':
+        return <Receipt color={theme.colors.primary} size={38} />;
+      case 'attendance':
+        return <CalendarCheck color={theme.colors.primary} size={38} />;
+      case 'members':
+        return <Users color={theme.colors.primary} size={38} />;
+      case 'search':
+        return <Search color={theme.colors.primary} size={38} />;
+      default:
+        return <Users color={theme.colors.primary} size={38} />;
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.iconWrapper}>
-        {icon || <SearchX color={theme.colors.primary} size={40} />}
+        {resolveIcon()}
       </View>
       {title && <Text style={styles.title}>{title}</Text>}
       <Text style={styles.message}>{message}</Text>

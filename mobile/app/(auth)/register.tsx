@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   BackHandler,
   Modal,
   Platform,
@@ -13,8 +12,14 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import Toast from 'react-native-toast-message';
-import * as Haptics from 'expo-haptics';
-import * as Clipboard from 'expo-clipboard';
+import {
+  safeImpactAsync,
+  safeNotificationAsync,
+  ImpactFeedbackStyle,
+  NotificationFeedbackType,
+} from '../../src/utils/safeHaptics';
+import { safeSetClipboardString } from '../../src/utils/safeClipboard';
+import { showConfirmDialog } from '../../src/components/ConfirmDialog';
 import {
   ArrowLeft,
   AlertCircle,
@@ -36,6 +41,7 @@ import { Input } from '../../src/components/Input';
 import { Button } from '../../src/components/Button';
 import { StepProgress } from '../../src/components/StepProgress';
 import { SearchableSelect } from '../../src/components/SearchableSelect';
+import { useBreakpoint } from '../../src/hooks/useBreakpoint';
 
 import { GYM_TYPE_OPTIONS, GymTypeCode } from '../../src/data/gymTypes';
 import {
@@ -71,6 +77,7 @@ export default function OwnerRegistrationScreen() {
   const registrationPhone = useAuthStore((s) => s.registrationPhone);
   const clearRegistrationSession = useAuthStore((s) => s.clearRegistrationSession);
   const setAuthData = useAuthStore((s) => s.setAuthData);
+  const { isPhone } = useBreakpoint();
 
   // ── Form Store (In-Memory Zustand) ─────────────────────────────────────────
   const {
@@ -176,7 +183,7 @@ export default function OwnerRegistrationScreen() {
     if (submittingLockRef.current || welcomeSheetVisible) return;
 
     if (currentStep > 1) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      safeImpactAsync(ImpactFeedbackStyle.Light).catch(() => {});
       setFieldErrors({});
       setBannerError(null);
       setStep(currentStep - 1);
@@ -184,20 +191,17 @@ export default function OwnerRegistrationScreen() {
     }
 
     // Step 1: Confirmation before returning to Login
-    Alert.alert(REGISTER.BACK_CONFIRM_TITLE, REGISTER.BACK_CONFIRM_MESSAGE, [
-      {
-        text: REGISTER.BACK_CONFIRM_STAY,
-        style: 'cancel',
+    showConfirmDialog({
+      title: REGISTER.BACK_CONFIRM_TITLE,
+      message: REGISTER.BACK_CONFIRM_MESSAGE,
+      confirmText: REGISTER.BACK_CONFIRM_LEAVE,
+      cancelText: REGISTER.BACK_CONFIRM_STAY,
+      isDestructive: true,
+      onConfirm: () => {
+        clearRegistrationSession();
+        router.replace('/(auth)/login');
       },
-      {
-        text: REGISTER.BACK_CONFIRM_LEAVE,
-        style: 'destructive',
-        onPress: () => {
-          clearRegistrationSession();
-          router.replace('/(auth)/login');
-        },
-      },
-    ]);
+    });
   }, [currentStep, setStep, clearRegistrationSession, welcomeSheetVisible]);
 
   // Android hardware back handler
@@ -228,11 +232,11 @@ export default function OwnerRegistrationScreen() {
         if (!errors[path]) errors[path] = issue.message;
       });
       setFieldErrors(errors);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      safeNotificationAsync(NotificationFeedbackType.Error).catch(() => {});
       return;
     }
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    safeImpactAsync(ImpactFeedbackStyle.Light).catch(() => {});
     setStep(2);
   };
 
@@ -253,11 +257,11 @@ export default function OwnerRegistrationScreen() {
         if (!errors[path]) errors[path] = issue.message;
       });
       setFieldErrors(errors);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      safeNotificationAsync(NotificationFeedbackType.Error).catch(() => {});
       return;
     }
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    safeImpactAsync(ImpactFeedbackStyle.Light).catch(() => {});
     setStep(3);
   };
 
@@ -265,7 +269,7 @@ export default function OwnerRegistrationScreen() {
     clearLegalDoc();
     setFieldErrors({});
     setBannerError(null);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    safeImpactAsync(ImpactFeedbackStyle.Light).catch(() => {});
     setStep(3);
   };
 
@@ -292,7 +296,7 @@ export default function OwnerRegistrationScreen() {
         if (!errors[path]) errors[path] = issue.message;
       });
       setFieldErrors(errors);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      safeNotificationAsync(NotificationFeedbackType.Error).catch(() => {});
       return;
     }
 
@@ -340,7 +344,7 @@ export default function OwnerRegistrationScreen() {
       }
 
       completedSuccessRef.current = true;
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      safeNotificationAsync(NotificationFeedbackType.Success).catch(() => {});
 
       const { accessToken, refreshToken, user, gym } = data;
       const code = gym?.gymCode || '';
@@ -361,7 +365,7 @@ export default function OwnerRegistrationScreen() {
       setWelcomeSheetVisible(true);
     } catch (err: unknown) {
       const apiErr = classifyError(err);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      safeNotificationAsync(NotificationFeedbackType.Error).catch(() => {});
 
       // Expired or invalid registration token: return to Login, retaining form values in store
       if (
@@ -433,8 +437,8 @@ export default function OwnerRegistrationScreen() {
   // ── Copy Gym Code from Welcome Sheet ──────────────────────────────────────
   const handleCopyGymCode = async () => {
     if (!registeredGymCode) return;
-    await Clipboard.setStringAsync(registeredGymCode);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    await safeSetClipboardString(registeredGymCode);
+    safeImpactAsync(ImpactFeedbackStyle.Medium).catch(() => {});
     Toast.show({
       type: 'success',
       text1: REGISTER.WELCOME_SHEET.COPIED_TOAST,
@@ -864,8 +868,8 @@ export default function OwnerRegistrationScreen() {
         animationType={reduceMotion ? 'none' : 'slide'}
         onRequestClose={handleGoToDashboard}
       >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.welcomeSheetContainer}>
+        <View style={[styles.modalBackdrop, !isPhone && styles.modalBackdropWide]}>
+          <View style={[styles.welcomeSheetContainer, !isPhone && styles.welcomeSheetContainerWide]}>
             {/* Drag Handle (top radius 28) */}
             <View style={styles.welcomeHandleContainer}>
               <View style={styles.welcomeHandle} />
@@ -1098,8 +1102,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(5, 31, 32, 0.85)',
     justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  modalBackdropWide: {
+    justifyContent: 'center',
+    padding: theme.spacing.lg,
   },
   welcomeSheetContainer: {
+    width: '100%',
     backgroundColor: theme.colors.surface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
@@ -1107,6 +1117,10 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     paddingHorizontal: theme.spacing.xl,
     paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+  },
+  welcomeSheetContainerWide: {
+    maxWidth: 440,
+    borderRadius: 28,
   },
   welcomeHandleContainer: {
     alignItems: 'center',

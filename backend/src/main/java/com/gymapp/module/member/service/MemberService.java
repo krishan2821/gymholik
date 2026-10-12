@@ -42,6 +42,7 @@ public class MemberService {
     private final MongoTemplate mongoTemplate;
     private final com.gymapp.module.trainer.repository.TrainerAssignmentRepository trainerAssignmentRepository;
     private final com.gymapp.module.trainer.service.TrainerAssignmentService trainerAssignmentService;
+    private final com.gymapp.module.dashboard.service.DashboardService dashboardService;
 
     @Transactional
     public MemberResponse createMember(CreateMemberRequest request) {
@@ -60,6 +61,11 @@ public class MemberService {
 
         String memberCode = sequenceService.generateNextMemberCode(gymId);
 
+        LocalDate todayKolkata = LocalDate.now(java.time.ZoneId.of("Asia/Kolkata"));
+        LocalDate startDate = request.getStartDate() != null ? request.getStartDate() : todayKolkata;
+        LocalDate expiryDate = startDate.plusDays(plan.getDurationDays());
+        long planPricePaise = plan.getPricePaise();
+
         Member member = Member.builder()
                 .gymId(gymId)
                 .memberCode(memberCode)
@@ -69,25 +75,29 @@ public class MemberService {
                 .dob(request.getDob())
                 .address(request.getAddress())
                 .status("ACTIVE")
+                .joiningDate(startDate)
+                .currentExpiry(expiryDate)
+                .currentDuePaise(planPricePaise)
                 .build();
         member = memberRepository.save(member);
-
-        LocalDate startDate = request.getStartDate() != null ? request.getStartDate() : LocalDate.now();
-        LocalDate expiryDate = startDate.plusDays(plan.getDurationDays());
 
         Membership membership = Membership.builder()
                 .gymId(gymId)
                 .memberId(member.getId())
                 .planId(plan.getId())
                 .planName(plan.getName())
-                .totalPaise(plan.getPricePaise())
+                .totalPaise(planPricePaise)
                 .paidPaise(0L)
-                .duePaise(plan.getPricePaise())
+                .duePaise(planPricePaise)
                 .startDate(startDate)
                 .expiryDate(expiryDate)
                 .status(Membership.MembershipStatus.ACTIVE)
                 .build();
         membership = membershipRepository.save(membership);
+
+        if (dashboardService != null) {
+            dashboardService.evictCache(gymId);
+        }
 
         return mapToResponse(member, membership);
     }
@@ -253,6 +263,10 @@ public class MemberService {
         // Deleting or inactivating a member automatically ends their active trainer assignments
         String callerUserId = com.gymapp.security.SecurityUtils.getCurrentUserId();
         trainerAssignmentService.endAllActiveAssignmentsForMember(gymId, id, callerUserId);
+
+        if (dashboardService != null) {
+            dashboardService.evictCache(gymId);
+        }
     }
 
     @Transactional
@@ -302,12 +316,22 @@ public class MemberService {
 
         newMembership = membershipRepository.save(newMembership);
 
+        member.setCurrentDuePaise(member.getCurrentDuePaise() + plan.getPricePaise());
+        if (member.getCurrentExpiry() == null || expiryDate.isAfter(member.getCurrentExpiry())) {
+            member.setCurrentExpiry(expiryDate);
+        }
+        memberRepository.save(member);
+
         // Optional: expire older active memberships if they are logically replaced
         if (lastMembership != null && lastMembership.getStatus() == Membership.MembershipStatus.ACTIVE) {
              if (LocalDate.now().isAfter(lastMembership.getExpiryDate())) {
                  lastMembership.setStatus(Membership.MembershipStatus.EXPIRED);
                  membershipRepository.save(lastMembership);
              }
+        }
+
+        if (dashboardService != null) {
+            dashboardService.evictCache(gymId);
         }
 
         return mapToMembershipResponse(newMembership);

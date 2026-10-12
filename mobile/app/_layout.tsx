@@ -3,7 +3,7 @@ import { Slot, useRouter, useSegments } from 'expo-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator, TextInput } from 'react-native';
+import { View, ActivityIndicator, TextInput, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   useFonts,
@@ -21,8 +21,10 @@ import {
 import { useAuthStore } from '../src/store/useAuthStore';
 import { theme } from '../src/theme/theme';
 import { toastConfig } from '../src/components/Toast';
+import { GlobalConfirmDialog } from '../src/components/ConfirmDialog';
 import { queryClient } from '../src/api/queryClient';
 import { getHomeRouteForRole } from '../src/navigation/tabsByRole';
+import { injectGlobalWebStyles } from '../src/utils/webStyles';
 
 // Set global text cursor and selection colour to #8EB69B across all inputs
 if ((TextInput as any).defaultProps == null) {
@@ -48,6 +50,10 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
+    injectGlobalWebStyles();
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      document.title = 'Gymholik: Gym management';
+    }
     checkAuth();
   }, []);
 
@@ -84,6 +90,7 @@ export default function RootLayout() {
       ) : (
         <QueryClientProvider client={queryClient}>
           <Slot />
+          <GlobalConfirmDialog />
           <Toast config={toastConfig} />
         </QueryClientProvider>
       )}

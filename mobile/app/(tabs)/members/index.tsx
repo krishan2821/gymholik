@@ -11,12 +11,14 @@ import { EmptyState } from '../../../src/components/EmptyState';
 import { ErrorState } from '../../../src/components/ErrorState';
 import { LoadingSkeleton } from '../../../src/components/LoadingSkeleton';
 import { Screen, getScreenBottomPadding } from '../../../src/components/Screen';
+import { PageHeader } from '../../../src/components/PageHeader';
 import { theme } from '../../../src/theme/theme';
 import { MEMBERS } from '../../../src/constants/strings';
 
 export default function MembersListScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const rawInsets = useSafeAreaInsets();
+  const insets = Platform.OS === 'web' ? { top: 0, right: 0, bottom: 0, left: 0 } : (rawInsets ?? { top: 0, right: 0, bottom: 0, left: 0 });
   const { role } = useAuthStore();
   const isTrainer = role === 'TRAINER';
   const [searchTerm, setSearchTerm] = useState('');
@@ -75,6 +77,7 @@ export default function MembersListScreen() {
   if (isLoading && !isRefetching && members.length === 0) {
     return (
       <Screen>
+        <PageHeader title={MEMBERS.SCREEN_TITLE} />
         <View style={styles.header}>
           <View style={styles.searchContainer}>
             <Search color={theme.colors.primary} size={20} />
@@ -82,6 +85,7 @@ export default function MembersListScreen() {
               style={styles.searchInput}
               placeholder={MEMBERS.SEARCH_PLACEHOLDER}
               placeholderTextColor={theme.colors.textMuted}
+              value={searchTerm ?? ''}
               editable={false}
             />
           </View>
@@ -94,6 +98,7 @@ export default function MembersListScreen() {
   if (isError) {
     return (
       <Screen style={styles.centered}>
+        <PageHeader title={MEMBERS.SCREEN_TITLE} />
         <ErrorState
           message={error?.message || MEMBERS.LOAD_ERROR}
           onRetry={() => refetch()}
@@ -104,6 +109,7 @@ export default function MembersListScreen() {
 
   return (
     <Screen>
+      <PageHeader title={MEMBERS.SCREEN_TITLE} />
       <View style={styles.header}>
         <View style={styles.searchContainer}>
           <Search color={theme.colors.primary} size={20} />
@@ -111,7 +117,7 @@ export default function MembersListScreen() {
             style={styles.searchInput}
             placeholder={MEMBERS.SEARCH_PLACEHOLDER}
             placeholderTextColor={theme.colors.textMuted}
-            value={searchTerm}
+            value={searchTerm ?? ''}
             onChangeText={setSearchTerm}
           />
         </View>
@@ -140,6 +146,7 @@ export default function MembersListScreen() {
         onRefresh={refetch}
         ListEmptyComponent={
           <EmptyState
+            type={debouncedTerm.trim() ? 'search' : 'members'}
             message={
               debouncedTerm
                 ? 'No members match your search.'

@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Platform } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { safeBack } from '../../../src/utils/navigation';
-import * as Haptics from 'expo-haptics';
+import {
+  safeNotificationAsync,
+  NotificationFeedbackType,
+} from '../../../src/utils/safeHaptics';
+import { safeOpenSettings } from '../../../src/utils/safeLinking';
 import { X, Flashlight, AlertCircle, CheckCircle } from 'lucide-react-native';
 import { theme } from '../../../src/theme/theme';
 import { useCheckIn } from '../../../src/api/attendance';
@@ -40,18 +44,31 @@ export default function ScanScreen() {
   }
 
   if (!permission.granted) {
+    const isWeb = Platform.OS === 'web';
     return (
       <View style={styles.permissionContainer}>
         <Text style={styles.permissionTitle}>{SCANNER.CAMERA_TITLE}</Text>
-        <Text style={styles.permissionDesc}>{SCANNER.CAMERA_DESC}</Text>
+        <Text style={styles.permissionDesc}>
+          {isWeb
+            ? 'Camera access in web browsers requires browser permissions and a secure connection (HTTPS). Please allow camera access in your browser or mark attendance manually.'
+            : SCANNER.CAMERA_DESC}
+        </Text>
         <View style={{ width: '100%', marginBottom: 12 }}>
           <Button title={COMMON.GRANT_PERMISSION} onPress={requestPermission} size="md" />
         </View>
-        <View style={{ width: '100%' }}>
+        <View style={{ width: '100%', marginBottom: 12 }}>
           <Button
             title={COMMON.OPEN_SETTINGS}
             variant="secondary"
-            onPress={() => Linking.openSettings()}
+            onPress={() => safeOpenSettings()}
+            size="md"
+          />
+        </View>
+        <View style={{ width: '100%' }}>
+          <Button
+            title="Back to Attendance"
+            variant="secondary"
+            onPress={() => safeBack('/(tabs)/attendance')}
             size="md"
           />
         </View>
@@ -72,9 +89,7 @@ export default function ScanScreen() {
       const res = await checkInMutation.mutateAsync({ memberCode: data, method: 'QR' });
 
       if (isMounted.current) {
-        try {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } catch {}
+        safeNotificationAsync(NotificationFeedbackType.Success).catch(() => {});
         setResultOverlay({
           type: 'success',
           message: SCANNER.CHECKED_IN,
@@ -84,9 +99,7 @@ export default function ScanScreen() {
       }
     } catch (e: any) {
       if (isMounted.current) {
-        try {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        } catch {}
+        safeNotificationAsync(NotificationFeedbackType.Error).catch(() => {});
         const msg = e.response?.data?.message || SCANNER.CHECK_IN_FAILED;
         setResultOverlay({
           type: 'error',

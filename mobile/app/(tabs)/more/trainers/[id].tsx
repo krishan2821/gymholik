@@ -8,9 +8,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
-  Alert,
   ScrollView,
 } from 'react-native';
+import { showConfirmDialog } from '../../../../src/components/ConfirmDialog';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Users,
@@ -49,7 +49,9 @@ import { Button } from '../../../../src/components/Button';
 import { Input } from '../../../../src/components/Input';
 import { EmptyState } from '../../../../src/components/EmptyState';
 import { ErrorState } from '../../../../src/components/ErrorState';
+import { useBreakpoint } from '../../../../src/hooks/useBreakpoint';
 import { TRAINERS, COMMON, ERRORS, VALIDATION } from '../../../../src/constants/strings';
+import { formatMoney } from '../../../../src/utils/formatters';
 
 const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/;
 
@@ -57,6 +59,7 @@ export default function TrainerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { role } = useAuthStore();
+  const { isPhone } = useBreakpoint();
 
   const {
     data: trainer,
@@ -234,125 +237,113 @@ export default function TrainerDetailScreen() {
       return;
     }
 
-    Alert.alert(
-      TRAINERS.CHANGE_PHONE_CONFIRM_TITLE,
-      TRAINERS.CHANGE_PHONE_CONFIRM_MSG(trainer.name),
-      [
-        { text: COMMON.CANCEL, style: 'cancel' },
-        {
-          text: COMMON.CONFIRM,
-          style: 'destructive',
-          onPress: async () => {
-            if (phoneLockRef.current) return;
-            phoneLockRef.current = true;
-            try {
-              await patchTrainer.mutateAsync({
-                id: trainer.id,
-                payload: {
-                  phone: cleaned,
-                },
-              });
-              Toast.show({ type: 'success', text1: 'Mobile number updated' });
-              setPhoneModalVisible(false);
-              refetchTrainer();
-            } catch (error: any) {
-              const status = error?.response?.status;
-              const errCode =
-                error?.response?.data?.error ||
-                error?.response?.data?.code ||
-                '';
-              if (status === 409 || errCode === 'PHONE_ALREADY_REGISTERED') {
-                setPhoneError(TRAINERS.PHONE_ALREADY_REGISTERED);
-              } else {
-                Toast.show({
-                  type: 'error',
-                  text1: COMMON.ERROR,
-                  text2: error?.response?.data?.message || ERRORS.GENERIC,
-                });
-              }
-            } finally {
-              phoneLockRef.current = false;
-            }
-          },
-        },
-      ]
-    );
+    showConfirmDialog({
+      title: TRAINERS.CHANGE_PHONE_CONFIRM_TITLE,
+      message: TRAINERS.CHANGE_PHONE_CONFIRM_MSG(trainer.name),
+      confirmText: COMMON.CONFIRM,
+      cancelText: COMMON.CANCEL,
+      isDestructive: true,
+      onConfirm: async () => {
+        if (phoneLockRef.current) return;
+        phoneLockRef.current = true;
+        try {
+          await patchTrainer.mutateAsync({
+            id: trainer.id,
+            payload: {
+              phone: cleaned,
+            },
+          });
+          Toast.show({ type: 'success', text1: 'Mobile number updated' });
+          setPhoneModalVisible(false);
+          refetchTrainer();
+        } catch (error: any) {
+          const status = error?.response?.status;
+          const errCode =
+            error?.response?.data?.error ||
+            error?.response?.data?.code ||
+            '';
+          if (status === 409 || errCode === 'PHONE_ALREADY_REGISTERED') {
+            setPhoneError(TRAINERS.PHONE_ALREADY_REGISTERED);
+          } else {
+            Toast.show({
+              type: 'error',
+              text1: COMMON.ERROR,
+              text2: error?.response?.data?.message || ERRORS.GENERIC,
+            });
+          }
+        } finally {
+          phoneLockRef.current = false;
+        }
+      },
+    });
   };
 
   const handleToggleStatus = () => {
     if (statusLockRef.current || patchTrainer.isPending) return;
     const isCurrentlyActive = trainer.status === 'ACTIVE';
 
-    Alert.alert(
-      isCurrentlyActive
+    showConfirmDialog({
+      title: isCurrentlyActive
         ? TRAINERS.DEACTIVATE_CONFIRM_TITLE
         : TRAINERS.REACTIVATE_CONFIRM_TITLE,
-      isCurrentlyActive
+      message: isCurrentlyActive
         ? TRAINERS.DEACTIVATE_CONFIRM_MSG(trainer.name)
         : TRAINERS.REACTIVATE_CONFIRM_MSG(trainer.name),
-      [
-        { text: COMMON.CANCEL, style: 'cancel' },
-        {
-          text: isCurrentlyActive ? TRAINERS.DEACTIVATE_BTN : TRAINERS.REACTIVATE_BTN,
-          style: isCurrentlyActive ? 'destructive' : 'default',
-          onPress: async () => {
-            if (statusLockRef.current) return;
-            statusLockRef.current = true;
-            try {
-              await patchTrainer.mutateAsync({
-                id: trainer.id,
-                payload: {
-                  active: !isCurrentlyActive,
-                  status: isCurrentlyActive ? 'INACTIVE' : 'ACTIVE',
-                },
-              });
-              Toast.show({
-                type: 'success',
-                text1: isCurrentlyActive ? 'Trainer deactivated' : 'Trainer reactivated',
-              });
-              handleRefetchAll();
-            } catch (error: any) {
-              Toast.show({
-                type: 'error',
-                text1: COMMON.ERROR,
-                text2: error?.response?.data?.message || ERRORS.GENERIC,
-              });
-            } finally {
-              statusLockRef.current = false;
-            }
-          },
-        },
-      ]
-    );
+      confirmText: isCurrentlyActive ? TRAINERS.DEACTIVATE_BTN : TRAINERS.REACTIVATE_BTN,
+      cancelText: COMMON.CANCEL,
+      isDestructive: isCurrentlyActive,
+      onConfirm: async () => {
+        if (statusLockRef.current) return;
+        statusLockRef.current = true;
+        try {
+          await patchTrainer.mutateAsync({
+            id: trainer.id,
+            payload: {
+              active: !isCurrentlyActive,
+              status: isCurrentlyActive ? 'INACTIVE' : 'ACTIVE',
+            },
+          });
+          Toast.show({
+            type: 'success',
+            text1: isCurrentlyActive ? 'Trainer deactivated' : 'Trainer reactivated',
+          });
+          handleRefetchAll();
+        } catch (error: any) {
+          Toast.show({
+            type: 'error',
+            text1: COMMON.ERROR,
+            text2: error?.response?.data?.message || ERRORS.GENERIC,
+          });
+        } finally {
+          statusLockRef.current = false;
+        }
+      },
+    });
   };
 
   const handleRemoveAssignment = (item: TrainerAssignment) => {
-    Alert.alert(
-      TRAINERS.REMOVE_CONFIRM_TITLE,
-      TRAINERS.REMOVE_CONFIRM_MSG(item.memberName || 'this member'),
-      [
-        { text: COMMON.CANCEL, style: 'cancel' },
-        {
-          text: TRAINERS.REMOVE_ASSIGNMENT,
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await endAssignment.mutateAsync(item.id);
-              refetchAssignments();
-              refetchTrainer();
-            } catch {
-              // Toast handled in hook
-            }
-          },
-        },
-      ]
-    );
+    showConfirmDialog({
+      title: TRAINERS.REMOVE_CONFIRM_TITLE,
+      message: TRAINERS.REMOVE_CONFIRM_MSG(item.memberName || 'this member'),
+      confirmText: TRAINERS.REMOVE_ASSIGNMENT,
+      cancelText: COMMON.CANCEL,
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          await endAssignment.mutateAsync(item.id);
+          refetchAssignments();
+          refetchTrainer();
+        } catch {
+          // Toast handled in hook
+        }
+      },
+    });
   };
 
   const handleExecuteReassign = async () => {
     if (reassignLockRef.current || reassignTrainer.isPending) return;
     if (!targetTrainerId) {
-      Alert.alert(COMMON.ERROR, 'Please select a destination trainer.');
+      Toast.show({ type: 'error', text1: COMMON.ERROR, text2: 'Please select a destination trainer.' });
       return;
     }
     reassignLockRef.current = true;
@@ -423,8 +414,7 @@ export default function TrainerDetailScreen() {
             ) : null}
             {item.ptFeePaise ? (
               <View style={styles.detailPill}>
-                <IndianRupee size={12} color={theme.colors.primary} style={styles.rupeeIcon} />
-                <Text style={styles.detailPillText}>₹{item.ptFeePaise / 100}</Text>
+                <Text style={styles.detailPillText}>{formatMoney(item.ptFeePaise)}</Text>
               </View>
             ) : null}
             {item.sessionsTotal ? (
@@ -595,8 +585,8 @@ export default function TrainerDetailScreen() {
         animationType="slide"
         onRequestClose={() => !patchTrainer.isPending && setEditModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.bottomSheetContainer}>
+        <View style={[styles.modalOverlay, !isPhone && styles.modalOverlayWide]}>
+          <View style={[styles.bottomSheetContainer, !isPhone && styles.bottomSheetContainerWide]}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>{TRAINERS.EDIT_NAME_TYPES_TITLE}</Text>
               <TouchableOpacity
@@ -692,7 +682,7 @@ export default function TrainerDetailScreen() {
         animationType="fade"
         onRequestClose={() => !createTrainerType.isPending && setNewTypeModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, !isPhone && styles.modalOverlayWide]}>
           <View style={styles.dialogCard}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>{TRAINERS.ADD_NEW_TYPE_MODAL_TITLE}</Text>
@@ -729,8 +719,8 @@ export default function TrainerDetailScreen() {
         animationType="slide"
         onRequestClose={() => !patchTrainer.isPending && setPhoneModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.bottomSheetContainer}>
+        <View style={[styles.modalOverlay, !isPhone && styles.modalOverlayWide]}>
+          <View style={[styles.bottomSheetContainer, !isPhone && styles.bottomSheetContainerWide]}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>{TRAINERS.CHANGE_PHONE_MODAL_TITLE}</Text>
               <TouchableOpacity
@@ -780,8 +770,8 @@ export default function TrainerDetailScreen() {
         animationType="slide"
         onRequestClose={() => !reassignTrainer.isPending && setReassignModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.bottomSheetContainer}>
+        <View style={[styles.modalOverlay, !isPhone && styles.modalOverlayWide]}>
+          <View style={[styles.bottomSheetContainer, !isPhone && styles.bottomSheetContainerWide]}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>{TRAINERS.REASSIGN_MODAL_TITLE}</Text>
               <TouchableOpacity
@@ -1118,8 +1108,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.overlayEnd,
     justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  modalOverlayWide: {
+    justifyContent: 'center',
+    padding: theme.spacing.lg,
   },
   bottomSheetContainer: {
+    width: '100%',
     backgroundColor: theme.colors.surface,
     borderTopLeftRadius: theme.radius.xl,
     borderTopRightRadius: theme.radius.xl,
@@ -1128,11 +1124,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
+  bottomSheetContainerWide: {
+    maxWidth: 440,
+    borderRadius: theme.radius.xl,
+  },
   dialogCard: {
+    width: '100%',
+    maxWidth: 440,
     backgroundColor: theme.colors.surface,
-    marginHorizontal: theme.spacing.lg,
-    marginTop: 'auto',
-    marginBottom: 'auto',
     borderRadius: theme.radius.xl,
     padding: theme.spacing.xl,
     borderWidth: 1,

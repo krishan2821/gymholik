@@ -13,7 +13,7 @@ import lombok.experimental.SuperBuilder;
 @Document(collection = "payments")
 @CompoundIndexes({
     @CompoundIndex(name = "gymId_receiptNo_idx", def = "{'gymId': 1, 'receiptNo': 1}", unique = true),
-    @CompoundIndex(name = "gymId_idempotency_idx", def = "{'gymId': 1, 'idempotencyKey': 1}", unique = true, sparse = true),
+    @CompoundIndex(name = "gymId_idempotency_idx", def = "{'gymId': 1, 'idempotencyKey': 1}", unique = true, partialFilter = "{'idempotencyKey': {'$type': 'string'}}"),
     @CompoundIndex(name = "gymId_paidAt_idx", def = "{'gymId': 1, 'paidAt': -1}"),
     @CompoundIndex(name = "gymId_createdAt_idx", def = "{'gymId': 1, 'createdAt': -1}")
 })

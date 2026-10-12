@@ -9,10 +9,12 @@ import {
   StyleProp,
   ViewStyle,
   TextStyle,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
+import { safeImpactAsync, ImpactFeedbackStyle } from '../utils/safeHaptics';
 import { theme } from '../theme/theme';
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
@@ -45,22 +47,23 @@ export const Button: React.FC<ButtonProps> = ({
   fullWidth = true,
 }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   const handlePressIn = () => {
-    if (disabled || loading) return;
+    if (disabled || loading || prefersReducedMotion) return;
     Animated.spring(scaleAnim, {
       toValue: 0.97,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
       speed: 40,
       bounciness: 4,
     }).start();
   };
 
   const handlePressOut = () => {
-    if (disabled || loading) return;
+    if (disabled || loading || prefersReducedMotion) return;
     Animated.spring(scaleAnim, {
       toValue: 1,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
       speed: 35,
       bounciness: 4,
     }).start();
@@ -68,11 +71,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   const handlePress = () => {
     if (disabled || loading || !onPress) return;
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {
-      // Haptics optional fallback
-    }
+    safeImpactAsync(ImpactFeedbackStyle.Light).catch(() => {});
     onPress();
   };
 
@@ -134,7 +133,7 @@ export const Button: React.FC<ButtonProps> = ({
       style={[
         styles.wrapper,
         fullWidth && styles.fullWidth,
-        { transform: [{ scale: scaleAnim }] },
+        !prefersReducedMotion && { transform: [{ scale: scaleAnim }] },
         style,
       ]}
     >
@@ -144,29 +143,34 @@ export const Button: React.FC<ButtonProps> = ({
         onPressOut={handlePressOut}
         disabled={disabled || loading}
         accessibilityRole="button"
+        accessibilityState={{ disabled: disabled || loading }}
+        {...({ dataSet: { interactive: 'button' } } as any)}
         style={({ pressed }) => [
           styles.pressable,
           { minHeight: heightBy },
+          Platform.OS === 'web' && (disabled || loading ? styles.webDisabled : styles.webPointer),
           !isPrimary && isSecondary && styles.secondaryBg,
           !isPrimary && isGhost && styles.ghostBg,
           !isPrimary && isDanger && styles.dangerBg,
-          disabled && styles.disabledOpacity,
+          disabled && !isPrimary && styles.disabledOpacity,
           pressed && !isPrimary && styles.pressedOpacity,
         ]}
       >
         {isPrimary ? (
-          <LinearGradient
-            colors={
-              disabled
-                ? [theme.colors.raised, theme.colors.raised]
-                : [theme.colors.primary, theme.colors.primarySageEnd]
-            }
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[styles.gradient, { minHeight: heightBy }]}
-          >
-            {renderContent()}
-          </LinearGradient>
+          disabled ? (
+            <View style={[styles.gradient, styles.primaryDisabled, { minHeight: heightBy }]}>
+              {renderContent()}
+            </View>
+          ) : (
+            <LinearGradient
+              colors={[theme.colors.primary, theme.colors.primarySageEnd]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.gradient, { minHeight: heightBy }]}
+            >
+              {renderContent()}
+            </LinearGradient>
+          )
         ) : (
           renderContent()
         )}
@@ -189,12 +193,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: theme.spacing.lg,
   },
+  webPointer: {
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  webDisabled: {
+    ...(Platform.OS === 'web' ? ({ cursor: 'not-allowed' } as any) : {}),
+  },
   gradient: {
     width: '100%',
     borderRadius: theme.radius.full,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: theme.spacing.lg,
+  },
+  primaryDisabled: {
+    backgroundColor: theme.colors.raised,
+    opacity: 0.5,
   },
   contentRow: {
     flexDirection: 'row',

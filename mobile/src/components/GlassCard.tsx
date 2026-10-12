@@ -7,7 +7,7 @@ import {
   ViewStyle,
   Platform,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { SafeBlurView } from './SafeBlurView';
 import { theme } from '../theme/theme';
 
 export interface GlassCardProps {
@@ -17,6 +17,7 @@ export interface GlassCardProps {
   intensity?: number;
   onPress?: () => void;
   activeOpacity?: number;
+  maxWidthToken?: 'form' | 'content' | number;
 }
 
 export const GlassCard: React.FC<GlassCardProps> = ({
@@ -26,16 +27,44 @@ export const GlassCard: React.FC<GlassCardProps> = ({
   intensity = 24,
   onPress,
   activeOpacity = 0.85,
+  maxWidthToken,
 }) => {
   const ContainerComponent = onPress ? TouchableOpacity : View;
-  const containerProps = onPress ? { onPress, activeOpacity } : {};
+  const isInteractive = Boolean(onPress);
+
+  const containerProps = isInteractive
+    ? {
+        onPress,
+        activeOpacity,
+        accessibilityRole: 'button' as const,
+        accessibilityLabel: undefined,
+        dataSet: { interactive: 'card' },
+        ...(Platform.OS === 'web' ? ({ tabIndex: 0 } as any) : {}),
+      }
+    : {
+        dataSet: { interactive: 'card' },
+      };
+
+  const resolvedMaxWidth =
+    maxWidthToken === 'form'
+      ? theme.layout.maxWidth.form
+      : maxWidthToken === 'content'
+      ? theme.layout.maxWidth.content
+      : typeof maxWidthToken === 'number'
+      ? maxWidthToken
+      : theme.layout.maxWidth.content;
 
   return (
     <ContainerComponent
       {...containerProps}
-      style={[styles.card, style]}
+      style={[
+        styles.card,
+        { maxWidth: resolvedMaxWidth },
+        isInteractive && Platform.OS === 'web' && styles.webPointer,
+        style,
+      ]}
     >
-      <BlurView
+      <SafeBlurView
         intensity={intensity}
         tint="dark"
         style={StyleSheet.absoluteFill}
@@ -49,6 +78,8 @@ export const GlassCard: React.FC<GlassCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
+    width: '100%',
+    alignSelf: 'center',
     borderRadius: theme.radius.glass,
     borderWidth: 1,
     borderColor: theme.colors.glassBorder,
@@ -60,6 +91,9 @@ const styles = StyleSheet.create({
           elevation: 4,
           shadowColor: theme.colors.primary,
         }),
+  },
+  webPointer: {
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
   },
   innerContent: {
     position: 'relative',

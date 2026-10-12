@@ -138,6 +138,7 @@ export interface GymProfile {
   gymType?: GymType;
   status?: string;
   subscriptionValidTill?: string;
+  daysRemaining?: number;
   legalIdVerified: boolean;
   legalIdType?: LegalIdType;
   legalIdNumber?: string;

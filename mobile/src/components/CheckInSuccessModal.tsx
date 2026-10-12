@@ -5,13 +5,12 @@ import {
   Text,
   StyleSheet,
   Animated,
-  Dimensions,
+  useWindowDimensions,
+  Platform,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '../utils/safeHaptics';
 import { Check } from 'lucide-react-native';
 import { theme } from '../theme/theme';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface CheckInSuccessModalProps {
   visible: boolean;
@@ -48,23 +47,23 @@ export const CheckInSuccessModal: React.FC<CheckInSuccessModalProps> = ({
         Animated.timing(pulseScale, {
           toValue: 2.4,
           duration: 900,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.timing(pulseOpacity, {
           toValue: 0,
           duration: 900,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.spring(checkScale, {
           toValue: 1,
           tension: 70,
           friction: 6,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.timing(contentFade, {
           toValue: 1,
           duration: 350,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
       ]).start();
 

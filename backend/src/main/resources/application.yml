@@ -20,13 +20,15 @@ spring:
       max-request-size: 10MB
 
 app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8081,http://127.0.0.1:8081,http://localhost:19006,http://192.168.31.41:8081,http://localhost:8080}
   jwt:
     secret: ${JWT_SECRET:supersecretkeythatisverylongandsecure32bytes}
     access-token-expiry-ms: 1800000          # 30 minutes
     refresh-token-expiry-days: 30
     registration-token-expiry-ms: 1800000    # 30 minutes
   otp:
-    pepper: ${OTP_PEPPER}
+    pepper: ${OTP_PEPPER:dev_otp_pepper_secret_key_for_hmac_sha256_1234567890}
     expiry-seconds: 300                      # 5 minutes
     resend-cooldown-seconds: 30              # 30 seconds
     max-attempts: 5
@@ -34,7 +36,7 @@ app:
     max-sends-per-ip-per-hour: 10
     max-consecutive-invalidations: 3
     phone-block-minutes: 30
-    dev-fixed-code: ${OTP_DEV_FIXED_CODE:}
+    dev-fixed-code: ${OTP_DEV_FIXED_CODE:123456}
   sms:
     provider: ${SMS_PROVIDER:log}
     msg91:

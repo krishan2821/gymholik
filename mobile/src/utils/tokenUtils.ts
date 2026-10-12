@@ -1,56 +1,18 @@
-import { Platform } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from './secureStorage';
 
 const ACCESS_TOKEN_KEY = 'accessToken';
 const REFRESH_TOKEN_KEY = 'refreshToken';
 const USER_PROFILE_KEY = 'userProfile';
 
-const isWeb = Platform.OS === 'web';
-const memoryStorage = new Map<string, string>();
-
 const getItem = async (key: string): Promise<string | null> => {
-  if (isWeb) {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        return window.localStorage.getItem(key);
-      }
-    } catch {
-      // fallback
-    }
-    return memoryStorage.get(key) || null;
-  }
   return await SecureStore.getItemAsync(key);
 };
 
 const setItem = async (key: string, value: string): Promise<void> => {
-  if (isWeb) {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem(key, value);
-        return;
-      }
-    } catch {
-      // fallback
-    }
-    memoryStorage.set(key, value);
-    return;
-  }
   await SecureStore.setItemAsync(key, value);
 };
 
 const deleteItem = async (key: string): Promise<void> => {
-  if (isWeb) {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.removeItem(key);
-        return;
-      }
-    } catch {
-      // fallback
-    }
-    memoryStorage.delete(key);
-    return;
-  }
   await SecureStore.deleteItemAsync(key);
 };
 

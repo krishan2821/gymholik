@@ -13,8 +13,9 @@ import {
   Dimensions,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { BlurView } from 'expo-blur';
-import * as Haptics from 'expo-haptics';
+import { SafeBlurView as BlurView } from '../../src/components/SafeBlurView';
+import * as Haptics from '../../src/utils/safeHaptics';
+import { openPhone, openWhatsApp } from '../../src/utils/safeLinking';
 import Toast from 'react-native-toast-message';
 import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import {
@@ -49,8 +50,7 @@ import { Skeleton } from '../../src/components/Skeleton';
 import { ErrorState } from '../../src/components/ErrorState';
 import { isPhoneMasked } from '../../src/components/MaskedPhone';
 import { DASHBOARD, COMPLETE_GYM_PROFILE_BANNER } from '../../src/constants/strings';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { formatMoney } from '../../src/utils/formatters';
 
 // ─── Count-Up Number Component ───────────────────────────────────────────────
 function CountUpNumber({
@@ -269,7 +269,7 @@ function CircularProgressRing({
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
       </Svg>
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <CalendarCheck color={color} size={16} />
         </View>
@@ -428,17 +428,15 @@ export default function DashboardScreen() {
 
   const handleCallMember = (phone: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Linking.openURL(`tel:${phone}`);
+    openPhone(phone);
   };
 
   const handleWhatsAppMember = (member: ExpiringMember) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const text = encodeURIComponent(
-      `Hi ${member.memberName}, aapki gym membership ${
-        member.daysLeft === 0 ? 'aaj expire ho rahi hai' : `${member.daysLeft} din mein expire ho rahi hai`
-      }. Kripya renew karwayein. - ${gymName}`
-    );
-    Linking.openURL(`https://wa.me/91${member.phone}?text=${text}`);
+    const text = `Hi ${member.memberName}, aapki gym membership ${
+      member.daysLeft === 0 ? 'aaj expire ho rahi hai' : `${member.daysLeft} din mein expire ho rahi hai`
+    }. Kripya renew karwayein. - ${gymName}`;
+    openWhatsApp(member.phone, text);
   };
 
   if (role === 'TRAINER') {
@@ -580,7 +578,7 @@ export default function DashboardScreen() {
               <View style={styles.heroMonthBadge}>
                 <TrendingUp size={14} color={theme.colors.primary} />
                 <Text style={styles.heroMonthText}>
-                  Month: ₹{(((data?.monthCollection || 0) / 100)).toLocaleString('en-IN')}
+                  Month: {formatMoney(data?.monthCollection)}
                 </Text>
               </View>
             </View>

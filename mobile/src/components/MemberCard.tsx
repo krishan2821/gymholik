@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { safeOpenURL } from '../utils/safeLinking';
 import { differenceInDays, parseISO } from 'date-fns';
 import { MessageCircle } from 'lucide-react-native';
 import { theme } from '../theme/theme';
@@ -58,14 +59,20 @@ export const MemberCard = React.memo(({ member, onPress }: MemberCardProps) => {
     e?.stopPropagation?.();
     if (masked || isTrainer) return;
     const message = `Hello ${name},\n`;
-    Linking.openURL(`https://wa.me/91${phone}?text=${encodeURIComponent(message)}`);
+    safeOpenURL(`https://wa.me/91${phone}?text=${encodeURIComponent(message)}`);
   };
 
   const status = getMembershipStatus();
 
   return (
-    <GlassCard style={styles.card} onPress={onPress}>
-      <View style={styles.cardContent}>
+    <GlassCard style={styles.card} contentStyle={styles.cardRow}>
+      <TouchableOpacity
+        style={styles.cardMain}
+        onPress={onPress}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel={`View details for ${name}`}
+      >
         <View style={styles.avatarWrapper}>
           <Avatar
             photoUrl={photoUrl}
@@ -110,19 +117,19 @@ export const MemberCard = React.memo(({ member, onPress }: MemberCardProps) => {
             <Text style={styles.detailText}>No active membership</Text>
           )}
         </View>
+      </TouchableOpacity>
 
-        {!masked && !isTrainer && (
-          <TouchableOpacity
-            style={styles.waButton}
-            onPress={openWhatsApp}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            accessibilityRole="button"
-            accessibilityLabel={`WhatsApp ${name}`}
-          >
-            <MessageCircle color={theme.colors.primary} size={22} />
-          </TouchableOpacity>
-        )}
-      </View>
+      {!masked && !isTrainer && (
+        <TouchableOpacity
+          style={styles.waButton}
+          onPress={openWhatsApp}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel={`WhatsApp ${name}`}
+        >
+          <MessageCircle color={theme.colors.primary} size={22} />
+        </TouchableOpacity>
+      )}
     </GlassCard>
   );
 });
@@ -131,10 +138,15 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: theme.spacing.md,
   },
-  cardContent: {
+  cardRow: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: theme.spacing.md,
+  },
+  cardMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   avatarWrapper: {
     marginRight: theme.spacing.md,

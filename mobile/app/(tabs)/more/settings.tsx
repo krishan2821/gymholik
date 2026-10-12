@@ -6,8 +6,8 @@ import {
   TextInput,
   Switch,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -104,12 +104,13 @@ export default function SettingsScreen() {
         reminderDaysBefore: parseInt(data.reminderDays, 10) || 5,
         staffCanSeeFullPhone: data.staffCanSeeFullPhone,
       });
-      Alert.alert(COMMON.SUCCESS, SETTINGS.SAVE_SUCCESS);
+      Toast.show({ type: 'success', text1: COMMON.SUCCESS, text2: SETTINGS.SAVE_SUCCESS });
     } catch (err: any) {
-      Alert.alert(
-        COMMON.ERROR,
-        err.response?.data?.message || 'Failed to update settings'
-      );
+      Toast.show({
+        type: 'error',
+        text1: COMMON.ERROR,
+        text2: err.response?.data?.message || 'Failed to update settings',
+      });
     } finally {
       submitLockRef.current = false;
     }

@@ -5,8 +5,8 @@ import {
   StyleSheet,
   TextInput,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useRouter, Stack } from 'expo-router';
 import { safeBack } from '../../../src/utils/navigation';
 import { useForm, Controller } from 'react-hook-form';
@@ -79,10 +79,10 @@ export default function EditProfileScreen() {
         name: data.name.trim(),
         phone: data.phone.trim(),
       });
-      Alert.alert('Success', 'Profile updated successfully.');
+      Toast.show({ type: 'success', text1: 'Success', text2: 'Profile updated successfully.' });
       safeBack('/(tabs)/more');
     } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.message || 'Failed to update profile');
+      Toast.show({ type: 'error', text1: 'Error', text2: err.response?.data?.message || 'Failed to update profile' });
     }
   };
 

@@ -7,12 +7,12 @@ import {
   TouchableOpacity,
   Modal,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
-  Linking,
 } from 'react-native';
+import { showConfirmDialog } from '../../../src/components/ConfirmDialog';
+import { safeOpenURL } from '../../../src/utils/safeLinking';
 import {
   Plus,
   X,
@@ -40,6 +40,7 @@ import { Badge } from '../../../src/components/Badge';
 import { Avatar } from '../../../src/components/Avatar';
 import { ErrorState } from '../../../src/components/ErrorState';
 import { EmptyState } from '../../../src/components/EmptyState';
+import { useBreakpoint } from '../../../src/hooks/useBreakpoint';
 import {
   STAFF,
   COMMON,
@@ -51,6 +52,7 @@ const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/;
 
 export default function StaffScreen() {
   const { role, user } = useAuthStore();
+  const { isPhone } = useBreakpoint();
   const { data: gymSettings } = useGymSettings();
 
   const {
@@ -169,7 +171,7 @@ export default function StaffScreen() {
       message
     )}`;
     try {
-      await Linking.openURL(url);
+      await safeOpenURL(url);
     } catch {
       Toast.show({
         type: 'error',
@@ -253,19 +255,15 @@ export default function StaffScreen() {
       .replace(/\D/g, '');
 
     if (cleanedPhone !== existingCleanPhone) {
-      Alert.alert(
-        STAFF.PHONE_CHANGE_CONFIRM_TITLE,
-        STAFF.PHONE_CHANGE_CONFIRM_MSG(editingStaff.name),
-        [
-          { text: COMMON.CANCEL, style: 'cancel' },
-          {
-            text: COMMON.CONFIRM,
-            style: 'destructive',
-            onPress: () =>
-              executeStaffEdit(editingStaff.id, trimmedName, cleanedPhone),
-          },
-        ]
-      );
+      showConfirmDialog({
+        title: STAFF.PHONE_CHANGE_CONFIRM_TITLE,
+        message: STAFF.PHONE_CHANGE_CONFIRM_MSG(editingStaff.name),
+        confirmText: COMMON.CONFIRM,
+        cancelText: COMMON.CANCEL,
+        isDestructive: true,
+        onConfirm: () =>
+          executeStaffEdit(editingStaff.id, trimmedName, cleanedPhone),
+      });
     } else {
       executeStaffEdit(editingStaff.id, trimmedName, cleanedPhone);
     }
@@ -275,48 +273,44 @@ export default function StaffScreen() {
     if (updateLockRef.current || updateStaff.isPending) return;
     const isCurrentlyActive = item.status === 'ACTIVE' || item.active;
 
-    Alert.alert(
-      isCurrentlyActive
+    showConfirmDialog({
+      title: isCurrentlyActive
         ? STAFF.DEACTIVATE_CONFIRM_TITLE
         : STAFF.REACTIVATE_CONFIRM_TITLE,
-      isCurrentlyActive
+      message: isCurrentlyActive
         ? STAFF.DEACTIVATE_CONFIRM_MSG(item.name)
         : STAFF.REACTIVATE_CONFIRM_MSG(item.name),
-      [
-        { text: COMMON.CANCEL, style: 'cancel' },
-        {
-          text: isCurrentlyActive ? STAFF.DEACTIVATE_BTN : STAFF.REACTIVATE_BTN,
-          style: isCurrentlyActive ? 'destructive' : 'default',
-          onPress: async () => {
-            if (updateLockRef.current) return;
-            updateLockRef.current = true;
-            try {
-              await updateStaff.mutateAsync({
-                id: item.id,
-                payload: {
-                  active: !isCurrentlyActive,
-                  status: isCurrentlyActive ? 'INACTIVE' : 'ACTIVE',
-                },
-              });
-              Toast.show({
-                type: 'success',
-                text1: isCurrentlyActive
-                  ? 'Staff member deactivated'
-                  : 'Staff member reactivated',
-              });
-            } catch (error: any) {
-              Toast.show({
-                type: 'error',
-                text1: COMMON.ERROR,
-                text2: error?.response?.data?.message || STAFF.UPDATE_ERROR,
-              });
-            } finally {
-              updateLockRef.current = false;
-            }
-          },
-        },
-      ]
-    );
+      confirmText: isCurrentlyActive ? STAFF.DEACTIVATE_BTN : STAFF.REACTIVATE_BTN,
+      cancelText: COMMON.CANCEL,
+      isDestructive: isCurrentlyActive,
+      onConfirm: async () => {
+        if (updateLockRef.current) return;
+        updateLockRef.current = true;
+        try {
+          await updateStaff.mutateAsync({
+            id: item.id,
+            payload: {
+              active: !isCurrentlyActive,
+              status: isCurrentlyActive ? 'INACTIVE' : 'ACTIVE',
+            },
+          });
+          Toast.show({
+            type: 'success',
+            text1: isCurrentlyActive
+              ? 'Staff member deactivated'
+              : 'Staff member reactivated',
+          });
+        } catch (error: any) {
+          Toast.show({
+            type: 'error',
+            text1: COMMON.ERROR,
+            text2: error?.response?.data?.message || STAFF.UPDATE_ERROR,
+          });
+        } finally {
+          updateLockRef.current = false;
+        }
+      },
+    });
   };
 
   const renderItem = ({ item }: { item: StaffMember }) => {
@@ -432,9 +426,9 @@ export default function StaffScreen() {
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
+          style={[styles.modalOverlay, !isPhone && styles.modalOverlayWide]}
         >
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, !isPhone && styles.modalContentWide]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{STAFF.MODAL_TITLE}</Text>
               <TouchableOpacity
@@ -500,9 +494,9 @@ export default function StaffScreen() {
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
+          style={[styles.modalOverlay, !isPhone && styles.modalOverlayWide]}
         >
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, !isPhone && styles.modalContentWide]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{STAFF.EDIT_MODAL_TITLE}</Text>
               <TouchableOpacity
@@ -566,8 +560,8 @@ export default function StaffScreen() {
         animationType="slide"
         onRequestClose={() => setCreatedStaffInfo(null)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <View style={[styles.modalOverlay, !isPhone && styles.modalOverlayWide]}>
+          <View style={[styles.modalContent, !isPhone && styles.modalContentWide]}>
             <View style={styles.successIconWrap}>
               <CheckCircle2 size={44} color={theme.colors.primary} />
             </View>
@@ -725,14 +719,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.overlayEnd,
     justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  modalOverlayWide: {
+    justifyContent: 'center',
+    padding: theme.spacing.lg,
   },
   modalContent: {
+    width: '100%',
     backgroundColor: theme.colors.surface,
     padding: theme.spacing.xl,
     borderTopLeftRadius: theme.radius.xl,
     borderTopRightRadius: theme.radius.xl,
     borderWidth: 1,
     borderColor: theme.colors.border,
+  },
+  modalContentWide: {
+    maxWidth: 440,
+    borderRadius: theme.radius.xl,
   },
   modalHeader: {
     flexDirection: 'row',

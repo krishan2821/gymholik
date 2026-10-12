@@ -9,7 +9,7 @@ import {
   Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import { safeNotificationAsync, NotificationFeedbackType } from '../../../src/utils/safeHaptics';
 import {
   Search,
   Users,
@@ -23,6 +23,7 @@ import { theme } from '../../../src/theme/theme';
 import { useMembers, Member } from '../../../src/api/members';
 import { useTodayAttendance, useCheckIn, AttendanceRecord } from '../../../src/api/attendance';
 import { Screen } from '../../../src/components/Screen';
+import { PageHeader } from '../../../src/components/PageHeader';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Button } from '../../../src/components/Button';
 import { Avatar } from '../../../src/components/Avatar';
@@ -79,9 +80,7 @@ export default function AttendanceScreen() {
 
   const handleCheckIn = async (member: Member, force: boolean = false) => {
     if (member.currentMembership?.status === 'EXPIRED' && !force) {
-      try {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      } catch {}
+      safeNotificationAsync(NotificationFeedbackType.Warning).catch(() => {});
       setExpiredWarning({ visible: true, member });
       return;
     }
@@ -97,15 +96,11 @@ export default function AttendanceScreen() {
       setDebouncedTerm('');
       setExpiredWarning({ visible: false });
 
-      try {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } catch {}
+      safeNotificationAsync(NotificationFeedbackType.Success).catch(() => {});
       setSuccessBanner({ visible: true, member });
       setTimeout(() => setSuccessBanner({ visible: false }), 2000);
     } catch (e: any) {
-      try {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      } catch {}
+      safeNotificationAsync(NotificationFeedbackType.Error).catch(() => {});
       const msg = e.response?.data?.message || ATTENDANCE.LOAD_ERROR;
       if (msg.toLowerCase().includes('already checked in')) {
         Toast.show({
@@ -162,24 +157,27 @@ export default function AttendanceScreen() {
 
   return (
     <Screen>
+      <PageHeader title="Check-in" />
       {/* ── Top Header Actions ────────────────────────────────────── */}
       <View style={styles.headerLinks}>
         <View style={{ flex: 1, marginRight: 8 }}>
           <Button
-            title={ATTENDANCE.ABSENT_BTN}
+            title="Absent"
             variant="secondary"
             icon={<Users color={theme.colors.text} size={18} />}
             onPress={() => router.push('/(tabs)/attendance/absent')}
             size="sm"
+            style={{ minHeight: 44 }}
           />
         </View>
 
         <View style={{ flex: 1, marginLeft: 8 }}>
           <Button
-            title={ATTENDANCE.SCAN_BTN}
+            title="Scan QR"
             icon={<QrCode color={theme.colors.textOnPrimary} size={18} />}
             onPress={() => router.push('/(tabs)/attendance/scan')}
             size="sm"
+            style={{ minHeight: 44 }}
           />
         </View>
       </View>
@@ -317,7 +315,7 @@ export default function AttendanceScreen() {
           contentContainerStyle={styles.listContent}
           refreshing={isRefetching}
           onRefresh={refetch}
-          ListEmptyComponent={<EmptyState message={ATTENDANCE.EMPTY} />}
+          ListEmptyComponent={<EmptyState type="attendance" message={ATTENDANCE.EMPTY} />}
         />
       )}
     </Screen>

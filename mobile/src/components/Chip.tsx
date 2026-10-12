@@ -8,7 +8,7 @@ import {
   ViewStyle,
   TextStyle,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { safeSelectionAsync } from '../utils/safeHaptics';
 import { theme } from '../theme/theme';
 
 export interface ChipProps {
@@ -34,11 +34,7 @@ export const Chip: React.FC<ChipProps> = ({
 }) => {
   const handlePress = () => {
     if (disabled || !onPress) return;
-    try {
-      Haptics.selectionAsync();
-    } catch {
-      // Haptic optional
-    }
+    safeSelectionAsync().catch(() => {});
     onPress();
   };
 

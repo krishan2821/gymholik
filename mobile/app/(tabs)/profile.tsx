@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { User, LogOut, ChevronRight, Building2, Dumbbell } from 'lucide-react-native';
 import { useAuthStore } from '../../src/store/useAuthStore';
@@ -9,6 +9,7 @@ import { theme } from '../../src/theme/theme';
 import { Screen } from '../../src/components/Screen';
 import { GlassCard } from '../../src/components/GlassCard';
 import { Badge } from '../../src/components/Badge';
+import { showConfirmDialog } from '../../src/components/ConfirmDialog';
 import { MORE, COMMON } from '../../src/constants/strings';
 
 export default function TrainerProfileScreen() {
@@ -29,18 +30,18 @@ export default function TrainerProfileScreen() {
   }
 
   const handleLogout = async () => {
-    Alert.alert(MORE.LOGOUT_CONFIRM_TITLE, MORE.LOGOUT_CONFIRM_MSG, [
-      { text: COMMON.CANCEL, style: 'cancel' },
-      {
-        text: MORE.LOGOUT_BTN,
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-          queryClient.clear();
-          router.replace('/(auth)/login');
-        },
+    showConfirmDialog({
+      title: MORE.LOGOUT_CONFIRM_TITLE,
+      message: MORE.LOGOUT_CONFIRM_MSG,
+      confirmText: MORE.LOGOUT_BTN,
+      cancelText: COMMON.CANCEL,
+      isDestructive: true,
+      onConfirm: async () => {
+        await logout();
+        queryClient.clear();
+        router.replace('/(auth)/login');
       },
-    ]);
+    });
   };
 
   const displayName = currentUser?.name || user?.name || 'Trainer';

@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -111,6 +112,12 @@ public class GymSettingsService {
             legalIdNumber = maskLegalIdNumber(legalIdNumber);
         }
 
+        Long daysRemaining = null;
+        if (gym.getSubscriptionValidTill() != null) {
+            LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Kolkata"));
+            daysRemaining = Math.max(0, java.time.temporal.ChronoUnit.DAYS.between(today, gym.getSubscriptionValidTill()));
+        }
+
         return GymProfileResponse.builder()
                 .id(gym.getId())
                 .name(gym.getName())
@@ -118,6 +125,7 @@ public class GymSettingsService {
                 .gymType(gym.getGymType())
                 .status(gym.getStatus())
                 .subscriptionValidTill(gym.getSubscriptionValidTill())
+                .daysRemaining(daysRemaining)
                 .legalIdVerified(gym.isLegalIdVerified())
                 .legalIdType(gym.getLegalIdType())
                 .legalIdNumber(legalIdNumber)
@@ -169,6 +177,12 @@ public class GymSettingsService {
             maskedLegalId = maskLegalIdNumber(maskedLegalId);
         }
 
+        Long daysRemaining = null;
+        if (gym.getSubscriptionValidTill() != null) {
+            LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Kolkata"));
+            daysRemaining = Math.max(0, java.time.temporal.ChronoUnit.DAYS.between(today, gym.getSubscriptionValidTill()));
+        }
+
         return GymProfileResponse.builder()
                 .id(gym.getId())
                 .name(gym.getName())
@@ -176,6 +190,7 @@ public class GymSettingsService {
                 .gymType(gym.getGymType())
                 .status(gym.getStatus())
                 .subscriptionValidTill(gym.getSubscriptionValidTill())
+                .daysRemaining(daysRemaining)
                 .legalIdVerified(gym.isLegalIdVerified())
                 .legalIdType(gym.getLegalIdType())
                 .legalIdNumber(maskedLegalId)

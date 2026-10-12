@@ -39,7 +39,9 @@ module.exports = ({ config }) => {
       predictiveBackGestureEnabled: false
     },
     web: {
-      favicon: './assets/favicon.png'
+      bundler: 'metro',
+      favicon: './assets/favicon.png',
+      name: 'Gymholik: Gym management'
     },
     plugins: [
       'expo-router',

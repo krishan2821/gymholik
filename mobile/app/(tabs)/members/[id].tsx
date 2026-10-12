@@ -4,8 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Linking,
-  Alert,
   ActivityIndicator,
   Modal,
   ScrollView,
@@ -13,6 +11,10 @@ import {
   Platform,
   TextInput,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
+import { safeShareAsync, safeIsAvailableAsync } from '../../../src/utils/safeSharing';
+import { safeOpenURL } from '../../../src/utils/safeLinking';
+import { showConfirmDialog } from '../../../src/components/ConfirmDialog';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { safeBack } from '../../../src/utils/navigation';
 import {
@@ -27,6 +29,7 @@ import {
   QrCode,
   X,
   Share2,
+  Download,
   Dumbbell,
   ArrowRightLeft,
   UserX,
@@ -40,8 +43,8 @@ import {
 import { differenceInDays, parseISO, format } from 'date-fns';
 import QRCode from 'react-native-qrcode-svg';
 import ViewShot from 'react-native-view-shot';
-import * as Sharing from 'expo-sharing';
 import Svg, { Circle as SvgCircle } from 'react-native-svg';
+import { useBreakpoint } from '../../../src/hooks/useBreakpoint';
 import { theme } from '../../../src/theme/theme';
 import { useMember } from '../../../src/api/members';
 import {
@@ -60,6 +63,7 @@ import {
 import { useMemberAttendanceHistory } from '../../../src/api/attendance';
 import { useAuthStore } from '../../../src/store/useAuthStore';
 import { Screen } from '../../../src/components/Screen';
+import { PageHeader } from '../../../src/components/PageHeader';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Avatar, AvatarStatus } from '../../../src/components/Avatar';
 import { Badge, BadgeVariant } from '../../../src/components/Badge';
@@ -67,6 +71,7 @@ import { Button } from '../../../src/components/Button';
 import { ErrorState } from '../../../src/components/ErrorState';
 import { MaskedPhone, isPhoneMasked } from '../../../src/components/MaskedPhone';
 import { MEMBER_PROFILE, COMMON } from '../../../src/constants/strings';
+import { formatMoney } from '../../../src/utils/formatters';
 
 function formatCheckInTime(time: any): string {
   if (!time) return 'Checked In';
@@ -176,22 +181,72 @@ export default function MemberDetailScreen() {
   const [showQRModal, setShowQRModal] = useState(false);
   const [trainerPickerVisible, setTrainerPickerVisible] = useState(false);
   const viewShotRef = useRef<any>(null);
+  const { isPhone } = useBreakpoint();
 
   const handleShareQR = async () => {
     try {
+      if (Platform.OS === 'web') {
+        const svgEl = document.querySelector('svg');
+        if (svgEl) {
+          const svgData = new XMLSerializer().serializeToString(svgEl);
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const img = new (window as any).Image();
+          const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+          const blobURL = URL.createObjectURL(svgBlob);
+
+          img.onload = () => {
+            canvas.width = 300;
+            canvas.height = 360;
+            if (ctx) {
+              ctx.fillStyle = '#051F20';
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+              ctx.fillStyle = '#DAF1DE';
+              ctx.font = 'bold 16px sans-serif';
+              ctx.textAlign = 'center';
+              ctx.fillText('Gymholik Fitness', canvas.width / 2, 34);
+
+              ctx.fillStyle = '#DAF1DE';
+              ctx.fillRect(40, 50, 220, 220);
+              ctx.drawImage(img, 45, 55, 210, 210);
+
+              ctx.fillStyle = '#DAF1DE';
+              ctx.font = 'bold 16px sans-serif';
+              ctx.fillText(member?.name || 'Member', canvas.width / 2, 300);
+
+              ctx.fillStyle = '#8EB69B';
+              ctx.font = '13px monospace';
+              ctx.fillText(member?.memberCode || '', canvas.width / 2, 326);
+
+              const pngUri = canvas.toDataURL('image/png');
+              const a = document.createElement('a');
+              a.download = `QR_${(member?.name || 'Member').replace(/\s+/g, '_')}_${member?.memberCode || ''}.png`;
+              a.href = pngUri;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              Toast.show({ type: 'success', text1: 'Downloaded QR card' });
+            }
+          };
+          img.src = blobURL;
+          return;
+        }
+      }
+
       const uri = await viewShotRef.current?.capture();
       if (uri) {
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(uri, {
+        if (await safeIsAvailableAsync()) {
+          await safeShareAsync(uri, {
             mimeType: 'image/jpeg',
             dialogTitle: 'Share QR Card',
           });
         } else {
-          Alert.alert('Error', 'Sharing not available on this device');
+          Toast.show({ type: 'error', text1: 'Error', text2: 'Sharing not available on this device' });
         }
       }
     } catch {
-      Alert.alert('Error', 'Failed to capture QR code');
+      Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to capture QR code' });
     }
   };
 
@@ -241,52 +296,44 @@ export default function MemberDetailScreen() {
 
   const openWhatsApp = () => {
     if (masked || isTrainer) return;
-    Linking.openURL(`https://wa.me/91${phone}`);
+    safeOpenURL(`https://wa.me/91${phone}`);
   };
 
   const callPhone = () => {
     if (masked || isTrainer) return;
-    Linking.openURL(`tel:${phone}`);
+    safeOpenURL(`tel:${phone}`);
   };
 
   const handleDelete = () => {
-    Alert.alert(
-      MEMBER_PROFILE.DELETE_CONFIRM_TITLE,
-      MEMBER_PROFILE.DELETE_CONFIRM_MSG,
-      [
-        { text: COMMON.CANCEL, style: 'cancel' },
-        {
-          text: COMMON.DELETE,
-          style: 'destructive',
-          onPress: () => console.log('Delete member', id),
-        },
-      ]
-    );
+    showConfirmDialog({
+      title: MEMBER_PROFILE.DELETE_CONFIRM_TITLE,
+      message: MEMBER_PROFILE.DELETE_CONFIRM_MSG,
+      confirmText: COMMON.DELETE,
+      cancelText: COMMON.CANCEL,
+      isDestructive: true,
+      onConfirm: () => console.log('Delete member', id),
+    });
   };
 
   const activeAssignment = assignmentsData?.content?.[0];
 
   const handleUnassignTrainer = () => {
     if (!activeAssignment) return;
-    Alert.alert(
-      'Unassign Trainer',
-      `Unassign ${activeAssignment.trainerName || 'trainer'} from ${name}?`,
-      [
-        { text: COMMON.CANCEL, style: 'cancel' },
-        {
-          text: 'Unassign',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await endAssignmentMutation.mutateAsync(activeAssignment.id);
-              refetchAssignment();
-            } catch {
-              // Handled by toast
-            }
-          },
-        },
-      ]
-    );
+    showConfirmDialog({
+      title: 'Unassign Trainer',
+      message: `Unassign ${activeAssignment.trainerName || 'trainer'} from ${name}?`,
+      confirmText: 'Unassign',
+      cancelText: COMMON.CANCEL,
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          await endAssignmentMutation.mutateAsync(activeAssignment.id);
+          refetchAssignment();
+        } catch {
+          // Handled by toast
+        }
+      },
+    });
   };
 
   const handleSelectTrainer = async (newTrainer: any) => {
@@ -306,7 +353,12 @@ export default function MemberDetailScreen() {
   };
 
   return (
-    <Screen scrollable contentContainerStyle={styles.scroll}>
+    <Screen safeTop={false} scrollable contentContainerStyle={styles.scroll}>
+      <PageHeader
+        title="Member Details"
+        showBack
+        onBack={() => safeBack('/(tabs)/members')}
+      />
       {/* ── Top Member Header Card ─────────────────────────────────── */}
       <GlassCard style={styles.headerCard} contentStyle={styles.headerInner}>
         <View style={styles.headerTop}>
@@ -393,7 +445,7 @@ export default function MemberDetailScreen() {
                   <View style={styles.detailRow}>
                     <View style={styles.detailBox}>
                       <Text style={styles.detailLabel}>Total Fee</Text>
-                      <Text style={styles.detailValue}>₹{currentMembership.totalPaise / 100}</Text>
+                      <Text style={styles.detailValue}>{formatMoney(currentMembership.totalPaise)}</Text>
                     </View>
                     <View style={styles.detailBox}>
                       <Text style={styles.detailLabel}>Due Amount</Text>
@@ -403,7 +455,7 @@ export default function MemberDetailScreen() {
                           currentMembership.duePaise > 0 && { color: theme.colors.error },
                         ]}
                       >
-                        ₹{currentMembership.duePaise / 100}
+                        {formatMoney(currentMembership.duePaise)}
                       </Text>
                     </View>
                   </View>
@@ -611,7 +663,7 @@ export default function MemberDetailScreen() {
                   ) : null}
                   {activeAssignment.ptFeePaise ? (
                     <Text style={styles.trainerSubText}>
-                      PT Fee: ₹{activeAssignment.ptFeePaise / 100}
+                      PT Fee: {formatMoney(activeAssignment.ptFeePaise)}
                       {activeAssignment.sessionsTotal
                         ? ` · ${activeAssignment.sessionsTotal} sessions`
                         : ''}
@@ -703,8 +755,14 @@ export default function MemberDetailScreen() {
 
             <View style={{ marginTop: theme.spacing.lg }}>
               <Button
-                title="Share on WhatsApp"
-                icon={<Share2 color={theme.colors.textOnPrimary} size={18} />}
+                title={Platform.OS === 'web' ? 'Download QR Card' : 'Share on WhatsApp'}
+                icon={
+                  Platform.OS === 'web' ? (
+                    <Download color={theme.colors.textOnPrimary} size={18} />
+                  ) : (
+                    <Share2 color={theme.colors.textOnPrimary} size={18} />
+                  )
+                }
                 onPress={handleShareQR}
                 size="md"
               />
@@ -779,9 +837,9 @@ export default function MemberDetailScreen() {
       <Modal visible={noteModalVisible} transparent animationType="slide" onRequestClose={() => setNoteModalVisible(false)}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
+          style={[styles.modalOverlay, isPhone && styles.modalOverlayPhone]}
         >
-          <View style={styles.noteModalSheet}>
+          <View style={[styles.noteModalSheet, !isPhone && styles.noteModalSheetDesktop]}>
             <View style={styles.pickerHeader}>
               <Text style={styles.pickerTitle}>
                 {editingNote ? 'Edit Note' : 'Add Note'}
@@ -957,7 +1015,7 @@ function DaysLeftProgressRing({
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
       </Svg>
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}>
         <View style={styles.daysRingCenter}>
           <Text style={[styles.daysRingNumber, { color }]}>
             {daysRemaining}
@@ -1166,6 +1224,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: theme.spacing.lg,
   },
+  modalOverlayPhone: {
+    justifyContent: 'flex-end',
+    padding: 0,
+  },
   qrModalCard: {
     width: '100%',
     maxWidth: 360,
@@ -1294,6 +1356,7 @@ const styles = StyleSheet.create({
   },
   pickerModalContent: {
     width: '100%',
+    maxWidth: 440,
     backgroundColor: theme.colors.surface,
     borderRadius: theme.radius.xl,
     padding: theme.spacing.xl,
@@ -1440,6 +1503,13 @@ const styles = StyleSheet.create({
     borderTopRightRadius: theme.radius.xl,
     padding: theme.spacing.lg,
     maxHeight: '85%',
+    width: '100%',
+    maxWidth: 440,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  noteModalSheetDesktop: {
+    borderRadius: theme.radius.xl,
   },
   modalInputLabel: {
     ...theme.typography.caption,

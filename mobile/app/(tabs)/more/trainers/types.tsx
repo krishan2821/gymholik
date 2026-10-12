@@ -7,10 +7,11 @@ import {
   TouchableOpacity,
   Modal,
   TextInput,
-  Alert,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
+import { showConfirmDialog } from '../../../../src/components/ConfirmDialog';
 import { Tag, Plus, Edit2, Trash2, X, Check } from 'lucide-react-native';
 import { theme } from '../../../../src/theme/theme';
 import { useAuthStore } from '../../../../src/store/useAuthStore';
@@ -79,7 +80,7 @@ export default function TrainerTypesScreen() {
   const handleSave = async () => {
     const trimmed = typeName.trim();
     if (!trimmed) {
-      Alert.alert('Validation Error', 'Type name cannot be empty');
+      Toast.show({ type: 'error', text1: 'Validation Error', text2: 'Type name cannot be empty' });
       return;
     }
 
@@ -98,24 +99,20 @@ export default function TrainerTypesScreen() {
   };
 
   const handleDeactivate = (item: TrainerType) => {
-    Alert.alert(
-      TRAINER_TYPES.DEACTIVATE_CONFIRM_TITLE,
-      TRAINER_TYPES.DEACTIVATE_CONFIRM_MSG(item.name),
-      [
-        { text: COMMON.CANCEL, style: 'cancel' },
-        {
-          text: TRAINER_TYPES.DEACTIVATE_BTN,
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deactivateType.mutateAsync(item.id);
-            } catch {
-              // toast shown in mutation
-            }
-          },
-        },
-      ]
-    );
+    showConfirmDialog({
+      title: TRAINER_TYPES.DEACTIVATE_CONFIRM_TITLE,
+      message: TRAINER_TYPES.DEACTIVATE_CONFIRM_MSG(item.name),
+      confirmText: TRAINER_TYPES.DEACTIVATE_BTN,
+      cancelText: COMMON.CANCEL,
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          await deactivateType.mutateAsync(item.id);
+        } catch {
+          // toast shown in mutation
+        }
+      },
+    });
   };
 
   const isSaving = createType.isPending || updateType.isPending;
@@ -333,6 +330,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '100%',
+    maxWidth: 440,
     backgroundColor: theme.colors.surface,
     borderRadius: theme.radius.xl,
     padding: theme.spacing.xl,

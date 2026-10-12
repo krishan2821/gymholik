@@ -1,0 +1,5 @@
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+  otp:
+    dev-fixed-code: ""

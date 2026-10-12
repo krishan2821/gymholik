@@ -61,6 +61,9 @@ class MemberServiceTest {
     @Mock
     private com.gymapp.module.trainer.service.TrainerAssignmentService trainerAssignmentService;
 
+    @Mock
+    private com.gymapp.module.dashboard.service.DashboardService dashboardService;
+
     @InjectMocks
     private MemberService memberService;
 

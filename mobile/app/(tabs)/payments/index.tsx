@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Download, FileText, Banknote, CreditCard, Smartphone, ChevronRight } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,18 +7,23 @@ import { theme } from '../../../src/theme/theme';
 import { usePayments, Payment, downloadAndShareReceipt, useReversePayment } from '../../../src/api/payments';
 import { useAuthStore } from '../../../src/store/useAuthStore';
 import { Screen, getScreenBottomPadding } from '../../../src/components/Screen';
+import { PageHeader } from '../../../src/components/PageHeader';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Button } from '../../../src/components/Button';
 import { Badge } from '../../../src/components/Badge';
 import { FilterChips } from '../../../src/components/FilterChips';
 import { LoadingSkeleton } from '../../../src/components/LoadingSkeleton';
+import { formatMoney } from '../../../src/utils/formatters';
+import Toast from 'react-native-toast-message';
+import { showConfirmDialog } from '../../../src/components/ConfirmDialog';
 import { EmptyState } from '../../../src/components/EmptyState';
 import { ErrorState } from '../../../src/components/ErrorState';
 import { PAYMENTS, ERRORS, COMMON } from '../../../src/constants/strings';
 
 export default function PaymentsHistoryScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const rawInsets = useSafeAreaInsets();
+  const insets = Platform.OS === 'web' ? { top: 0, right: 0, bottom: 0, left: 0 } : (rawInsets ?? { top: 0, right: 0, bottom: 0, left: 0 });
   const user = useAuthStore((state) => state.user);
   const role = user?.role || useAuthStore((state) => state.role);
   const isOwner = role === 'OWNER';
@@ -81,24 +86,16 @@ export default function PaymentsHistoryScreen() {
   const handleLongPress = (payment: Payment) => {
     if (!isOwner) return;
 
-    Alert.prompt(
-      PAYMENTS.REVERSE_TITLE,
-      PAYMENTS.REVERSE_PROMPT,
-      [
-        { text: COMMON.CANCEL, style: 'cancel' },
-        {
-          text: PAYMENTS.REVERSE_BTN,
-          style: 'destructive',
-          onPress: (reason?: string) => {
-            if (!reason) {
-              Alert.alert('Error', ERRORS.REASON_REQUIRED);
-              return;
-            }
-            reversePayment.mutate({ id: payment.id, notes: reason });
-          },
-        },
-      ]
-    );
+    showConfirmDialog({
+      title: PAYMENTS.REVERSE_TITLE,
+      message: PAYMENTS.REVERSE_PROMPT,
+      confirmText: PAYMENTS.REVERSE_BTN,
+      cancelText: COMMON.CANCEL,
+      isDestructive: true,
+      onConfirm: () => {
+        reversePayment.mutate({ id: payment.id, notes: 'Reversal requested' });
+      },
+    });
   };
 
   const renderItem = ({ item }: { item: Payment }) => {
@@ -114,7 +111,7 @@ export default function PaymentsHistoryScreen() {
           {item.memberName}
         </Text>
         <Text style={[styles.amount, item.type === 'REVERSAL' && styles.textReversed]}>
-          ₹{item.amountPaise / 100}
+          {formatMoney(item.amountPaise)}
         </Text>
       </View>
       <View style={styles.cardBody}>
@@ -156,6 +153,7 @@ export default function PaymentsHistoryScreen() {
 
   return (
     <Screen>
+      <PageHeader title="Payments" />
       {/* ── Top Navigation & Collect ──────────────────────────────── */}
       <View style={styles.headerLinks}>
         <TouchableOpacity
@@ -219,7 +217,7 @@ export default function PaymentsHistoryScreen() {
           onEndReachedThreshold={0.5}
           refreshing={isRefetching}
           onRefresh={refetch}
-          ListEmptyComponent={<EmptyState message={PAYMENTS.EMPTY} />}
+          ListEmptyComponent={<EmptyState type="payments" message={PAYMENTS.EMPTY} />}
         />
       )}
     </Screen>
@@ -238,6 +236,7 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.colors.border,
   },
   navButton: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.raised,

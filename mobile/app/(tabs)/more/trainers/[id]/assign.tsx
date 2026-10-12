@@ -7,10 +7,10 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { showConfirmDialog } from '../../../../../src/components/ConfirmDialog';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { safeBack } from '../../../../../src/utils/navigation';
 import { Search, Check, Users, IndianRupee, Dumbbell, FileText } from 'lucide-react-native';
@@ -98,33 +98,29 @@ export default function AssignMembersScreen() {
     if (selectedMemberIds.length === 0) return;
     const trainerName = trainer?.name || 'Trainer';
 
-    Alert.alert(
-      ASSIGN_MEMBERS.CONFIRM_TITLE,
-      ASSIGN_MEMBERS.CONFIRM_MSG(selectedMemberIds.length, trainerName),
-      [
-        { text: COMMON.CANCEL, style: 'cancel' },
-        {
-          text: COMMON.CONFIRM,
-          onPress: async () => {
-            try {
-              const feeNumber = ptFee.trim() ? Math.round(parseFloat(ptFee) * 100) : undefined;
-              const sessionsNum = sessionsTotal.trim() ? parseInt(sessionsTotal, 10) : undefined;
+    showConfirmDialog({
+      title: ASSIGN_MEMBERS.CONFIRM_TITLE,
+      message: ASSIGN_MEMBERS.CONFIRM_MSG(selectedMemberIds.length, trainerName),
+      confirmText: COMMON.CONFIRM,
+      cancelText: COMMON.CANCEL,
+      onConfirm: async () => {
+        try {
+          const feeNumber = ptFee.trim() ? Math.round(parseFloat(ptFee) * 100) : undefined;
+          const sessionsNum = sessionsTotal.trim() ? parseInt(sessionsTotal, 10) : undefined;
 
-              await assignMutation.mutateAsync({
-                trainerId: id as string,
-                memberIds: selectedMemberIds,
-                ptFeePaise: feeNumber,
-                sessionsTotal: sessionsNum,
-                notes: notes.trim() || undefined,
-              });
-              safeBack('/(tabs)/more');
-            } catch {
-              // Toast
-            }
-          },
-        },
-      ]
-    );
+          await assignMutation.mutateAsync({
+            trainerId: id as string,
+            memberIds: selectedMemberIds,
+            ptFeePaise: feeNumber,
+            sessionsTotal: sessionsNum,
+            notes: notes.trim() || undefined,
+          });
+          safeBack('/(tabs)/more');
+        } catch {
+          // Toast
+        }
+      },
+    });
   };
 
   const isLoading = isTrainerLoading || isMembersLoading || isAssignmentsLoading;

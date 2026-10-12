@@ -8,8 +8,8 @@ import {
   FlatList,
   TextInput,
   ActivityIndicator,
-  Linking,
 } from 'react-native';
+import { safeOpenURL } from '../../../../src/utils/safeLinking';
 import { useRouter } from 'expo-router';
 import {
   Plus,
@@ -45,6 +45,7 @@ import {
   ERRORS,
   VALIDATION,
 } from '../../../../src/constants/strings';
+import { useBreakpoint } from '../../../../src/hooks/useBreakpoint';
 
 const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/;
 
@@ -52,6 +53,7 @@ export default function AddTrainerScreen() {
   const router = useRouter();
   const { role, user } = useAuthStore();
   const { data: gymSettings } = useGymSettings();
+  const { isPhone } = useBreakpoint();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -223,7 +225,7 @@ export default function AddTrainerScreen() {
       message
     )}`;
     try {
-      await Linking.openURL(url);
+      await safeOpenURL(url);
     } catch {
       Toast.show({
         type: 'error',
@@ -436,11 +438,11 @@ export default function AddTrainerScreen() {
       <Modal
         visible={memberModalVisible}
         transparent
-        animationType="slide"
+        animationType={isPhone ? 'slide' : 'fade'}
         onRequestClose={() => setMemberModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.bottomSheet}>
+        <View style={[styles.modalOverlay, !isPhone && styles.modalOverlayDesktop]}>
+          <View style={[styles.bottomSheet, !isPhone && styles.bottomSheetDesktop]}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>{TRAINERS.ASSIGN_MEMBERS_NOW_BTN}</Text>
               <TouchableOpacity
@@ -530,11 +532,11 @@ export default function AddTrainerScreen() {
       <Modal
         visible={!!createdTrainerInfo}
         transparent
-        animationType="slide"
+        animationType={isPhone ? 'slide' : 'fade'}
         onRequestClose={handleDone}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.bottomSheet}>
+        <View style={[styles.modalOverlay, !isPhone && styles.modalOverlayDesktop]}>
+          <View style={[styles.bottomSheet, !isPhone && styles.bottomSheetDesktop]}>
             <View style={styles.successIconWrap}>
               <CheckCircle2 size={44} color={theme.colors.primary} />
             </View>
@@ -687,6 +689,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.overlayEnd,
     justifyContent: 'flex-end',
   },
+  modalOverlayDesktop: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
   dialogCard: {
     backgroundColor: theme.colors.surface,
     marginHorizontal: theme.spacing.lg,
@@ -696,6 +703,9 @@ const styles = StyleSheet.create({
     padding: theme.spacing.xl,
     borderWidth: 1,
     borderColor: theme.colors.border,
+    width: '100%',
+    maxWidth: 440,
+    alignSelf: 'center',
   },
   dialogActions: {
     flexDirection: 'row',
@@ -713,6 +723,11 @@ const styles = StyleSheet.create({
     maxHeight: '85%',
     borderWidth: 1,
     borderColor: theme.colors.border,
+  },
+  bottomSheetDesktop: {
+    borderRadius: theme.radius.xl,
+    width: '100%',
+    maxWidth: 440,
   },
   sheetHeader: {
     flexDirection: 'row',

@@ -5,12 +5,13 @@ import {
   StyleSheet,
   Animated,
   TouchableOpacity,
-  Dimensions,
+  useWindowDimensions,
   AccessibilityInfo,
   ActivityIndicator,
   FlatList,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Platform,
 } from 'react-native';
 import { Redirect, router } from 'expo-router';
 import { ArrowRight, Users, Wallet, QrCode } from 'lucide-react-native';
@@ -21,8 +22,6 @@ import { GymholikLogo } from '../src/components/GymholikLogo';
 import { Button } from '../src/components/Button';
 import { GlassCard } from '../src/components/GlassCard';
 import { getHomeRouteForRole } from '../src/navigation/tabsByRole';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface IntroSlide {
   id: string;
@@ -53,6 +52,7 @@ const INTRO_SLIDES: IntroSlide[] = [
 ];
 
 export default function SplashScreen() {
+  const { width: screenWidth } = useWindowDimensions();
   const { isAuthenticated, isLoading, user } = useAuthStore();
   const [reduceMotion, setReduceMotion] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
@@ -82,19 +82,19 @@ export default function SplashScreen() {
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 800,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.spring(scaleAnim, {
         toValue: 1,
         tension: 40,
         friction: 6,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start(() => {
       Animated.timing(contentFadeAnim, {
         toValue: 1,
         duration: 500,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }).start();
     });
   }, [isLoading, reduceMotion]);
@@ -112,8 +112,11 @@ export default function SplashScreen() {
     return <Redirect href={homeRoute as any} />;
   }
 
+  const contentWidth = Math.min(screenWidth, theme.layout.maxWidth.column);
+  const slideItemWidth = contentWidth - theme.spacing.lg * 2 - theme.spacing.md * 2;
+
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const slideIndex = Math.round(event.nativeEvent.contentOffset.x / (SCREEN_WIDTH - 48));
+    const slideIndex = Math.round(event.nativeEvent.contentOffset.x / slideItemWidth);
     if (slideIndex !== activeSlide && slideIndex >= 0 && slideIndex < INTRO_SLIDES.length) {
       setActiveSlide(slideIndex);
     }
@@ -157,7 +160,7 @@ export default function SplashScreen() {
             renderItem={({ item }) => {
               const IconComponent = item.icon;
               return (
-                <View style={styles.slideItem}>
+                <View style={[styles.slideItem, { width: slideItemWidth }]}>
                   <View style={styles.iconCircle}>
                     <IconComponent size={24} color={theme.colors.primary} />
                   </View>
@@ -250,7 +253,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   slideItem: {
-    width: SCREEN_WIDTH - 64, // Matches card inner width
     alignItems: 'center',
     paddingHorizontal: theme.spacing.md,
   },
