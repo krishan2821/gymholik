@@ -57,3 +57,53 @@ newgrp docker
 - **Localhost Binding:** The API is securely bound to `127.0.0.1:8080`, meaning it's inaccessible from outside networks directly without a reverse proxy.
 - **No Exposed Database:** MongoDB does not publish port `27017` to the host machine, closing off potential brute-force or unauthorized access vectors.
 - **SELinux Compatibility:** The MongoDB volume enforces the `:z` label natively supporting Fedora SELinux policies.
+
+---
+
+# Gymholik Mobile App
+
+React Native / Expo mobile app for Gymholik gym owners, staff, and members.
+
+### Prerequisites
+
+- Node.js (v18+)
+- npm or yarn
+- Android SDK & Java 17/21 (for native Android builds)
+
+### Development
+
+```bash
+cd mobile
+npm install
+
+# Start development server
+npm run start
+
+# Run on Web
+npm run web
+
+# Run on connected Android device (Native / Prebuild)
+npm run android
+```
+
+### Standalone Android APK Build
+
+To build the standalone release APK directly without Expo Go:
+
+```bash
+cd mobile
+
+# Generate native Android project if not already generated
+npx expo prebuild --platform android
+
+# Assemble release APK (optimized for arm64-v8a or universal)
+cd android
+./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a
+
+# Output APK location:
+# mobile/android/app/build/outputs/apk/release/app-release.apk
+
+# Install directly to connected device:
+adb install -r app/build/outputs/apk/release/app-release.apk
+```
+
