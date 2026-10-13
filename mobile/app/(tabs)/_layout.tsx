@@ -62,72 +62,64 @@ export default function TabLayout() {
   const segs = segments as string[];
   const currentTabName = segs[1] || 'index';
 
-  const tabScreens = (
-    <>
-      {/* 1. Home (Dashboard Money) — OWNER & STAFF only */}
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: getTabTitleForRole(role, 'index'),
-          href: getTabHrefForRole(role, 'index'),
-        }}
-      />
-
-      {/* 2. Members / My Members — ALL ROLES */}
-      <Tabs.Screen
-        name="members"
-        options={{
-          title: getTabTitleForRole(role, 'members'),
-          href: getTabHrefForRole(role, 'members'),
-        }}
-      />
-
-      {/* 3. Check-in (Raised Center) — ALL ROLES */}
-      <Tabs.Screen
-        name="attendance"
-        options={{
-          title: getTabTitleForRole(role, 'attendance'),
-          href: getTabHrefForRole(role, 'attendance'),
-        }}
-      />
-
-      {/* 4. Notes — TRAINER only */}
-      <Tabs.Screen
-        name="notes"
-        options={{
-          title: getTabTitleForRole(role, 'notes'),
-          href: getTabHrefForRole(role, 'notes'),
-        }}
-      />
-
-      {/* 5. Profile — TRAINER only */}
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: getTabTitleForRole(role, 'profile'),
-          href: getTabHrefForRole(role, 'profile'),
-        }}
-      />
-
-      {/* 6. Payments — OWNER & STAFF only */}
-      <Tabs.Screen
-        name="payments"
-        options={{
-          title: getTabTitleForRole(role, 'payments'),
-          href: getTabHrefForRole(role, 'payments'),
-        }}
-      />
-
-      {/* 7. More — OWNER & STAFF only */}
-      <Tabs.Screen
-        name="more"
-        options={{
-          title: getTabTitleForRole(role, 'more'),
-          href: getTabHrefForRole(role, 'more'),
-        }}
-      />
-    </>
-  );
+  const renderScreens = () => [
+    <Tabs.Screen
+      key="index"
+      name="index"
+      options={{
+        title: getTabTitleForRole(role, 'index'),
+        href: getTabHrefForRole(role, 'index'),
+      }}
+    />,
+    <Tabs.Screen
+      key="members"
+      name="members"
+      options={{
+        title: getTabTitleForRole(role, 'members'),
+        href: getTabHrefForRole(role, 'members'),
+      }}
+    />,
+    <Tabs.Screen
+      key="attendance"
+      name="attendance"
+      options={{
+        title: getTabTitleForRole(role, 'attendance'),
+        href: getTabHrefForRole(role, 'attendance'),
+      }}
+    />,
+    <Tabs.Screen
+      key="notes"
+      name="notes"
+      options={{
+        title: getTabTitleForRole(role, 'notes'),
+        href: getTabHrefForRole(role, 'notes'),
+      }}
+    />,
+    <Tabs.Screen
+      key="profile"
+      name="profile"
+      options={{
+        title: getTabTitleForRole(role, 'profile'),
+        href: getTabHrefForRole(role, 'profile'),
+      }}
+    />,
+    <Tabs.Screen
+      key="payments"
+      name="payments"
+      options={{
+        title: getTabTitleForRole(role, 'payments'),
+        href: getTabHrefForRole(role, 'payments'),
+      }}
+    />,
+    <Tabs.Screen
+      key="more"
+      name="more"
+      options={{
+        title: getTabTitleForRole(role, 'more'),
+        href: getTabHrefForRole(role, 'more'),
+      }}
+    />,
+  ];
 
   // ── Desktop Layout (Width >= 1024): Left 240px Sidebar + Centered Content ─
   if (isDesktop) {
@@ -153,7 +145,7 @@ export default function TabLayout() {
               },
             }}
           >
-            {tabScreens}
+            {renderScreens()}
           </Tabs>
         </View>
       </View>
@@ -173,7 +165,7 @@ export default function TabLayout() {
             },
           }}
         >
-          {tabScreens}
+          {renderScreens()}
         </Tabs>
       </AppContainer>
     </View>

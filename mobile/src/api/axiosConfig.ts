@@ -364,7 +364,9 @@ apiClient.interceptors.response.use(
       url.includes('/api/auth/refresh');
 
     // Log the error to console in development only (excluding member/auth PII data)
-    if (__DEV__) {
+    // Suppress noisy console.error for expected 401 on /api/auth/me during initial auth check
+    const isExpectedUnauthenticatedCheck = status === 401 && url.includes('/api/auth/me');
+    if (__DEV__ && !isExpectedUnauthenticatedCheck) {
       console.error(
         `[API Error] Status: ${status ?? 'NO_RESPONSE'} | URL: ${url}`,
         {
