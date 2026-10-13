@@ -177,7 +177,10 @@ export const layout = {
     column: 480,
     form: 420,
     content: 480,
+    desktopContent: 1100,
+    modal: 560,
   },
+  sidebarWidth: 240,
   breakpoints: {
     phone: 640,
     tablet: 1024,

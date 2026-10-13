@@ -46,10 +46,18 @@ export async function openSettings(): Promise<boolean> {
   }
 }
 
+export const safeOpenSettings = openSettings;
+export const safeOpenPhone = openPhone;
+export const safeOpenWhatsApp = openWhatsApp;
+
 export default {
   openURL,
   openWhatsApp,
   openPhone,
   openSettings,
+  safeOpenURL,
+  safeOpenSettings,
+  safeOpenPhone,
+  safeOpenWhatsApp,
   canOpenURL: Linking.canOpenURL,
 };

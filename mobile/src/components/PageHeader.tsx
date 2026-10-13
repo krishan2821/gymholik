@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   subtitle: {
-    fontFamily: theme.fonts.body,
+    fontFamily: theme.fonts.bodyRegular,
     fontSize: 13,
     color: theme.colors.textMuted,
     marginTop: 2,

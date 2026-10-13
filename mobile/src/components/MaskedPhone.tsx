@@ -4,10 +4,8 @@ import { Lock } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import { theme } from '../theme/theme';
 
-export function isPhoneMasked(phone?: string | null): boolean {
-  if (!phone) return false;
-  return phone.toUpperCase().includes('X');
-}
+import { isPhoneMasked } from '../utils/formatters';
+export { isPhoneMasked };
 
 interface MaskedPhoneProps {
   phone?: string | null;

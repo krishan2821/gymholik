@@ -38,15 +38,23 @@ export interface FloatingTabBarProps {
   insets?: any;
 }
 
+import { useBreakpoint } from '../hooks/useBreakpoint';
+
 export const FloatingTabBar: React.FC<FloatingTabBarProps> = ({
   state,
   descriptors,
   navigation,
 }) => {
+  const { isDesktop } = useBreakpoint();
   const rawInsets = useSafeAreaInsets();
   const insets = Platform.OS === 'web' ? { top: 0, right: 0, bottom: 0, left: 0 } : rawInsets;
   const user = useAuthStore((state) => state.user);
   const role = user?.role;
+
+  // On desktop (width >= 1024), sidebar replaces floating tab bar
+  if (isDesktop) {
+    return null;
+  }
 
   // Wait until role is known before rendering tab bar to prevent flashing wrong tabs
   if (!role) {

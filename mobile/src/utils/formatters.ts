@@ -13,7 +13,13 @@ export function formatRupees(rupees: number | undefined | null = 0): string {
   return `₹${val.toLocaleString('en-IN')}`;
 }
 
+export function isPhoneMasked(phone?: string | null): boolean {
+  if (!phone) return false;
+  return phone.toUpperCase().includes('X') || phone.includes('*');
+}
+
 export default {
   formatMoney,
   formatRupees,
+  isPhoneMasked,
 };

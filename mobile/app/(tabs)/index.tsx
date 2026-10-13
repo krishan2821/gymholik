@@ -11,6 +11,7 @@ import {
   AccessibilityInfo,
   Linking,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeBlurView as BlurView } from '../../src/components/SafeBlurView';
@@ -40,6 +41,7 @@ import {
 import { useAuthStore } from '../../src/store/useAuthStore';
 import { useCurrentUser } from '../../src/api/auth';
 import { useDashboardData, DailyCollection, ExpiringMember } from '../../src/api/dashboard';
+import { useTodayAttendance } from '../../src/api/attendance';
 import { useGymSettings } from '../../src/api/more';
 import { theme } from '../../src/theme/theme';
 import { Screen } from '../../src/components/Screen';
@@ -49,6 +51,9 @@ import { Button } from '../../src/components/Button';
 import { Skeleton } from '../../src/components/Skeleton';
 import { ErrorState } from '../../src/components/ErrorState';
 import { isPhoneMasked } from '../../src/components/MaskedPhone';
+import { AddMemberModal } from '../../src/components/AddMemberModal';
+import { CollectPaymentModal } from '../../src/components/CollectPaymentModal';
+import { useBreakpoint } from '../../src/hooks/useBreakpoint';
 import { DASHBOARD, COMPLETE_GYM_PROFILE_BANNER } from '../../src/constants/strings';
 import { formatMoney } from '../../src/utils/formatters';
 
@@ -347,7 +352,12 @@ export default function DashboardScreen() {
   }, [role, router]);
 
   const { data, isLoading, isError, refetch, isRefetching } = useDashboardData();
+  const { data: todayAttendanceList } = useTodayAttendance();
   const { data: gymSettings } = useGymSettings();
+  const { isDesktop } = useBreakpoint();
+
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [showCollectPaymentModal, setShowCollectPaymentModal] = useState(false);
 
   const [reduceMotion, setReduceMotion] = useState(false);
 
@@ -548,136 +558,179 @@ export default function DashboardScreen() {
 
       {/* ── 2. Glass Hero Card Over Image Bottom Edge ─────────────────── */}
       {isOwner && (
+        <View style={isDesktop ? styles.desktopHeroSection : undefined}>
+          <Animated.View
+            style={[
+              styles.animatedBlock,
+              isDesktop && styles.desktopHeroColSpan2,
+              {
+                opacity: animCardHero,
+                transform: [
+                  {
+                    translateY: animCardHero.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [24, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <GlassCard style={styles.heroCard} intensity={35}>
+              <View style={styles.heroCardTop}>
+                <View>
+                  <Text style={styles.heroCardLabel}>TODAY'S COLLECTION</Text>
+                  <CountUpNumber
+                    value={(data?.todayCollection || 0) / 100}
+                    prefix="₹"
+                    style={styles.heroCardLargeValue}
+                  />
+                </View>
+
+                <View style={styles.heroMonthBadge}>
+                  <TrendingUp size={14} color={theme.colors.primary} />
+                  <Text style={styles.heroMonthText}>
+                    Month: {formatMoney(data?.monthCollection)}
+                  </Text>
+                </View>
+              </View>
+
+              {/* 7-Day Trend */}
+              <View style={styles.sparklineWrap}>
+                <View style={styles.sparklineHeaderRow}>
+                  <Text style={styles.sparklineTitle}>Last 7 Days Trend</Text>
+                  <Text style={styles.sparklineSubtitle}>
+                    {data?.last7DaysCollection?.every((p) => p.amountPaise === 0) ||
+                    !data?.last7DaysCollection?.length
+                      ? 'No collections yet this week'
+                      : 'Daily revenue'}
+                  </Text>
+                </View>
+                <TrendBars7Days data={data?.last7DaysCollection} />
+              </View>
+            </GlassCard>
+          </Animated.View>
+
+          {isDesktop && (
+            <View style={styles.desktopHeroColSpan1}>
+              <GlassCard style={[styles.heroCard, styles.desktopQuickActionsCard]} intensity={35}>
+                <Text style={styles.sectionHeader}>QUICK ACTIONS</Text>
+                <View style={styles.desktopQuickGrid}>
+                  <TouchableOpacity
+                    style={styles.desktopActionBtn}
+                    onPress={() => setShowAddMemberModal(true)}
+                  >
+                    <UserPlus size={18} color={theme.colors.primary} />
+                    <Text style={styles.desktopActionBtnText}>Add Member</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.desktopActionBtn}
+                    onPress={() => setShowCollectPaymentModal(true)}
+                  >
+                    <CreditCard size={18} color={theme.colors.primary} />
+                    <Text style={styles.desktopActionBtnText}>Collect Fee</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.desktopActionBtn}
+                    onPress={() => router.push('/(tabs)/payments/dues')}
+                  >
+                    <AlertTriangle size={18} color={theme.colors.primary} />
+                    <Text style={styles.desktopActionBtnText}>View Dues</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.desktopActionBtn}
+                    onPress={() => router.push('/(tabs)/attendance/scan')}
+                  >
+                    <QrCode size={18} color={theme.colors.primary} />
+                    <Text style={styles.desktopActionBtnText}>Scan QR</Text>
+                  </TouchableOpacity>
+                </View>
+              </GlassCard>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* ── 3. Quick Actions Row (Mobile Only) ──────────────────────────── */}
+      {!isDesktop && (
         <Animated.View
           style={[
-            styles.animatedBlock,
+            styles.quickActionsContainer,
             {
-              opacity: animCardHero,
+              opacity: animActions,
               transform: [
                 {
-                  translateY: animCardHero.interpolate({
+                  translateY: animActions.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [24, 0],
+                    outputRange: [20, 0],
                   }),
                 },
               ],
             },
           ]}
         >
-          <GlassCard style={styles.heroCard} intensity={35}>
-            <View style={styles.heroCardTop}>
-              <View>
-                <Text style={styles.heroCardLabel}>TODAY'S COLLECTION</Text>
-                <CountUpNumber
-                  value={(data?.todayCollection || 0) / 100}
-                  prefix="₹"
-                  style={styles.heroCardLargeValue}
-                />
-              </View>
-
-              <View style={styles.heroMonthBadge}>
-                <TrendingUp size={14} color={theme.colors.primary} />
-                <Text style={styles.heroMonthText}>
-                  Month: {formatMoney(data?.monthCollection)}
-                </Text>
-              </View>
-            </View>
-
-            {/* 7-Day Trend */}
-            <View style={styles.sparklineWrap}>
-              <View style={styles.sparklineHeaderRow}>
-                <Text style={styles.sparklineTitle}>Last 7 Days Trend</Text>
-                <Text style={styles.sparklineSubtitle}>
-                  {data?.last7DaysCollection?.every((p) => p.amountPaise === 0) ||
-                  !data?.last7DaysCollection?.length
-                    ? 'No collections yet this week'
-                    : 'Daily revenue'}
-                </Text>
-              </View>
-              <TrendBars7Days data={data?.last7DaysCollection} />
-            </View>
-          </GlassCard>
-        </Animated.View>
-      )}
-
-      {/* ── 3. Quick Actions Row ───────────────────────────────────────── */}
-      <Animated.View
-        style={[
-          styles.quickActionsContainer,
-          {
-            opacity: animActions,
-            transform: [
-              {
-                translateY: animActions.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [20, 0],
-                }),
-              },
-            ],
-          },
-        ]}
-      >
-        <Text style={styles.sectionHeader}>QUICK ACTIONS</Text>
-        <View style={styles.quickActionsRow}>
-          <PressableScale
-            onPress={() => router.push('/(tabs)/members/add')}
-            style={styles.quickActionItem}
-            accessibilityLabel="Add member"
-          >
-            <View style={styles.quickActionCard}>
-              <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFill} />
-              <View style={styles.quickActionIcon}>
-                <UserPlus size={20} color={theme.colors.primary} />
-              </View>
-              <Text style={styles.quickActionLabel} numberOfLines={1}>Add Member</Text>
-            </View>
-          </PressableScale>
-
-          {isOwner && (
+          <Text style={styles.sectionHeader}>QUICK ACTIONS</Text>
+          <View style={styles.quickActionsRow}>
             <PressableScale
-              onPress={() => router.push('/(tabs)/payments/collect')}
+              onPress={() => router.push('/(tabs)/members/add')}
               style={styles.quickActionItem}
-              accessibilityLabel="Collect payment"
+              accessibilityLabel="Add member"
             >
               <View style={styles.quickActionCard}>
                 <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFill} />
                 <View style={styles.quickActionIcon}>
-                  <CreditCard size={20} color={theme.colors.primary} />
+                  <UserPlus size={20} color={theme.colors.primary} />
                 </View>
-                <Text style={styles.quickActionLabel} numberOfLines={1}>Collect Fee</Text>
+                <Text style={styles.quickActionLabel} numberOfLines={1}>Add Member</Text>
               </View>
             </PressableScale>
-          )}
 
-          <PressableScale
-            onPress={() => router.push('/(tabs)/payments/dues')}
-            style={styles.quickActionItem}
-            accessibilityLabel="View Dues"
-          >
-            <View style={styles.quickActionCard}>
-              <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFill} />
-              <View style={styles.quickActionIcon}>
-                <AlertTriangle size={20} color={theme.colors.primary} />
-              </View>
-              <Text style={styles.quickActionLabel} numberOfLines={1}>Dues</Text>
-            </View>
-          </PressableScale>
+            {isOwner && (
+              <PressableScale
+                onPress={() => router.push('/(tabs)/payments/collect')}
+                style={styles.quickActionItem}
+                accessibilityLabel="Collect payment"
+              >
+                <View style={styles.quickActionCard}>
+                  <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFill} />
+                  <View style={styles.quickActionIcon}>
+                    <CreditCard size={20} color={theme.colors.primary} />
+                  </View>
+                  <Text style={styles.quickActionLabel} numberOfLines={1}>Collect Fee</Text>
+                </View>
+              </PressableScale>
+            )}
 
-          <PressableScale
-            onPress={() => router.push('/(tabs)/attendance/scan')}
-            style={styles.quickActionItem}
-            accessibilityLabel="Scan QR code"
-          >
-            <View style={styles.quickActionCard}>
-              <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFill} />
-              <View style={styles.quickActionIcon}>
-                <QrCode size={20} color={theme.colors.primary} />
+            <PressableScale
+              onPress={() => router.push('/(tabs)/payments/dues')}
+              style={styles.quickActionItem}
+              accessibilityLabel="View Dues"
+            >
+              <View style={styles.quickActionCard}>
+                <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFill} />
+                <View style={styles.quickActionIcon}>
+                  <AlertTriangle size={20} color={theme.colors.primary} />
+                </View>
+                <Text style={styles.quickActionLabel} numberOfLines={1}>Dues</Text>
               </View>
-              <Text style={styles.quickActionLabel} numberOfLines={1}>Scan QR</Text>
-            </View>
-          </PressableScale>
-        </View>
-      </Animated.View>
+            </PressableScale>
+
+            <PressableScale
+              onPress={() => router.push('/(tabs)/attendance/scan')}
+              style={styles.quickActionItem}
+              accessibilityLabel="Scan QR code"
+            >
+              <View style={styles.quickActionCard}>
+                <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFill} />
+                <View style={styles.quickActionIcon}>
+                  <QrCode size={20} color={theme.colors.primary} />
+                </View>
+                <Text style={styles.quickActionLabel} numberOfLines={1}>Scan QR</Text>
+              </View>
+            </PressableScale>
+          </View>
+        </Animated.View>
+      )}
 
       {/* ── 4. Stat Grid, 2 Columns, Balanced ──────────────────────────── */}
       <Animated.View
@@ -697,11 +750,11 @@ export default function DashboardScreen() {
         ]}
       >
         <Text style={styles.sectionHeader}>OVERVIEW</Text>
-        <View style={styles.grid}>
+        <View style={[styles.grid, isDesktop && styles.desktopGrid3Col]}>
           {/* Active Members */}
           <PressableScale
             onPress={() => router.push('/(tabs)/members')}
-            style={styles.statCardWrapper}
+            style={[styles.statCardWrapper, isDesktop && styles.desktopStatCardCol]}
             accessibilityLabel="Active Members"
           >
             <GlassCard style={styles.statCard} contentStyle={styles.statCardInner}>
@@ -719,7 +772,7 @@ export default function DashboardScreen() {
           {/* Today's Check-ins with Circular Progress Ring */}
           <PressableScale
             onPress={() => router.push('/(tabs)/attendance')}
-            style={styles.statCardWrapper}
+            style={[styles.statCardWrapper, isDesktop && styles.desktopStatCardCol]}
             accessibilityLabel="Check-ins today"
           >
             <GlassCard style={styles.statCard} contentStyle={styles.statCardInner}>
@@ -735,7 +788,7 @@ export default function DashboardScreen() {
           {/* New This Month */}
           <PressableScale
             onPress={() => router.push('/(tabs)/members')}
-            style={styles.statCardWrapper}
+            style={[styles.statCardWrapper, isDesktop && styles.desktopStatCardCol]}
             accessibilityLabel="New members this month"
           >
             <GlassCard style={styles.statCard} contentStyle={styles.statCardInner}>
@@ -753,7 +806,7 @@ export default function DashboardScreen() {
           {/* Expiring in 5 Days (Amber with Pulsing Dot) */}
           <PressableScale
             onPress={() => router.push('/(tabs)/members')}
-            style={styles.statCardWrapper}
+            style={[styles.statCardWrapper, isDesktop && styles.desktopStatCardCol]}
             accessibilityLabel="Expiring in 5 days"
           >
             <GlassCard
@@ -788,7 +841,7 @@ export default function DashboardScreen() {
           {isOwner && (
             <PressableScale
               onPress={() => router.push('/(tabs)/payments/dues')}
-              style={styles.statCardFullWidth}
+              style={[styles.statCardFullWidth, isDesktop && styles.desktopStatCardCol]}
               accessibilityLabel="Total outstanding dues"
             >
               <GlassCard
@@ -894,92 +947,241 @@ export default function DashboardScreen() {
         </View>
       )}
 
-      {/* ── 6. Expiring Soon List ───────────────────────────────────────── */}
-      {!isZeroMembers && data?.expiringSoonList && data.expiringSoonList.length > 0 && (
-        <Animated.View
-          style={[
-            styles.expiringSection,
-            {
-              opacity: animList,
-              transform: [
-                {
-                  translateY: animList.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [20, 0],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <View style={styles.sectionHeaderRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={styles.sectionHeader}>EXPIRING SOON</Text>
-              <View style={styles.expiringBadgeCount}>
-                <Text style={styles.expiringBadgeCountText}>{data.expiringSoonList.length}</Text>
+      {/* ── 6. Desktop Side-by-Side (Expiring Soon & Recent Check-ins) OR Mobile Expiring Soon ─ */}
+      {isDesktop ? (
+        <View style={styles.desktopSideBySideRow}>
+          {/* Column 1: Expiring Soon */}
+          <View style={styles.desktopSideCol}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={styles.sectionHeader}>EXPIRING SOON</Text>
+                <View style={styles.expiringBadgeCount}>
+                  <Text style={styles.expiringBadgeCountText}>
+                    {data?.expiringSoonList?.length || 0}
+                  </Text>
+                </View>
               </View>
+
+              <TouchableOpacity
+                onPress={() => router.push('/(tabs)/members')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.seeAllText}>View All</Text>
+              </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              onPress={() => router.push('/(tabs)/members')}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Text style={styles.seeAllText}>View All</Text>
-            </TouchableOpacity>
+            {(!data?.expiringSoonList || data.expiringSoonList.length === 0) ? (
+              <GlassCard style={styles.emptySideCard}>
+                <Text style={styles.emptySideText}>No members expiring in the next 5 days.</Text>
+              </GlassCard>
+            ) : (
+              data.expiringSoonList.slice(0, 6).map((member) => (
+                <GlassCard key={member.memberId} style={styles.expiringMemberCard}>
+                  <View style={styles.expiringCardContent}>
+                    <Avatar
+                      name={member.memberName}
+                      status="expiring"
+                      size="md"
+                    />
+
+                    <View style={styles.memberInfoCol}>
+                      <Text style={styles.memberNameText} numberOfLines={1}>
+                        {member.memberName}
+                      </Text>
+                      <View style={styles.daysLeftPill}>
+                        <Clock size={11} color={theme.colors.warning} />
+                        <Text style={styles.daysLeftText}>
+                          {member.daysLeft === 0
+                            ? 'Expires Today'
+                            : member.daysLeft === 1
+                            ? '1 day left'
+                            : `${member.daysLeft} days left`}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {!isPhoneMasked(member.phone) && (
+                      <View style={styles.actionBtnsRow}>
+                        <TouchableOpacity
+                          style={styles.callActionBtn}
+                          onPress={() => handleCallMember(member.phone)}
+                          accessibilityLabel={`Call ${member.memberName}`}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Phone size={16} color={theme.colors.text} />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={styles.waActionBtn}
+                          onPress={() => handleWhatsAppMember(member)}
+                          accessibilityLabel={`WhatsApp ${member.memberName}`}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <MessageCircle size={16} color={theme.colors.textOnPrimary} />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                </GlassCard>
+              ))
+            )}
           </View>
 
-          {data.expiringSoonList.map((member) => (
-            <GlassCard key={member.memberId} style={styles.expiringMemberCard}>
-              <View style={styles.expiringCardContent}>
-                <Avatar
-                  name={member.memberName}
-                  status="expiring"
-                  size="md"
-                />
-
-                <View style={styles.memberInfoCol}>
-                  <Text style={styles.memberNameText} numberOfLines={1}>
-                    {member.memberName}
+          {/* Column 2: Recent Check-ins */}
+          <View style={styles.desktopSideCol}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={styles.sectionHeader}>RECENT CHECK-INS</Text>
+                <View style={styles.checkInBadgeCount}>
+                  <Text style={styles.checkInBadgeCountText}>
+                    {todayAttendanceList?.length || 0}
                   </Text>
-                  <View style={styles.daysLeftPill}>
-                    <Clock size={11} color={theme.colors.warning} />
-                    <Text style={styles.daysLeftText}>
-                      {member.daysLeft === 0
-                        ? 'Expires Today'
-                        : member.daysLeft === 1
-                        ? '1 day left'
-                        : `${member.daysLeft} days left`}
-                    </Text>
-                  </View>
                 </View>
-
-                {/* Call & WhatsApp Action Buttons (hidden when masked) */}
-                {!isPhoneMasked(member.phone) && (
-                  <View style={styles.actionBtnsRow}>
-                    <TouchableOpacity
-                      style={styles.callActionBtn}
-                      onPress={() => handleCallMember(member.phone)}
-                      accessibilityLabel={`Call ${member.memberName}`}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Phone size={16} color={theme.colors.text} />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.waActionBtn}
-                      onPress={() => handleWhatsAppMember(member)}
-                      accessibilityLabel={`WhatsApp ${member.memberName}`}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <MessageCircle size={16} color={theme.colors.textOnPrimary} />
-                    </TouchableOpacity>
-                  </View>
-                )}
               </View>
-            </GlassCard>
-          ))}
-        </Animated.View>
+
+              <TouchableOpacity
+                onPress={() => router.push('/(tabs)/attendance')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.seeAllText}>View All</Text>
+              </TouchableOpacity>
+            </View>
+
+            {(!todayAttendanceList || todayAttendanceList.length === 0) ? (
+              <GlassCard style={styles.emptySideCard}>
+                <Text style={styles.emptySideText}>No check-ins recorded today yet.</Text>
+              </GlassCard>
+            ) : (
+              todayAttendanceList.slice(0, 6).map((rec: any, idx: number) => (
+                <GlassCard key={rec.id || idx} style={styles.expiringMemberCard}>
+                  <View style={styles.expiringCardContent}>
+                    <Avatar
+                      name={rec.memberName || 'Member'}
+                      size="md"
+                    />
+
+                    <View style={styles.memberInfoCol}>
+                      <Text style={styles.memberNameText} numberOfLines={1}>
+                        {rec.memberName || 'Member'}
+                      </Text>
+                      <Text style={styles.memberCodeText}>
+                        {rec.memberCode || 'Checked In'}
+                      </Text>
+                    </View>
+
+                    <View style={styles.checkInTimePill}>
+                      <Clock size={11} color={theme.colors.primary} />
+                      <Text style={styles.checkInTimeText}>
+                        {typeof rec.checkInTime === 'string' && rec.checkInTime.includes(':')
+                          ? rec.checkInTime.slice(0, 5)
+                          : 'Today'}
+                      </Text>
+                    </View>
+                  </View>
+                </GlassCard>
+              ))
+            )}
+          </View>
+        </View>
+      ) : (
+        /* Mobile Expiring Soon List */
+        !isZeroMembers && data?.expiringSoonList && data.expiringSoonList.length > 0 && (
+          <Animated.View
+            style={[
+              styles.expiringSection,
+              {
+                opacity: animList,
+                transform: [
+                  {
+                    translateY: animList.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [20, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <View style={styles.sectionHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={styles.sectionHeader}>EXPIRING SOON</Text>
+                <View style={styles.expiringBadgeCount}>
+                  <Text style={styles.expiringBadgeCountText}>{data.expiringSoonList.length}</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => router.push('/(tabs)/members')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.seeAllText}>View All</Text>
+              </TouchableOpacity>
+            </View>
+
+            {data.expiringSoonList.map((member) => (
+              <GlassCard key={member.memberId} style={styles.expiringMemberCard}>
+                <View style={styles.expiringCardContent}>
+                  <Avatar
+                    name={member.memberName}
+                    status="expiring"
+                    size="md"
+                  />
+
+                  <View style={styles.memberInfoCol}>
+                    <Text style={styles.memberNameText} numberOfLines={1}>
+                      {member.memberName}
+                    </Text>
+                    <View style={styles.daysLeftPill}>
+                      <Clock size={11} color={theme.colors.warning} />
+                      <Text style={styles.daysLeftText}>
+                        {member.daysLeft === 0
+                          ? 'Expires Today'
+                          : member.daysLeft === 1
+                          ? '1 day left'
+                          : `${member.daysLeft} days left`}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {!isPhoneMasked(member.phone) && (
+                    <View style={styles.actionBtnsRow}>
+                      <TouchableOpacity
+                        style={styles.callActionBtn}
+                        onPress={() => handleCallMember(member.phone)}
+                        accessibilityLabel={`Call ${member.memberName}`}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Phone size={16} color={theme.colors.text} />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.waActionBtn}
+                        onPress={() => handleWhatsAppMember(member)}
+                        accessibilityLabel={`WhatsApp ${member.memberName}`}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <MessageCircle size={16} color={theme.colors.textOnPrimary} />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              </GlassCard>
+            ))}
+          </Animated.View>
+        )
       )}
+
+      {/* ── Modals for Desktop Quick Actions ───────────────────────── */}
+      <AddMemberModal
+        visible={showAddMemberModal}
+        onClose={() => setShowAddMemberModal(false)}
+        onSuccess={() => refetch()}
+      />
+      <CollectPaymentModal
+        visible={showCollectPaymentModal}
+        onClose={() => setShowCollectPaymentModal(false)}
+        onSuccess={() => refetch()}
+      />
     </Screen>
   );
 }
@@ -1529,5 +1731,114 @@ const styles = StyleSheet.create({
     ...theme.typography.caption,
     color: theme.colors.textMuted,
     marginTop: 2,
+  },
+  desktopHeroSection: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: theme.spacing.lg,
+    alignItems: 'stretch',
+  },
+  desktopHeroColSpan2: {
+    flex: 2,
+    marginBottom: 0,
+  },
+  desktopHeroColSpan1: {
+    flex: 1,
+  },
+  desktopQuickActionsCard: {
+    padding: theme.spacing.lg,
+    borderRadius: theme.radius.xl,
+    height: '100%',
+    justifyContent: 'space-between',
+  },
+  desktopQuickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 12,
+  },
+  desktopActionBtn: {
+    width: '47%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(11, 43, 38, 0.7)',
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(218, 241, 222, 0.14)',
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+  },
+  desktopActionBtnText: {
+    fontFamily: theme.fonts.headingMedium,
+    fontSize: 12,
+    color: '#DAF1DE',
+    fontWeight: '600',
+  },
+  desktopGrid3Col: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  desktopStatCardCol: {
+    width: '31.5%',
+    flexGrow: 1,
+  },
+  desktopSideBySideRow: {
+    flexDirection: 'row',
+    gap: 24,
+    alignItems: 'flex-start',
+    marginBottom: theme.spacing.xl,
+  },
+  desktopSideCol: {
+    flex: 1,
+  },
+  emptySideCard: {
+    padding: 24,
+    borderRadius: theme.radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptySideText: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    textAlign: 'center',
+  },
+  checkInBadgeCount: {
+    backgroundColor: 'rgba(142, 182, 155, 0.2)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: theme.radius.full,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+  },
+  checkInBadgeCountText: {
+    fontFamily: theme.fonts.headingBold,
+    fontSize: 11,
+    color: theme.colors.primary,
+  },
+  memberCodeText: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 11,
+    color: theme.colors.textMuted,
+  },
+  checkInTimePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(142, 182, 155, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: theme.radius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(142, 182, 155, 0.3)',
+  },
+  checkInTimeText: {
+    fontFamily: theme.fonts.bodyMedium,
+    fontSize: 11,
+    color: '#DAF1DE',
+    fontWeight: '600',
   },
 });

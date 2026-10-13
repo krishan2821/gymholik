@@ -40,6 +40,8 @@ export function getScreenBottomPadding(insetsBottom: number = 0): number {
   return insetsBottom + TAB_BAR_HEIGHT + 40;
 }
 
+import { useBreakpoint } from '../hooks/useBreakpoint';
+
 export const Screen: React.FC<ScreenProps> = ({
   children,
   scrollable = false,
@@ -54,19 +56,34 @@ export const Screen: React.FC<ScreenProps> = ({
   keyboardAvoiding = false,
   contained = true,
 }) => {
+  const { isDesktop } = useBreakpoint();
   const rawInsets = useSafeAreaInsets();
   const insets = Platform.OS === 'web' ? { top: 0, right: 0, bottom: 0, left: 0 } : (rawInsets ?? { top: 0, right: 0, bottom: 0, left: 0 });
 
   // Top padding: insets.top + 12 so nothing sits under status bar or Dynamic Island
-  const topPad = safeTop ? insets.top + 12 : 0;
-  // Bottom padding: insets.bottom + TAB_BAR_HEIGHT (64) + 40 so last card is never hidden behind tab bar
-  const bottomPad = safeBottom ? getScreenBottomPadding(insets.bottom) : 0;
+  const topPad = safeTop ? insets.top + (isDesktop ? 16 : 12) : 0;
+  // Bottom padding: on desktop no floating tab bar, on phone/tablet bottomPad reserves 104px
+  const bottomPad = safeBottom
+    ? isDesktop
+      ? 32
+      : getScreenBottomPadding(insets.bottom)
+    : 0;
+
+  const desktopContainerStyle = isDesktop
+    ? {
+        maxWidth: 1100,
+        width: '100%' as any,
+        alignSelf: 'center' as const,
+        paddingHorizontal: 32,
+      }
+    : null;
 
   const content = scrollable ? (
     <ScrollView
       style={[styles.scroll, style]}
       contentContainerStyle={[
         styles.scrollContent,
+        desktopContainerStyle,
         contentContainerStyle,
         { paddingTop: topPad, paddingBottom: bottomPad },
       ]}
@@ -86,7 +103,9 @@ export const Screen: React.FC<ScreenProps> = ({
       {children}
     </ScrollView>
   ) : (
-    <View style={[styles.content, style, { paddingTop: topPad }]}>{children}</View>
+    <View style={[styles.content, desktopContainerStyle, style, { paddingTop: topPad, paddingBottom: bottomPad }]}>
+      {children}
+    </View>
   );
 
   const innerContent = (
@@ -106,7 +125,7 @@ export const Screen: React.FC<ScreenProps> = ({
     </>
   );
 
-  if (contained) {
+  if (contained && !isDesktop) {
     return (
       <AppContainer style={styles.root}>
         {innerContent}

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
+  Platform,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useRouter } from 'expo-router';
@@ -36,6 +37,7 @@ import { useAddMember, uploadMemberPhoto } from '../../../src/api/members';
 import { usePlans } from '../../../src/api/plans';
 import { MEMBERS, FIELDS } from '../../../src/constants/strings';
 import { formatMoney } from '../../../src/utils/formatters';
+import { useBreakpoint } from '../../../src/hooks/useBreakpoint';
 
 const memberSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -178,13 +180,29 @@ export default function AddMemberScreen() {
     }
   };
 
+  const { isDesktop } = useBreakpoint();
+
+  // Esc closes form on web
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        safeBack('/(tabs)/members');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
-    <Screen safeTop={false} scrollable keyboardAvoiding contentContainerStyle={styles.scroll}>
-      <PageHeader
-        title="Add Member"
-        showBack
-        onBack={() => safeBack('/(tabs)/members')}
-      />
+    <Screen safeTop={false} scrollable keyboardAvoiding contentContainerStyle={[styles.scroll, isDesktop && styles.desktopScroll]}>
+      <View style={[isDesktop && styles.desktopFormWrapper]}>
+        <PageHeader
+          title="Add Member"
+          showBack
+          onBack={() => safeBack('/(tabs)/members')}
+        />
       {/* ── Progress Bar & Step Indicator ─────────────────────────────── */}
       <View style={styles.progressContainer}>
         {/* Track & Filled Progress Bar */}
@@ -510,7 +528,8 @@ export default function AddMemberScreen() {
         </View>
       )}
 
-      <View style={{ height: 48 }} />
+        <View style={{ height: 48 }} />
+      </View>
     </Screen>
   );
 }
@@ -519,6 +538,24 @@ const styles = StyleSheet.create({
   scroll: {
     padding: theme.spacing.md,
     paddingBottom: 60,
+  },
+  desktopScroll: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  desktopFormWrapper: {
+    maxWidth: 560,
+    width: '100%',
+    backgroundColor: '#072728',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(218, 241, 222, 0.16)',
+    padding: 24,
+    ...(Platform.OS === 'web'
+      ? ({
+          boxShadow: '0 16px 40px rgba(0, 0, 0, 0.7)',
+        } as any)
+      : {}),
   },
 
   // Progress Bar

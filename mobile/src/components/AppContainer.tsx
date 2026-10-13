@@ -72,15 +72,15 @@ const styles = StyleSheet.create({
       : {}),
   },
   backdropWrap: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     overflow: 'hidden',
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(5, 31, 32, 0.92)',
   },
   radialGlow: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     ...(Platform.OS === 'web'
       ? ({
           backgroundImage:
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
       : {}),
   },
   outerBgImage: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     width: '100%',
     height: '100%',
     opacity: 0.35,

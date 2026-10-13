@@ -820,7 +820,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#051F20',
   },
   desktopHeroImage: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     width: '100%',
     height: '100%',
     ...(Platform.OS === 'web'
@@ -908,7 +908,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   creditText: {
-    fontFamily: theme.fonts.caption,
+    fontFamily: theme.fonts.bodyRegular,
     fontSize: 12,
     color: 'rgba(218, 241, 222, 0.40)',
   },
@@ -941,7 +941,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   tabletHeroImage: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     width: '100%',
     height: '100%',
     ...(Platform.OS === 'web'

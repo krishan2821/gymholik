@@ -9,6 +9,7 @@ import {
   FlatList,
   SafeAreaView,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -119,13 +120,29 @@ export default function CollectPaymentScreen() {
     );
   }
 
+  const { isDesktop } = useBreakpoint();
+
+  // Esc closes form on web
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        safeBack('/(tabs)/payments');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
-    <Screen safeTop={false} scrollable keyboardAvoiding contentContainerStyle={styles.scroll}>
-      <PageHeader
-        title="Collect Payment"
-        showBack
-        onBack={() => safeBack('/(tabs)/payments')}
-      />
+    <Screen safeTop={false} scrollable keyboardAvoiding contentContainerStyle={[styles.scroll, isDesktop && styles.desktopScroll]}>
+      <View style={[isDesktop && styles.desktopFormWrapper]}>
+        <PageHeader
+          title="Collect Payment"
+          showBack
+          onBack={() => safeBack('/(tabs)/payments')}
+        />
       {/* ── Member Selection ───────────────────────────────────────── */}
       <GlassCard style={styles.card} contentStyle={styles.cardContent}>
         <Text style={styles.sectionTitle}>Member Details</Text>
@@ -239,6 +256,7 @@ export default function CollectPaymentScreen() {
           />
         </View>
       )}
+      </View>
 
       {/* ── Member Search Modal ────────────────────────────────────── */}
       <MemberPickerModal
@@ -637,5 +655,23 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     textAlign: 'center',
     marginTop: 24,
+  },
+  desktopScroll: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  desktopFormWrapper: {
+    maxWidth: 560,
+    width: '100%',
+    backgroundColor: '#072728',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(218, 241, 222, 0.16)',
+    padding: 24,
+    ...(Platform.OS === 'web'
+      ? ({
+          boxShadow: '0 16px 40px rgba(0, 0, 0, 0.7)',
+        } as any)
+      : {}),
   },
 });

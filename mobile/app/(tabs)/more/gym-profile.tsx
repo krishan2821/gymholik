@@ -276,7 +276,7 @@ export default function GymProfileScreen() {
         if (!errors[path]) errors[path] = issue.message;
       });
       setFieldErrors(errors);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      safeNotificationAsync(NotificationFeedbackType.Error).catch(() => {});
       return;
     }
 
@@ -295,7 +295,7 @@ export default function GymProfileScreen() {
         },
       });
 
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      safeNotificationAsync(NotificationFeedbackType.Success).catch(() => {});
       setIsEditModalVisible(false);
       handleHide();
       refetch();
