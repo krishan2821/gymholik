@@ -1,9 +1,11 @@
 package com.gymapp.module.payment.dto;
 
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -24,8 +26,14 @@ public class CreatePaymentRequest {
     @NotNull(message = "Payment mode is required")
     private String mode;
 
-    private LocalDate paymentDate; // defaults to today if null
+    @JsonDeserialize(using = FlexibleLocalDateDeserializer.class)
+    private LocalDate receivedAt; // optional business date of payment (defaults to now)
+
+    private LocalDate paymentDate; // alias for receivedAt
 
     private String reason;
     private String idempotencyKey;
+
+    @Size(max = 40, message = "Reference number must be at most 40 characters")
+    private String referenceNo;
 }

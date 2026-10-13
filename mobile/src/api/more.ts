@@ -205,3 +205,39 @@ export const useUpdateGymProfile = () => {
   });
 };
 
+export interface CollectionInfo {
+  upiId?: string;
+  upiName?: string;
+}
+
+export const useCollectionInfo = (options?: { enabled?: boolean }) => {
+  return useQuery<CollectionInfo>({
+    queryKey: ['gymCollectionInfo'],
+    queryFn: async () => {
+      const { data } = await apiClient.get('/api/gym/collection-info');
+      return data.data;
+    },
+    ...options,
+  });
+};
+
+export const useUpdateCollectionInfo = () => {
+  const queryClient = useQueryClient();
+  return useMutation<CollectionInfo, any, { upiId: string; upiName?: string }>({
+    mutationFn: async (payload) => {
+      const { data } = await apiClient.put('/api/gym/collection-info', payload);
+      return data.data;
+    },
+    onSuccess: () => {
+      Toast.show({ type: 'success', text1: 'Collection info updated' });
+      queryClient.invalidateQueries({ queryKey: ['gymCollectionInfo'] });
+    },
+    onError: (e: any) => {
+      Toast.show({
+        type: 'error',
+        text1: 'Update failed',
+        text2: e.response?.data?.message || 'Failed to update collection info',
+      });
+    },
+  });
+};

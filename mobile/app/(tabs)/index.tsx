@@ -578,22 +578,32 @@ export default function DashboardScreen() {
           >
             <GlassCard style={styles.heroCard} intensity={35}>
               <View style={styles.heroCardTop}>
-                <View>
+                <TouchableOpacity
+                  onPress={() => router.push({ pathname: '/(tabs)/payments', params: { tab: 'HISTORY', period: 'TODAY' } })}
+                  accessibilityRole="button"
+                  accessibilityLabel="Today's collection"
+                >
                   <Text style={styles.heroCardLabel}>TODAY'S COLLECTION</Text>
                   <CountUpNumber
                     value={(data?.todayCollection || 0) / 100}
                     prefix="₹"
                     style={styles.heroCardLargeValue}
                   />
-                </View>
+                </TouchableOpacity>
 
-                <View style={styles.heroMonthBadge}>
+                <TouchableOpacity
+                  style={styles.heroMonthBadge}
+                  onPress={() => router.push({ pathname: '/(tabs)/payments', params: { tab: 'HISTORY', period: 'MONTH' } })}
+                  accessibilityRole="button"
+                  accessibilityLabel="This month's collection"
+                >
                   <TrendingUp size={14} color={theme.colors.primary} />
                   <Text style={styles.heroMonthText}>
                     Month: {formatMoney(data?.monthCollection)}
                   </Text>
-                </View>
+                </TouchableOpacity>
               </View>
+
 
               {/* 7-Day Trend */}
               <View style={styles.sparklineWrap}>
@@ -702,7 +712,7 @@ export default function DashboardScreen() {
             )}
 
             <PressableScale
-              onPress={() => router.push('/(tabs)/payments/dues')}
+              onPress={() => router.push({ pathname: '/(tabs)/payments', params: { tab: 'DUES' } })}
               style={styles.quickActionItem}
               accessibilityLabel="View Dues"
             >
@@ -714,6 +724,7 @@ export default function DashboardScreen() {
                 <Text style={styles.quickActionLabel} numberOfLines={1}>Dues</Text>
               </View>
             </PressableScale>
+
 
             <PressableScale
               onPress={() => router.push('/(tabs)/attendance/scan')}
@@ -840,11 +851,12 @@ export default function DashboardScreen() {
           {/* Total Outstanding / Dues (Owner only, Coral) */}
           {isOwner && (
             <PressableScale
-              onPress={() => router.push('/(tabs)/payments/dues')}
+              onPress={() => router.push({ pathname: '/(tabs)/payments', params: { tab: 'DUES' } })}
               style={[styles.statCardFullWidth, isDesktop && styles.desktopStatCardCol]}
               accessibilityLabel="Total outstanding dues"
             >
               <GlassCard
+
                 style={[styles.statCard, styles.statCardDueBorder]}
                 contentStyle={styles.statCardDueInner}
               >

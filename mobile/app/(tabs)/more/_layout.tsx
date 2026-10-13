@@ -24,6 +24,7 @@ const OWNER_ONLY_SUBROUTES = new Set([
   'settings',
   'audit',
   'gym-profile',
+  'day-close',
 ]);
 
 export default function MoreLayout() {
@@ -153,6 +154,12 @@ export default function MoreLayout() {
         name="audit"
         options={{
           title: AUDIT_LOGS.SCREEN_TITLE,
+        }}
+      />
+      <Stack.Screen
+        name="day-close"
+        options={{
+          title: 'Day Close',
         }}
       />
     </Stack>

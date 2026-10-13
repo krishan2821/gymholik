@@ -38,6 +38,9 @@ class PaymentServiceTest {
     @Mock private SequenceService sequenceService;
     @Mock private MongoTemplate mongoTemplate;
     @Mock private com.gymapp.module.dashboard.service.DashboardService dashboardService;
+    @Mock private com.gymapp.module.auth.repository.UserRepository userRepository;
+    @Mock private com.gymapp.module.audit.service.AuditLogService auditLogService;
+    @Mock private com.gymapp.module.payment.repository.DayCloseRepository dayCloseRepository;
 
     @InjectMocks
     private PaymentService paymentService;

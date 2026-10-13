@@ -26,6 +26,8 @@ export const colors = {
   // Status
   warning: '#F5B544',
   error: '#FF6B6B',
+  coral: '#FF6B6B',
+  amber: '#F5B544',
   success: '#8EB69B',
   info: '#8EB69B',
 

@@ -55,8 +55,8 @@ export default function DuesListScreen() {
   const totalDue = sortedDues.reduce((sum, item) => sum + (item.totalDuePaise || 0), 0);
 
   const openWhatsApp = (record: DueRecord) => {
-    const dueFormatted = formatMoney(record.totalDuePaise);
-    const message = DUES.WHATSAPP_MSG(record.memberName, dueFormatted);
+    const dueFormatted = formatMoney(record.totalDuePaise ?? record.duePaise);
+    const message = DUES.WHATSAPP_MSG(record.memberName || record.name || 'Member', dueFormatted);
     safeOpenURL(`https://wa.me/91${record.phone}?text=${encodeURIComponent(message)}`);
   };
 

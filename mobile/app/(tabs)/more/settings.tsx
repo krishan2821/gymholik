@@ -6,6 +6,7 @@ import {
   TextInput,
   Switch,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useForm, Controller } from 'react-hook-form';
@@ -16,15 +17,25 @@ import {
   Settings2,
   BellRing,
   ShieldAlert,
+  QrCode,
+  ExternalLink,
 } from 'lucide-react-native';
 import { theme } from '../../../src/theme/theme';
 import { useAuthStore } from '../../../src/store/useAuthStore';
-import { useGymSettings, useUpdateGymSettings } from '../../../src/api/more';
+import {
+  useGymSettings,
+  useUpdateGymSettings,
+  useCollectionInfo,
+  useUpdateCollectionInfo,
+} from '../../../src/api/more';
 import { Screen } from '../../../src/components/Screen';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Button } from '../../../src/components/Button';
 import { ErrorState } from '../../../src/components/ErrorState';
+import { safeOpenURL } from '../../../src/utils/safeLinking';
 import { SETTINGS, ERRORS, FIELDS, COMMON } from '../../../src/constants/strings';
+
+const UPI_REGEX = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
 
 const schema = z.object({
   gymName: z.string().min(2, 'Gym name is required'),
@@ -32,19 +43,29 @@ const schema = z.object({
   allowExpiredCheckin: z.boolean(),
   reminderDays: z.string().regex(/^[0-9]+$/, 'Must be a valid number of days'),
   staffCanSeeFullPhone: z.boolean(),
+  upiId: z
+    .string()
+    .refine((val) => !val || UPI_REGEX.test(val.trim()), {
+      message: 'Invalid UPI ID format (e.g. yourgym@upi or 9876543210@okaxis)',
+    })
+    .optional(),
+  upiName: z.string().optional(),
 });
 type FormData = z.infer<typeof schema>;
 
 export default function SettingsScreen() {
   const { role } = useAuthStore();
   const { data: settings, isLoading, isError, refetch } = useGymSettings();
+  const { data: collectionInfo, refetch: refetchCollection } = useCollectionInfo();
   const updateSettings = useUpdateGymSettings();
+  const updateCollectionInfo = useUpdateCollectionInfo();
   const submitLockRef = useRef(false);
 
   const {
     control,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -54,8 +75,13 @@ export default function SettingsScreen() {
       allowExpiredCheckin: false,
       reminderDays: '5',
       staffCanSeeFullPhone: false,
+      upiId: '',
+      upiName: '',
     },
   });
+
+  const currentUpiId = watch('upiId');
+  const currentUpiName = watch('upiName');
 
   useEffect(() => {
     if (settings) {
@@ -65,9 +91,11 @@ export default function SettingsScreen() {
         allowExpiredCheckin: settings.allowExpiredCheckin,
         reminderDays: settings.reminderDays,
         staffCanSeeFullPhone: settings.staffCanSeeFullPhone ?? false,
+        upiId: collectionInfo?.upiId || '',
+        upiName: collectionInfo?.upiName || '',
       });
     }
-  }, [settings, reset]);
+  }, [settings, collectionInfo, reset]);
 
   if (role !== 'OWNER') {
     return (
@@ -104,6 +132,14 @@ export default function SettingsScreen() {
         reminderDaysBefore: parseInt(data.reminderDays, 10) || 5,
         staffCanSeeFullPhone: data.staffCanSeeFullPhone,
       });
+
+      if (data.upiId && data.upiId.trim().length > 0) {
+        await updateCollectionInfo.mutateAsync({
+          upiId: data.upiId.trim(),
+          upiName: data.upiName?.trim() || undefined,
+        });
+      }
+
       Toast.show({ type: 'success', text1: COMMON.SUCCESS, text2: SETTINGS.SAVE_SUCCESS });
     } catch (err: any) {
       Toast.show({
@@ -259,12 +295,85 @@ export default function SettingsScreen() {
         </View>
       </GlassCard>
 
+      {/* ── UPI Fee Collection Settings ─────────────────────────── */}
+      <GlassCard style={styles.sectionCard}>
+        <View style={styles.sectionHeaderRow}>
+          <QrCode size={20} color={theme.colors.primary} style={styles.headerIcon} />
+          <Text style={styles.sectionTitle}>Fee Collection UPI</Text>
+        </View>
+
+        <Text style={styles.sectionDesc}>
+          This is used to generate the member QR code and payment links for collecting fees directly to your gym bank account.
+        </Text>
+
+        <Text style={[styles.label, styles.labelSpaced]}>Collection UPI ID</Text>
+        <Controller
+          control={control}
+          name="upiId"
+          render={({ field: { onChange, value } }) => (
+            <TextInput
+              style={[styles.input, errors.upiId && styles.inputError]}
+              placeholder="e.g. yourgym@upi or 9876543210@okaxis"
+              placeholderTextColor={theme.colors.textMuted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              value={value}
+              onChangeText={onChange}
+            />
+          )}
+        />
+        {errors.upiId && (
+          <Text style={styles.errorText}>{errors.upiId.message}</Text>
+        )}
+
+        <Text style={[styles.label, styles.labelSpaced]}>Name on UPI (Optional)</Text>
+        <Controller
+          control={control}
+          name="upiName"
+          render={({ field: { onChange, value } }) => (
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. Gymholik Fitness Club"
+              placeholderTextColor={theme.colors.textMuted}
+              value={value}
+              onChangeText={onChange}
+            />
+          )}
+        />
+
+        {currentUpiId && !errors.upiId ? (
+          <TouchableOpacity
+            style={styles.testUpiBtn}
+            onPress={async () => {
+              const testUrl = `upi://pay?pa=${encodeURIComponent(
+                currentUpiId.trim()
+              )}&pn=${encodeURIComponent(
+                currentUpiName?.trim() || 'Gym'
+              )}&am=1.00&cu=INR&tn=Gymholik%20Test%20Fee`;
+              const opened = await safeOpenURL(testUrl);
+              if (!opened) {
+                Toast.show({
+                  type: 'info',
+                  text1: 'UPI Test Link',
+                  text2: 'No UPI app installed or testing on web. URI is valid.',
+                });
+              }
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Test UPI link"
+          >
+            <ExternalLink size={16} color={theme.colors.primary} />
+            <Text style={styles.testUpiBtnText}>Test UPI link on device</Text>
+          </TouchableOpacity>
+        ) : null}
+      </GlassCard>
+
       <View style={styles.submitContainer}>
         <Button
           title={SETTINGS.SAVE_BTN}
           onPress={handleSubmit(onSubmit)}
-          loading={updateSettings.isPending}
-          disabled={updateSettings.isPending}
+          loading={updateSettings.isPending || updateCollectionInfo.isPending}
+          disabled={updateSettings.isPending || updateCollectionInfo.isPending}
           variant="primary"
           size="lg"
         />
@@ -374,6 +483,31 @@ const styles = StyleSheet.create({
   submitContainer: {
     marginTop: theme.spacing.sm,
     marginBottom: theme.spacing.lg,
+  },
+  sectionDesc: {
+    ...theme.typography.caption,
+    color: theme.colors.textMuted,
+    lineHeight: 18,
+    marginBottom: theme.spacing.md,
+  },
+  testUpiBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: theme.spacing.lg,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: theme.radius.md,
+    backgroundColor: 'rgba(218, 241, 222, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(218, 241, 222, 0.16)',
+    alignSelf: 'flex-start',
+    minHeight: 44,
+  },
+  testUpiBtnText: {
+    fontFamily: theme.fonts.bodyMedium,
+    fontSize: 14,
+    color: theme.colors.primary,
   },
   bottomSpacer: {
     height: 40,

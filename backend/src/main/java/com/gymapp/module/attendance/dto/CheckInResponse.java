@@ -17,4 +17,8 @@ public class CheckInResponse {
     
     // Warning flag if no active membership is found
     private boolean membershipExpiredWarning;
+    private Long duePaise;
+    private String membershipId;
+    private boolean hasDue;
 }
+

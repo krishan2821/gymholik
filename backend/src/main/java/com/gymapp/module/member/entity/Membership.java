@@ -22,7 +22,15 @@ public class Membership extends TenantDocument {
     private LocalDate startDate;
     private LocalDate expiryDate;
     private long totalPaise;
+    @Builder.Default
+    private Long discountPaise = 0L;
+    private String discountReason;
+    private LocalDate promisedDate;
     private long paidPaise;
     private long duePaise;
     private MembershipStatus status;
+
+    public long getDiscountPaise() {
+        return discountPaise != null ? discountPaise : 0L;
+    }
 }

@@ -18,6 +18,7 @@ import {
   Building2,
   Copy,
   Share2,
+  Coins,
 } from 'lucide-react-native';
 import { theme } from '../../../src/theme/theme';
 import { useAuthStore } from '../../../src/store/useAuthStore';
@@ -232,6 +233,12 @@ export default function MoreScreen() {
               icon={ClipboardList}
               title={MORE.MENU_PLANS}
               onPress={() => router.push('/(tabs)/more/plans')}
+            />
+            <View style={styles.divider} />
+            <MenuItem
+              icon={Coins}
+              title="Day Close"
+              onPress={() => router.push('/(tabs)/more/day-close')}
             />
             <View style={styles.divider} />
             <MenuItem

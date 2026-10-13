@@ -107,12 +107,15 @@ export const CollectPaymentModal: React.FC<CollectPaymentModalProps> = ({
     try {
       const res = await collectPayment.mutateAsync({
         memberId: selectedMemberId,
+        membershipId: member?.currentMembership?.id,
         amount: inputAmount,
+        amountPaise: inputAmount,
         mode,
         notes: notes || undefined,
       });
 
-      setSuccessData({ id: res.id, receiptNumber: res.receiptNumber });
+      const receiptNumber = res?.receiptNo || res?.receiptNumber || 'Receipt';
+      setSuccessData({ id: res.id, receiptNumber });
       onSuccess?.();
     } catch (e: any) {
       Toast.show({

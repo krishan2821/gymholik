@@ -25,4 +25,7 @@ public class CreateMemberRequest {
 
     // Optional: if not provided, defaults to today
     private LocalDate startDate;
+
+    private Long paidAmount; // in paise
+    private String paymentMode; // CASH, UPI, CARD
 }

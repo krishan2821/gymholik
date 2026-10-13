@@ -1,8 +1,10 @@
 package com.gymapp.module.auth.controller;
 
 import com.gymapp.common.ApiResponse;
+import com.gymapp.module.auth.dto.CollectionInfoResponse;
 import com.gymapp.module.auth.dto.GymProfileResponse;
 import com.gymapp.module.auth.dto.GymSettingsRequest;
+import com.gymapp.module.auth.dto.UpdateCollectionInfoRequest;
 import com.gymapp.module.auth.dto.UpdateGymProfileRequest;
 import com.gymapp.module.auth.entity.Gym;
 import com.gymapp.module.auth.service.GymSettingsService;
@@ -38,6 +40,23 @@ public class GymSettingsController {
     public ResponseEntity<ApiResponse<Gym>> updateGymSettings(@Valid @RequestBody GymSettingsRequest request) {
         Gym updatedGym = gymSettingsService.updateGymSettings(request);
         return ResponseEntity.ok(ApiResponse.success("Gym settings updated", updatedGym));
+    }
+
+    @GetMapping("/collection-info")
+    @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
+    @Operation(summary = "Get gym UPI collection info (OWNER and STAFF only)")
+    public ResponseEntity<ApiResponse<CollectionInfoResponse>> getCollectionInfo() {
+        CollectionInfoResponse info = gymSettingsService.getCollectionInfo();
+        return ResponseEntity.ok(ApiResponse.success("Collection info fetched", info));
+    }
+
+    @PutMapping("/collection-info")
+    @PreAuthorize("hasRole('OWNER')")
+    @Operation(summary = "Update gym UPI collection info (OWNER only)")
+    public ResponseEntity<ApiResponse<CollectionInfoResponse>> updateCollectionInfo(
+            @Valid @RequestBody UpdateCollectionInfoRequest request) {
+        CollectionInfoResponse info = gymSettingsService.updateCollectionInfo(request);
+        return ResponseEntity.ok(ApiResponse.success("Collection info updated", info));
     }
 
     @GetMapping("/profile")

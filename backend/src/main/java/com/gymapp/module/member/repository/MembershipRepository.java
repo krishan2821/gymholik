@@ -9,5 +9,6 @@ public interface MembershipRepository extends MongoRepository<Membership, String
     List<Membership> findByGymId(String gymId);
     Optional<Membership> findByIdAndGymId(String id, String gymId);
     List<Membership> findByGymIdAndMemberId(String gymId, String memberId);
+    List<Membership> findByGymIdAndIdIn(String gymId, java.util.Collection<String> ids);
     Optional<Membership> findTopByMemberIdAndGymIdOrderByExpiryDateDesc(String memberId, String gymId);
 }

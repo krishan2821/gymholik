@@ -72,10 +72,15 @@ public class AttendanceService {
             throw new AppException(ErrorCode.VALIDATION_ERROR, "Member has already checked in today");
         }
 
-        // Check if there is an active membership
-        boolean isMembershipActive = membershipRepository.findTopByMemberIdAndGymIdOrderByExpiryDateDesc(member.getId(), gymId)
-                .map(m -> m.getStatus() == Membership.MembershipStatus.ACTIVE && !m.getExpiryDate().isBefore(today))
-                .orElse(false);
+        Membership latestMembership = membershipRepository.findTopByMemberIdAndGymIdOrderByExpiryDateDesc(member.getId(), gymId)
+                .orElse(null);
+
+        boolean isMembershipActive = latestMembership != null
+                && latestMembership.getStatus() == Membership.MembershipStatus.ACTIVE
+                && !latestMembership.getExpiryDate().isBefore(today);
+
+        long duePaise = latestMembership != null ? latestMembership.getDuePaise() : member.getCurrentDuePaise();
+        boolean hasDue = duePaise > 0;
 
         if (!isMembershipActive) {
             com.gymapp.module.auth.entity.Gym gym = mongoTemplate.findById(gymId, com.gymapp.module.auth.entity.Gym.class);
@@ -112,8 +117,12 @@ public class AttendanceService {
                 .date(attendance.getDate())
                 .checkInTime(attendance.getCheckInTime())
                 .membershipExpiredWarning(!isMembershipActive)
+                .duePaise(duePaise)
+                .membershipId(latestMembership != null ? latestMembership.getId() : null)
+                .hasDue(hasDue)
                 .build();
     }
+
 
     public PagedResponse<AttendanceRecordResponse> getAttendanceByDate(LocalDate date, Pageable pageable) {
         String gymId = TenantContext.getGymId();

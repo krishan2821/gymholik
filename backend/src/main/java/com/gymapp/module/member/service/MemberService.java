@@ -26,6 +26,10 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.query.Criteria;
 
+import com.gymapp.module.audit.service.AuditLogService;
+import com.gymapp.module.member.dto.ApplyDiscountRequest;
+import com.gymapp.module.member.dto.UpdatePromisedDateRequest;
+
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +47,9 @@ public class MemberService {
     private final com.gymapp.module.trainer.repository.TrainerAssignmentRepository trainerAssignmentRepository;
     private final com.gymapp.module.trainer.service.TrainerAssignmentService trainerAssignmentService;
     private final com.gymapp.module.dashboard.service.DashboardService dashboardService;
+    private final AuditLogService auditLogService;
+    @org.springframework.context.annotation.Lazy
+    private final com.gymapp.module.payment.service.PaymentService paymentService;
 
     @Transactional
     public MemberResponse createMember(CreateMemberRequest request) {
@@ -66,6 +73,15 @@ public class MemberService {
         LocalDate expiryDate = startDate.plusDays(plan.getDurationDays());
         long planPricePaise = plan.getPricePaise();
 
+        long initialPaid = request.getPaidAmount() != null ? request.getPaidAmount() : 0L;
+        if (initialPaid < 0) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Paid amount cannot be negative");
+        }
+        if (initialPaid > planPricePaise) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Paid amount cannot exceed plan price");
+        }
+        long initialDue = planPricePaise - initialPaid;
+
         Member member = Member.builder()
                 .gymId(gymId)
                 .memberCode(memberCode)
@@ -77,7 +93,7 @@ public class MemberService {
                 .status("ACTIVE")
                 .joiningDate(startDate)
                 .currentExpiry(expiryDate)
-                .currentDuePaise(planPricePaise)
+                .currentDuePaise(initialDue)
                 .build();
         member = memberRepository.save(member);
 
@@ -87,16 +103,38 @@ public class MemberService {
                 .planId(plan.getId())
                 .planName(plan.getName())
                 .totalPaise(planPricePaise)
-                .paidPaise(0L)
-                .duePaise(planPricePaise)
+                .paidPaise(initialPaid)
+                .duePaise(initialDue)
                 .startDate(startDate)
                 .expiryDate(expiryDate)
                 .status(Membership.MembershipStatus.ACTIVE)
                 .build();
         membership = membershipRepository.save(membership);
 
+        if (initialPaid > 0) {
+            String receiptNo = sequenceService.generateNextReceiptNo(gymId);
+            String currentUserId = com.gymapp.security.SecurityUtils.getCurrentUserId();
+            com.gymapp.module.payment.entity.Payment initialPayment = com.gymapp.module.payment.entity.Payment.builder()
+                    .gymId(gymId)
+                    .memberId(member.getId())
+                    .membershipId(membership.getId())
+                    .amountPaise(initialPaid)
+                    .mode(StringUtils.hasText(request.getPaymentMode()) ? request.getPaymentMode() : "CASH")
+                    .paidAt(java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata")))
+                    .receivedAt(java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata")))
+                    .receiptNo(receiptNo)
+                    .type("PAYMENT")
+                    .receivedBy(currentUserId)
+                    .reason("Initial membership payment")
+                    .build();
+            mongoTemplate.save(initialPayment);
+        }
+
         if (dashboardService != null) {
             dashboardService.evictCache(gymId);
+        }
+        if (paymentService != null) {
+            paymentService.evictSummaryCache(gymId);
         }
 
         return mapToResponse(member, membership);
@@ -267,6 +305,9 @@ public class MemberService {
         if (dashboardService != null) {
             dashboardService.evictCache(gymId);
         }
+        if (paymentService != null) {
+            paymentService.evictSummaryCache(gymId);
+        }
     }
 
     @Transactional
@@ -301,14 +342,23 @@ public class MemberService {
 
         LocalDate expiryDate = startDate.plusDays(plan.getDurationDays());
 
+        long initialPaid = request.getPaidAmount() != null ? request.getPaidAmount() : 0L;
+        if (initialPaid < 0) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Paid amount cannot be negative");
+        }
+        if (initialPaid > plan.getPricePaise()) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Paid amount cannot exceed plan price");
+        }
+        long initialDue = plan.getPricePaise() - initialPaid;
+
         Membership newMembership = Membership.builder()
                 .gymId(gymId)
                 .memberId(id)
                 .planId(plan.getId())
                 .planName(plan.getName())
                 .totalPaise(plan.getPricePaise())
-                .paidPaise(0L)
-                .duePaise(plan.getPricePaise())
+                .paidPaise(initialPaid)
+                .duePaise(initialDue)
                 .startDate(startDate)
                 .expiryDate(expiryDate)
                 .status(Membership.MembershipStatus.ACTIVE)
@@ -316,11 +366,30 @@ public class MemberService {
 
         newMembership = membershipRepository.save(newMembership);
 
-        member.setCurrentDuePaise(member.getCurrentDuePaise() + plan.getPricePaise());
+        member.setCurrentDuePaise(member.getCurrentDuePaise() + initialDue);
         if (member.getCurrentExpiry() == null || expiryDate.isAfter(member.getCurrentExpiry())) {
             member.setCurrentExpiry(expiryDate);
         }
         memberRepository.save(member);
+
+        if (initialPaid > 0) {
+            String receiptNo = sequenceService.generateNextReceiptNo(gymId);
+            String currentUserId = com.gymapp.security.SecurityUtils.getCurrentUserId();
+            com.gymapp.module.payment.entity.Payment renewalPayment = com.gymapp.module.payment.entity.Payment.builder()
+                    .gymId(gymId)
+                    .memberId(member.getId())
+                    .membershipId(newMembership.getId())
+                    .amountPaise(initialPaid)
+                    .mode(StringUtils.hasText(request.getPaymentMode()) ? request.getPaymentMode() : "CASH")
+                    .paidAt(java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata")))
+                    .receivedAt(java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata")))
+                    .receiptNo(receiptNo)
+                    .type("PAYMENT")
+                    .receivedBy(currentUserId)
+                    .reason("Membership renewal payment")
+                    .build();
+            mongoTemplate.save(renewalPayment);
+        }
 
         // Optional: expire older active memberships if they are logically replaced
         if (lastMembership != null && lastMembership.getStatus() == Membership.MembershipStatus.ACTIVE) {
@@ -332,6 +401,9 @@ public class MemberService {
 
         if (dashboardService != null) {
             dashboardService.evictCache(gymId);
+        }
+        if (paymentService != null) {
+            paymentService.evictSummaryCache(gymId);
         }
 
         return mapToMembershipResponse(newMembership);
@@ -394,13 +466,94 @@ public class MemberService {
         return mapToResponse(member, null);
     }
 
+    @Transactional
+    public MembershipResponse applyDiscount(String membershipId, ApplyDiscountRequest request) {
+        if (!com.gymapp.security.SecurityUtils.isOwner()) {
+            throw new AppException(ErrorCode.ACCESS_DENIED, "Only owners can apply discounts");
+        }
+
+        String gymId = TenantContext.getGymId();
+        Membership membership = membershipRepository.findByIdAndGymId(membershipId, gymId)
+                .orElseThrow(() -> new AppException(ErrorCode.RESOURCE_NOT_FOUND, "Membership not found"));
+
+        if (request.getDiscountPaise() == null || request.getDiscountPaise() <= 0) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Discount amount must be positive");
+        }
+
+        long currentDue = membership.getTotalPaise() - membership.getDiscountPaise() - membership.getPaidPaise();
+        if (request.getDiscountPaise() > currentDue) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Discount cannot be more than the current due");
+        }
+
+        long newTotalDiscount = membership.getDiscountPaise() + request.getDiscountPaise();
+        membership.setDiscountPaise(newTotalDiscount);
+        membership.setDiscountReason(request.getReason() != null ? request.getReason().trim() : null);
+        long newDue = Math.max(0, membership.getTotalPaise() - newTotalDiscount - membership.getPaidPaise());
+        membership.setDuePaise(newDue);
+        membership = membershipRepository.save(membership);
+
+        // Update denormalised member due
+        List<Membership> memberMemberships = membershipRepository.findByGymIdAndMemberId(gymId, membership.getMemberId());
+        long totalMemberDue = memberMemberships.stream().mapToLong(Membership::getDuePaise).sum();
+        Member member = memberRepository.findByIdAndGymId(membership.getMemberId(), gymId)
+                .orElseThrow(() -> new AppException(ErrorCode.MEMBER_NOT_FOUND));
+        member.setCurrentDuePaise(Math.max(0, totalMemberDue));
+        memberRepository.save(member);
+
+        // Audit entry: DISCOUNT_APPLIED (amount only, no personal data)
+        auditLogService.log("DISCOUNT_APPLIED", membership.getId(), "{\"amountPaise\":" + request.getDiscountPaise() + "}");
+
+        // Evict caches
+        if (paymentService != null) {
+            paymentService.evictSummaryCache(gymId);
+        }
+        if (dashboardService != null) {
+            dashboardService.evictCache(gymId);
+        }
+
+        return mapToMembershipResponse(membership);
+    }
+
+    @Transactional
+    public MembershipResponse updatePromisedDate(String membershipId, UpdatePromisedDateRequest request) {
+        if (com.gymapp.security.SecurityUtils.isTrainer()) {
+            throw new AppException(ErrorCode.ACCESS_DENIED, "Trainers cannot update promised date");
+        }
+
+        String gymId = TenantContext.getGymId();
+        Membership membership = membershipRepository.findByIdAndGymId(membershipId, gymId)
+                .orElseThrow(() -> new AppException(ErrorCode.RESOURCE_NOT_FOUND, "Membership not found"));
+
+        if (request.getPromisedDate() == null) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Promised date is required");
+        }
+
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Kolkata"));
+        LocalDate promisedDate = request.getPromisedDate();
+
+        if (!promisedDate.isAfter(today)) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Promised date must be in the future");
+        }
+
+        if (promisedDate.isAfter(today.plusDays(90))) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Promised date cannot be later than 90 days");
+        }
+
+        membership.setPromisedDate(promisedDate);
+        membership = membershipRepository.save(membership);
+
+        return mapToMembershipResponse(membership);
+    }
+
     private MembershipResponse mapToMembershipResponse(Membership membership) {
         long totalPaise = membership.getTotalPaise();
+        long discountPaise = membership.getDiscountPaise();
         long paidPaise = membership.getPaidPaise();
         long duePaise = membership.getDuePaise();
 
         if (com.gymapp.security.SecurityUtils.isTrainer()) {
             totalPaise = 0L;
+            discountPaise = 0L;
             paidPaise = 0L;
             duePaise = 0L;
         }
@@ -412,6 +565,9 @@ public class MemberService {
                 .planId(membership.getPlanId())
                 .planName(membership.getPlanName())
                 .totalPaise(totalPaise)
+                .discountPaise(discountPaise)
+                .discountReason(membership.getDiscountReason())
+                .promisedDate(membership.getPromisedDate())
                 .paidPaise(paidPaise)
                 .duePaise(duePaise)
                 .startDate(membership.getStartDate())

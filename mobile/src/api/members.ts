@@ -1,13 +1,20 @@
 import { apiClient } from './axiosConfig';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
+import { invalidatePaymentQueries } from './payments';
 
 import { components } from './types';
 
-export type Membership = Required<components['schemas']['MembershipResponse']>;
+
+export type Membership = Required<components['schemas']['MembershipResponse']> & {
+  discountPaise?: number;
+  discountReason?: string;
+  promisedDate?: string;
+};
 export type Member = Omit<Required<components['schemas']['MemberResponse']>, 'currentMembership'> & {
   currentMembership?: Membership;
 };
+
 export type MembersResponse = Omit<
   Required<components['schemas']['PagedResponseMemberResponse']>,
   'content'
@@ -62,8 +69,7 @@ export const useAddMember = () => {
     },
     onSuccess: () => {
       Toast.show({ type: 'success', text1: 'Member added successfully!' });
-      queryClient.invalidateQueries({ queryKey: ['members'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      invalidatePaymentQueries(queryClient);
     },
     onError: (error: any) => {
       Toast.show({ 
@@ -84,8 +90,7 @@ export const useRenewMember = () => {
     },
     onSuccess: (_, variables) => {
       Toast.show({ type: 'success', text1: 'Membership renewed successfully!' });
-      queryClient.invalidateQueries({ queryKey: ['members'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      invalidatePaymentQueries(queryClient);
     }
   });
 };
@@ -104,4 +109,66 @@ export const uploadMemberPhoto = async (id: string, imageUri: string) => {
     },
   });
   return data;
+};
+
+export const useApplyDiscount = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      membershipId,
+      discountPaise,
+      reason,
+    }: {
+      membershipId: string;
+      discountPaise: number;
+      reason: string;
+    }) => {
+      const { data } = await apiClient.post(`/api/memberships/${membershipId}/discount`, {
+        discountPaise,
+        reason,
+      });
+      return data?.data;
+    },
+    onSuccess: () => {
+      Toast.show({ type: 'success', text1: 'Discount applied successfully' });
+      invalidatePaymentQueries(queryClient);
+    },
+
+    onError: (error: any) => {
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to apply discount',
+        text2: error.response?.data?.message || error.message,
+      });
+    },
+  });
+};
+
+export const useUpdatePromisedDate = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      membershipId,
+      promisedDate,
+    }: {
+      membershipId: string;
+      promisedDate: string;
+    }) => {
+      const { data } = await apiClient.patch(`/api/memberships/${membershipId}/promised-date`, {
+        promisedDate,
+      });
+      return data?.data;
+    },
+    onSuccess: () => {
+      Toast.show({ type: 'success', text1: 'Promised date updated' });
+      invalidatePaymentQueries(queryClient);
+    },
+    onError: (error: any) => {
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to update promised date',
+        text2: error.response?.data?.message || error.message,
+      });
+    },
+  });
 };

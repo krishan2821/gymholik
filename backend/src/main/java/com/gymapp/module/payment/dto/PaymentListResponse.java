@@ -11,4 +11,9 @@ import java.util.Map;
 public class PaymentListResponse {
     private PagedResponse<PaymentResponse> payments;
     private Map<String, Long> totalsByMode;
+    private java.util.List<DayTotalResponse> dayTotals;
+
+    public java.util.List<PaymentResponse> getItems() {
+        return payments != null && payments.getContent() != null ? payments.getContent() : java.util.List.of();
+    }
 }

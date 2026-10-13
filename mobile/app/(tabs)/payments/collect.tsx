@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,671 +7,1748 @@ import {
   TouchableOpacity,
   Modal,
   FlatList,
-  SafeAreaView,
+  ScrollView,
   ActivityIndicator,
   Platform,
+  Alert,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { safeBack } from '../../../src/utils/navigation';
-import { CheckCircle, Search, X } from 'lucide-react-native';
+import {
+  CheckCircle,
+  Search,
+  X,
+  QrCode,
+  Calendar,
+  AlertTriangle,
+  Share2,
+  Send,
+  RefreshCw,
+  Plus,
+  Tag,
+  Clock,
+  ArrowRight,
+  ShieldCheck,
+  Check,
+} from 'lucide-react-native';
+import QRCode from 'react-native-qrcode-svg';
+
 import { theme } from '../../../src/theme/theme';
-import { useMember, useMembers } from '../../../src/api/members';
-import { useCollectPayment, downloadAndShareReceipt } from '../../../src/api/payments';
 import { Screen } from '../../../src/components/Screen';
 import { PageHeader } from '../../../src/components/PageHeader';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Button } from '../../../src/components/Button';
 import { Avatar } from '../../../src/components/Avatar';
-import { useAuthStore } from '../../../src/store/useAuthStore';
+import { Skeleton } from '../../../src/components/Skeleton';
 import { ErrorState } from '../../../src/components/ErrorState';
+import { useAuthStore } from '../../../src/store/useAuthStore';
+import { useMember, useMembers, useApplyDiscount, Member } from '../../../src/api/members';
+import {
+  useCollectPayment,
+  useDues,
+  usePaymentDetail,
+  downloadAndShareReceipt,
+} from '../../../src/api/payments';
+import { useCollectionInfo, useGymProfile } from '../../../src/api/more';
 import { COLLECT, ERRORS, COMMON, FIELDS } from '../../../src/constants/strings';
-import { useBreakpoint } from '../../../src/hooks/useBreakpoint';
-import { formatMoney } from '../../../src/utils/formatters';
+import { formatMoney, isPhoneMasked } from '../../../src/utils/formatters';
+import { safeNotificationAsync, NotificationFeedbackType } from '../../../src/utils/safeHaptics';
+import { safeOpenURL } from '../../../src/utils/safeLinking';
+import { safeBack } from '../../../src/utils/navigation';
 
 export default function CollectPaymentScreen() {
-  const { memberId: initialMemberId } = useLocalSearchParams<{ memberId?: string }>();
   const router = useRouter();
-  const { role } = useAuthStore();
+  const params = useLocalSearchParams<{
+    memberId?: string;
+    membershipId?: string;
+  }>();
 
-  if (role !== 'OWNER') {
-    return (
-      <Screen style={styles.center}>
-        <ErrorState message={ERRORS.PERMISSION_DENIED} onRetry={() => {}} />
-      </Screen>
-    );
-  }
+  const user = useAuthStore((s) => s.user);
+  const role = user?.role || useAuthStore((s) => s.role);
+  const isOwner = role === 'OWNER';
+  const isStaff = role === 'STAFF';
 
-  const [memberId, setMemberId] = useState<string | undefined>(initialMemberId);
-  const [showPicker, setShowPicker] = useState(!initialMemberId);
+  // Gym Profile (for staff phone visibility, gym name, etc.)
+  const { data: gymProfile } = useGymProfile({ enabled: isOwner || isStaff });
+  // Gym UPI collection info
+  const { data: collectionInfo, isLoading: loadingCollectionInfo } = useCollectionInfo({
+    enabled: isOwner || isStaff,
+  });
 
-  const { data: member } = useMember(memberId || '');
-  const collectPayment = useCollectPayment();
-
-  const [amountStr, setAmountStr] = useState('');
-  const [mode, setMode] = useState<'CASH' | 'UPI' | 'CARD'>('UPI');
-  const [notes, setNotes] = useState('');
-  const [successData, setSuccessData] = useState<{ id: string; receiptNumber: string } | null>(
-    null
+  // State
+  const [selectedMemberId, setSelectedMemberId] = useState<string | undefined>(params.memberId);
+  const [selectedMembershipId, setSelectedMembershipId] = useState<string | undefined>(
+    params.membershipId
   );
+  const [showMemberPicker, setShowMemberPicker] = useState<boolean>(!params.memberId);
+  const [memberSearchTerm, setMemberSearchTerm] = useState('');
 
-  // Auto-fill amount if member is loaded and has dues
+  // Mode: CASH | UPI | CARD
+  const [mode, setMode] = useState<'CASH' | 'UPI' | 'CARD'>('CASH');
+
+  // Amount typing and chips
+  const [rawAmountText, setRawAmountText] = useState('');
+  const [selectedChip, setSelectedChip] = useState<'full' | 'half' | 'custom'>('custom');
+
+  // Extra inputs
+  const [referenceNo, setReferenceNo] = useState('');
+  const [note, setNote] = useState('');
+  const [paymentDate, setPaymentDate] = useState<string>(() => {
+    return new Date().toISOString().split('T')[0];
+  });
+  const [promiseDate, setPromiseDate] = useState<string>('');
+
+  // UPI QR toggle
+  const [showUpiQr, setShowUpiQr] = useState(false);
+
+  // Discount modal state (OWNER only)
+  const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [discountAmountStr, setDiscountAmountStr] = useState('');
+  const [discountReason, setDiscountReason] = useState('');
+
+  // Idempotency key per attempt
+  const idempotencyKeyRef = useRef<string>(generateIdempotencyKey());
+
+  // Error banner state
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Success state
+  const [successPayment, setSuccessPayment] = useState<{
+    id: string;
+    receiptNo: string;
+    amountPaise: number;
+    remainingDuePaise: number;
+    memberPhone?: string;
+    memberName?: string;
+  } | null>(null);
+  const [isSharingReceipt, setIsSharingReceipt] = useState(false);
+
+  // Fetch Member Details
+  const {
+    data: member,
+    isLoading: loadingMember,
+    refetch: refetchMember,
+  } = useMember(selectedMemberId || '');
+
+  // Fetch Dues for membership chooser & search ordering
+  const { data: duesData, isLoading: loadingDues } = useDues('ALL', undefined);
+
+  // Search Members (when picker open)
+  const { data: searchMembersData, isLoading: loadingSearch } = useMembers({
+    term: memberSearchTerm,
+    status: 'ALL',
+  });
+
+  // Collect Payment Mutation
+  const collectPaymentMutation = useCollectPayment();
+  // Apply Discount Mutation
+  const applyDiscountMutation = useApplyDiscount();
+
+  // If params change, update state
   useEffect(() => {
-    if (member?.currentMembership && member.currentMembership.duePaise > 0) {
-      setAmountStr((member.currentMembership.duePaise / 100).toString());
+    if (params.memberId) {
+      setSelectedMemberId(params.memberId);
+      setShowMemberPicker(false);
     }
-  }, [member]);
-
-  const dueAmount = member?.currentMembership?.duePaise || 0;
-  const inputAmount = parseInt(amountStr || '0') * 100;
-
-  const handleSubmit = async () => {
-    if (!memberId) {
-      Toast.show({ type: 'error', text1: 'Error', text2: ERRORS.SELECT_MEMBER });
-      return;
+    if (params.membershipId) {
+      setSelectedMembershipId(params.membershipId);
     }
-    if (inputAmount <= 0) {
-      Toast.show({ type: 'error', text1: 'Error', text2: ERRORS.AMOUNT_ZERO });
-      return;
-    }
-    if (inputAmount > dueAmount) {
-      Toast.show({ type: 'error', text1: 'Error', text2: ERRORS.AMOUNT_EXCEEDS_DUE });
-      return;
-    }
+  }, [params.memberId, params.membershipId]);
 
-    try {
-      const res = await collectPayment.mutateAsync({
-        memberId,
-        amount: inputAmount,
-        mode,
-        notes: notes || undefined,
-      });
+  // Determine active memberships with dues for the selected member
+  const memberDuesList = useMemo(() => {
+    if (!selectedMemberId || !duesData?.items) return [];
+    return duesData.items.filter((item) => item.memberId === selectedMemberId && item.duePaise > 0);
+  }, [selectedMemberId, duesData]);
 
-      setSuccessData({ id: res.id, receiptNumber: res.receiptNumber });
-    } catch (e: any) {
-      Toast.show({ type: 'error', text1: 'Error', text2: e.response?.data?.message || ERRORS.GENERIC });
+  // Automatically select membership if only 1 exists or defaults to current
+  useEffect(() => {
+    if (member) {
+      if (selectedMembershipId) {
+        // verify it exists or keep it
+        return;
+      }
+      if (memberDuesList.length === 1 && memberDuesList[0].membershipId) {
+        setSelectedMembershipId(memberDuesList[0].membershipId);
+      } else if (member.currentMembership?.id) {
+        setSelectedMembershipId(member.currentMembership.id);
+      }
+    }
+  }, [member, memberDuesList, selectedMembershipId]);
+
+  // Find currently active chosen membership details
+  const chosenMembership = useMemo(() => {
+    if (!member) return null;
+    const dueMatch = memberDuesList.find((d) => d.membershipId === selectedMembershipId);
+    if (dueMatch) {
+      return {
+        id: dueMatch.membershipId || member.currentMembership?.id || '',
+        planName: dueMatch.planName || member.currentMembership?.planName || 'Membership',
+        totalPaise: dueMatch.totalPaise || member.currentMembership?.totalPaise || 0,
+        discountPaise: member.currentMembership?.discountPaise || 0,
+        paidPaise: dueMatch.paidPaise || member.currentMembership?.paidPaise || 0,
+        duePaise: dueMatch.duePaise,
+        startDate: member.currentMembership?.startDate,
+        expiryDate: dueMatch.expiryDate || member.currentMembership?.expiryDate,
+      };
+    }
+    if (member.currentMembership) {
+      return {
+        id: member.currentMembership.id,
+        planName: member.currentMembership.planName || 'Membership',
+        totalPaise: member.currentMembership.totalPaise,
+        discountPaise: member.currentMembership.discountPaise || 0,
+        paidPaise: member.currentMembership.paidPaise,
+        duePaise: member.currentMembership.duePaise,
+        startDate: member.currentMembership.startDate,
+        expiryDate: member.currentMembership.expiryDate,
+      };
+    }
+    return null;
+  }, [member, memberDuesList, selectedMembershipId]);
+
+  // Total outstanding due
+  const duePaise = chosenMembership ? Math.max(0, chosenMembership.duePaise) : 0;
+
+  // Initialize or set amount when membership loads or changes
+  useEffect(() => {
+    if (duePaise > 0 && !rawAmountText) {
+      const rupees = Math.round(duePaise / 100);
+      setRawAmountText(formatNumericTyping(rupees.toString()));
+      setSelectedChip('full');
+    }
+  }, [duePaise]);
+
+  // Parsed amount in paise
+  const inputAmountPaise = useMemo(() => {
+    const clean = rawAmountText.replace(/,/g, '').trim();
+    const rupees = parseInt(clean, 10);
+    return isNaN(rupees) || rupees < 0 ? 0 : rupees * 100;
+  }, [rawAmountText]);
+
+  // Balance after this payment
+  const balanceAfterPaise = Math.max(0, duePaise - inputAmountPaise);
+
+  // Handlers for Amount Quick Chips
+  const handleSelectChip = (chip: 'full' | 'half' | 'custom') => {
+    setSelectedChip(chip);
+    setErrorMessage(null);
+    if (chip === 'full') {
+      const rupees = Math.round(duePaise / 100);
+      setRawAmountText(formatNumericTyping(rupees.toString()));
+    } else if (chip === 'half') {
+      const rupees = Math.round(duePaise / 200);
+      setRawAmountText(formatNumericTyping(rupees.toString()));
+    } else {
+      setRawAmountText('');
     }
   };
 
-  if (successData) {
-    return (
-      <Screen style={styles.successScreen}>
-        <View style={styles.successIconCircle}>
-          <CheckCircle color={theme.colors.primary} size={64} />
-        </View>
-        <Text style={styles.successTitle}>{COLLECT.SUCCESS_TITLE}</Text>
-        <Text style={styles.receiptText}>{COLLECT.RECEIPT_NO(successData.receiptNumber)}</Text>
+  const handleAmountChange = (text: string) => {
+    setErrorMessage(null);
+    const formatted = formatNumericTyping(text);
+    setRawAmountText(formatted);
+    setSelectedChip('custom');
+  };
 
-        <View style={styles.successBtnContainer}>
-          <Button
-            title={COLLECT.SHARE_RECEIPT}
-            onPress={() => downloadAndShareReceipt(successData.id, successData.receiptNumber)}
-            size="md"
-          />
-          <View style={{ height: 12 }} />
-          <Button
-            title={COMMON.DONE}
-            variant="secondary"
-            onPress={() => safeBack('/(tabs)/payments')}
-            size="md"
-          />
+  // Validation
+  const validationError = useMemo(() => {
+    if (!selectedMemberId) return null;
+    if (inputAmountPaise <= 0) {
+      return COLLECT.AMOUNT_LABEL + ': ' + ERRORS.AMOUNT_ZERO;
+    }
+    if (inputAmountPaise > duePaise) {
+      return ERRORS.AMOUNT_EXCEEDS_DUE;
+    }
+    return null;
+  }, [selectedMemberId, inputAmountPaise, duePaise]);
+
+  // Submit Payment
+  const handleSubmitPayment = async () => {
+    if (validationError) {
+      setErrorMessage(validationError);
+      return;
+    }
+    if (!selectedMemberId) {
+      setErrorMessage(ERRORS.SELECT_MEMBER);
+      return;
+    }
+
+    setErrorMessage(null);
+
+    // Save promise date in background if OWNER specified it and balance remains
+    if (isOwner && balanceAfterPaise > 0 && promiseDate.trim() && chosenMembership?.id) {
+      try {
+        await updatePromisedDateSilently(chosenMembership.id, promiseDate.trim());
+      } catch (e) {
+        // ignore or log
+      }
+    }
+
+    try {
+      const payload = {
+        memberId: selectedMemberId,
+        membershipId: chosenMembership?.id,
+        amountPaise: inputAmountPaise,
+        mode,
+        notes: note.trim() || undefined,
+        referenceNo: referenceNo.trim() || undefined,
+        receivedAt: isOwner && paymentDate ? paymentDate : undefined,
+        idempotencyKey: idempotencyKeyRef.current,
+      };
+
+      const res = await collectPaymentMutation.mutateAsync(payload);
+
+      // Success! Play haptics
+      safeNotificationAsync(NotificationFeedbackType.Success);
+
+      const remaining = Math.max(0, duePaise - inputAmountPaise);
+      setSuccessPayment({
+        id: res?.id || res?.payment?.id || 'new',
+        receiptNo: res?.receiptNumber || res?.receiptNo || 'REC-NEW',
+        amountPaise: inputAmountPaise,
+        remainingDuePaise: remaining,
+        memberPhone: member?.phone,
+        memberName: member?.name,
+      });
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        (err?.message?.includes('Network') ? ERRORS.NETWORK : ERRORS.GENERIC);
+      setErrorMessage(msg);
+      Toast.show({
+        type: 'error',
+        text1: 'Payment Failed',
+        text2: msg,
+      });
+    }
+  };
+
+  // Silent update of promised date
+  const updatePromisedDateSilently = async (membershipId: string, pDate: string) => {
+    try {
+      const response = await fetch(`/api/memberships/${membershipId}/promised-date`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ promisedDate: pDate }),
+      });
+    } catch {}
+  };
+
+  // Retry with SAME idempotency key
+  const handleRetrySubmit = () => {
+    handleSubmitPayment();
+  };
+
+  // Reset for "Collect another"
+  const handleCollectAnother = () => {
+    idempotencyKeyRef.current = generateIdempotencyKey();
+    setSuccessPayment(null);
+    setRawAmountText('');
+    setSelectedChip('custom');
+    setReferenceNo('');
+    setNote('');
+    setShowUpiQr(false);
+    setErrorMessage(null);
+    setSelectedMemberId(undefined);
+    setSelectedMembershipId(undefined);
+    setShowMemberPicker(true);
+  };
+
+  // Apply Discount Handler (OWNER only)
+  const handleApplyDiscountSubmit = async () => {
+    const parsedPaise = parseInt(discountAmountStr.replace(/,/g, ''), 10) * 100;
+    if (isNaN(parsedPaise) || parsedPaise <= 0) {
+      Toast.show({ type: 'error', text1: 'Invalid amount', text2: 'Enter positive discount' });
+      return;
+    }
+    if (parsedPaise > duePaise) {
+      Toast.show({
+        type: 'error',
+        text1: 'Discount too high',
+        text2: 'Discount cannot be more than current due',
+      });
+      return;
+    }
+    if (!discountReason.trim() || discountReason.trim().length < 5) {
+      Toast.show({
+        type: 'error',
+        text1: 'Reason required',
+        text2: 'Reason must be at least 5 characters',
+      });
+      return;
+    }
+
+    if (!chosenMembership?.id) return;
+
+    try {
+      await applyDiscountMutation.mutateAsync({
+        membershipId: chosenMembership.id,
+        discountPaise: parsedPaise,
+        reason: discountReason.trim(),
+      });
+      setShowDiscountModal(false);
+      setDiscountAmountStr('');
+      setDiscountReason('');
+      refetchMember();
+      // Recalculate amount input if full due was chosen
+      const newDue = Math.max(0, duePaise - parsedPaise);
+      setRawAmountText(formatNumericTyping(Math.round(newDue / 100).toString()));
+      setSelectedChip('full');
+    } catch (e: any) {
+      // Toast handled by mutation
+    }
+  };
+
+  // Share Receipt PDF
+  const handleShareReceipt = async () => {
+    if (!successPayment) return;
+    setIsSharingReceipt(true);
+    try {
+      await downloadAndShareReceipt(successPayment.id, successPayment.receiptNo);
+    } finally {
+      setIsSharingReceipt(false);
+    }
+  };
+
+  // Send WhatsApp Receipt
+  const handleSendWhatsApp = () => {
+    if (!successPayment || !successPayment.memberPhone) return;
+    const phone = successPayment.memberPhone;
+    const amtStr = formatMoney(successPayment.amountPaise);
+    const recNo = successPayment.receiptNo;
+    const gymName = gymProfile?.name || 'our gym';
+    const msg = `Hello ${successPayment.memberName || ''}, thank you for your payment of ${amtStr} at ${gymName}. Receipt No: ${recNo}.`;
+    safeOpenURL(`https://wa.me/91${phone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`);
+  };
+
+  // Can user see member unmasked phone to show WhatsApp button?
+  const canSendWhatsApp = useMemo(() => {
+    if (!successPayment?.memberPhone) return false;
+    if (isPhoneMasked(successPayment.memberPhone)) return false;
+    if (isOwner) return true;
+    if (isStaff && gymProfile?.staffCanSeeFullPhone) return true;
+    return false;
+  }, [successPayment, isOwner, isStaff, gymProfile]);
+
+  // Sorted members for Picker (dues > 0 first)
+  const sortedMembers = useMemo(() => {
+    const list = searchMembersData?.pages.flatMap((p) => p.content) || [];
+    return [...list].sort((a, b) => {
+      const aDue = a.currentMembership?.duePaise || 0;
+      const bDue = b.currentMembership?.duePaise || 0;
+      if (aDue > 0 && bDue <= 0) return -1;
+      if (bDue > 0 && aDue <= 0) return 1;
+      return (bDue || 0) - (aDue || 0);
+    });
+  }, [searchMembersData]);
+
+  // Build UPI Pay URL
+  const upiPayLink = useMemo(() => {
+    if (!collectionInfo?.upiId) return '';
+    const pa = encodeURIComponent(collectionInfo.upiId);
+    const pn = encodeURIComponent(collectionInfo.upiName || gymProfile?.name || 'Gym');
+    const am = encodeURIComponent((inputAmountPaise / 100).toFixed(2));
+    const code = member?.memberCode || 'MEMBER';
+    const noteStr = encodeURIComponent(`Gym fee ${code}`);
+    return `upi://pay?pa=${pa}&pn=${pn}&am=${am}&cu=INR&tn=${noteStr}`;
+  }, [collectionInfo, gymProfile, inputAmountPaise, member]);
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // RENDER: SUCCESS SCREEN
+  // ─────────────────────────────────────────────────────────────────────────────
+  if (successPayment) {
+    return (
+      <Screen style={styles.centerContainer}>
+        <View style={styles.successCard}>
+          <View style={styles.successIconCircle}>
+            <CheckCircle color={theme.colors.primary} size={64} strokeWidth={2.4} />
+          </View>
+
+          <Text style={styles.successTitle}>{COLLECT.SUCCESS_TITLE}</Text>
+          <Text style={styles.successAmount}>{formatMoney(successPayment.amountPaise)}</Text>
+          <Text style={styles.successReceipt}>{COLLECT.RECEIPT_NO(successPayment.receiptNo)}</Text>
+
+          <View style={styles.successBalanceBadge}>
+            <Text
+              style={[
+                styles.successBalanceText,
+                successPayment.remainingDuePaise === 0 && { color: theme.colors.primary },
+              ]}
+            >
+              {successPayment.remainingDuePaise === 0
+                ? COLLECT.FULLY_PAID
+                : COLLECT.BALANCE_DUE(formatMoney(successPayment.remainingDuePaise))}
+            </Text>
+          </View>
+
+          <View style={styles.successActionsColumn}>
+            <Button
+              title={COLLECT.SHARE_RECEIPT}
+              icon={<Share2 size={18} color={theme.colors.textOnPrimary} />}
+              onPress={handleShareReceipt}
+              loading={isSharingReceipt}
+              variant="primary"
+              size="md"
+              style={styles.actionBtn}
+            />
+
+            {canSendWhatsApp && (
+              <Button
+                title={COLLECT.SEND_ON_WHATSAPP}
+                icon={<Send size={18} color={theme.colors.text} />}
+                onPress={handleSendWhatsApp}
+                variant="secondary"
+                size="md"
+                style={styles.actionBtn}
+              />
+            )}
+
+            <View style={styles.successBottomRow}>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Button
+                  title={COLLECT.COLLECT_ANOTHER}
+                  variant="ghost"
+                  size="md"
+                  onPress={handleCollectAnother}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button
+                  title={COLLECT.DONE}
+                  variant="secondary"
+                  size="md"
+                  onPress={() => safeBack('/(tabs)/payments')}
+                />
+              </View>
+            </View>
+          </View>
         </View>
       </Screen>
     );
   }
 
-  const { isDesktop } = useBreakpoint();
-
-  // Esc closes form on web
-  useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        safeBack('/(tabs)/payments');
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  return (
-    <Screen safeTop={false} scrollable keyboardAvoiding contentContainerStyle={[styles.scroll, isDesktop && styles.desktopScroll]}>
-      <View style={[isDesktop && styles.desktopFormWrapper]}>
-        <PageHeader
-          title="Collect Payment"
-          showBack
-          onBack={() => safeBack('/(tabs)/payments')}
-        />
-      {/* ── Member Selection ───────────────────────────────────────── */}
-      <GlassCard style={styles.card} contentStyle={styles.cardContent}>
-        <Text style={styles.sectionTitle}>Member Details</Text>
-
-        {member ? (
-          <TouchableOpacity
-            style={styles.memberBox}
-            onPress={() => setShowPicker(true)}
-            accessibilityRole="button"
-          >
-            <Avatar name={member.name} photoUrl={member.photoUrl} size="md" />
-            <View style={styles.memberDetails}>
-              <Text style={styles.memberName}>{member.name}</Text>
-              <Text style={styles.memberPhone}>{member.phone}</Text>
-            </View>
-            <Text style={styles.changeText}>Change</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={styles.selectMemberBtn}
-            onPress={() => setShowPicker(true)}
-            accessibilityRole="button"
-          >
-            <Search color={theme.colors.primary} size={20} />
-            <Text style={styles.selectMemberText}>Search Member</Text>
-          </TouchableOpacity>
-        )}
-
-        {member && member.currentMembership && (
-          <View style={styles.dueSummary}>
-            <View style={styles.dueRow}>
-              <Text style={styles.dueLabel}>Plan Total:</Text>
-              <Text style={styles.dueValue}>{formatMoney(member.currentMembership.totalPaise)}</Text>
-            </View>
-            <View style={styles.dueRow}>
-              <Text style={styles.dueLabel}>Already Paid:</Text>
-              <Text style={styles.dueValue}>{formatMoney(member.currentMembership.paidPaise)}</Text>
-            </View>
-            <View style={[styles.dueRow, styles.dueRowHighlight]}>
-              <Text style={styles.dueLabelHighlight}>Remaining Due:</Text>
-              <Text style={styles.dueValueHighlight}>{formatMoney(dueAmount)}</Text>
-            </View>
-          </View>
-        )}
-      </GlassCard>
-
-      {/* ── Payment Details ───────────────────────────────────────── */}
-      {member && (
-        <GlassCard style={styles.card} contentStyle={styles.cardContent}>
-          <Text style={styles.sectionTitle}>Payment Details</Text>
-
-          <Text style={styles.label}>{FIELDS.AMOUNT_PAID}</Text>
-          <View style={styles.amountInputContainer}>
-            <TextInput
-              style={styles.amountInput}
-              value={amountStr}
-              onChangeText={setAmountStr}
-              keyboardType="number-pad"
-              placeholder="0"
-              placeholderTextColor={theme.colors.textMuted}
-            />
-            {dueAmount > 0 && inputAmount !== dueAmount && (
+  // ─────────────────────────────────────────────────────────────────────────────
+  // RENDER: MEMBER SEARCH MODAL
+  // ─────────────────────────────────────────────────────────────────────────────
+  const renderMemberPickerModal = () => (
+    <Modal
+      visible={showMemberPicker}
+      animationType="slide"
+      transparent
+      onRequestClose={() => {
+        if (selectedMemberId) setShowMemberPicker(false);
+        else safeBack('/(tabs)/payments');
+      }}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{COLLECT.SEARCH_TITLE}</Text>
+            {selectedMemberId && (
               <TouchableOpacity
-                style={styles.payFullBtn}
-                onPress={() => setAmountStr((dueAmount / 100).toString())}
+                onPress={() => setShowMemberPicker(false)}
+                style={styles.iconBtn}
                 accessibilityRole="button"
+                accessibilityLabel="Close"
               >
-                <Text style={styles.payFullText}>Pay Full</Text>
+                <X color={theme.colors.text} size={22} />
               </TouchableOpacity>
             )}
           </View>
-          {inputAmount > dueAmount && (
-            <Text style={styles.errorText}>Amount exceeds due ({formatMoney(dueAmount)})</Text>
-          )}
 
-          <Text style={[styles.label, { marginTop: 14 }]}>{FIELDS.PAYMENT_MODE}</Text>
-          <View style={styles.modeRow}>
-            {(['CASH', 'UPI', 'CARD'] as const).map((m) => (
-              <TouchableOpacity
-                key={m}
-                style={[styles.modeBtn, mode === m && styles.modeBtnSelected]}
-                onPress={() => setMode(m)}
-                accessibilityRole="button"
-              >
-                <Text style={[styles.modeBtnText, mode === m && styles.modeBtnTextSelected]}>
-                  {m}
-                </Text>
+          {/* Search Box */}
+          <View style={styles.searchBar}>
+            <Search color={theme.colors.primary} size={18} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder={COLLECT.SELECT_MEMBER_PLACEHOLDER}
+              placeholderTextColor={theme.colors.textMuted}
+              value={memberSearchTerm}
+              onChangeText={setMemberSearchTerm}
+              autoFocus
+            />
+            {memberSearchTerm ? (
+              <TouchableOpacity onPress={() => setMemberSearchTerm('')}>
+                <X color={theme.colors.textMuted} size={16} />
               </TouchableOpacity>
-            ))}
+            ) : null}
           </View>
 
-          <Text style={[styles.label, { marginTop: 14 }]}>{FIELDS.NOTES}</Text>
-          <TextInput
-            style={styles.notesInput}
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="e.g. partial payment"
-            placeholderTextColor={theme.colors.textMuted}
-          />
-        </GlassCard>
-      )}
-
-      {member && (
-        <View style={styles.submitContainer}>
-          <Button
-            title={COLLECT.SUBMIT}
-            onPress={handleSubmit}
-            loading={collectPayment.isPending}
-            disabled={inputAmount <= 0 || inputAmount > dueAmount}
-            size="md"
-          />
+          {/* Member List */}
+          {loadingSearch ? (
+            <View style={{ padding: 24, alignItems: 'center' }}>
+              <ActivityIndicator color={theme.colors.primary} size="large" />
+            </View>
+          ) : (
+            <FlatList
+              data={sortedMembers}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ paddingVertical: 8 }}
+              renderItem={({ item }) => {
+                const itemDue = item.currentMembership?.duePaise || 0;
+                return (
+                  <TouchableOpacity
+                    style={styles.memberRow}
+                    onPress={() => {
+                      setSelectedMemberId(item.id);
+                      setSelectedMembershipId(item.currentMembership?.id);
+                      setShowMemberPicker(false);
+                      idempotencyKeyRef.current = generateIdempotencyKey();
+                      setErrorMessage(null);
+                    }}
+                    accessibilityRole="button"
+                  >
+                    <Avatar name={item.name} size="md" photoUrl={item.photoUrl} />
+                    <View style={styles.memberInfoCol}>
+                      <Text style={styles.memberRowName}>{item.name}</Text>
+                      <Text style={styles.memberRowSub}>
+                        {item.memberCode ? `${item.memberCode} • ` : ''}
+                        {item.phone}
+                      </Text>
+                    </View>
+                    <View style={styles.memberRowDueCol}>
+                      {itemDue > 0 ? (
+                        <View style={styles.dueBadge}>
+                          <Text style={styles.dueBadgeText}>{formatMoney(itemDue)} due</Text>
+                        </View>
+                      ) : (
+                        <Text style={styles.noDueText}>No due</Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>{COLLECT.NO_MEMBERS_FOUND}</Text>
+                </View>
+              }
+            />
+          )}
         </View>
-      )}
       </View>
+    </Modal>
+  );
 
-      {/* ── Member Search Modal ────────────────────────────────────── */}
-      <MemberPickerModal
-        visible={showPicker}
-        onClose={() => {
-          if (!memberId) safeBack('/(tabs)/payments');
-          else setShowPicker(false);
-        }}
-        onSelect={(id: string) => {
-          setMemberId(id);
-          setShowPicker(false);
-        }}
+  // ─────────────────────────────────────────────────────────────────────────────
+  // RENDER: DISCOUNT MODAL (OWNER ONLY)
+  // ─────────────────────────────────────────────────────────────────────────────
+  const renderDiscountModal = () => (
+    <Modal
+      visible={showDiscountModal}
+      animationType="fade"
+      transparent
+      onRequestClose={() => setShowDiscountModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContentSmall}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{COLLECT.DISCOUNT_MODAL_TITLE}</Text>
+            <TouchableOpacity
+              onPress={() => setShowDiscountModal(false)}
+              style={styles.iconBtn}
+              accessibilityRole="button"
+            >
+              <X color={theme.colors.text} size={20} />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.label}>{COLLECT.DISCOUNT_AMOUNT_LABEL} (₹)</Text>
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputPrefix}>₹</Text>
+            <TextInput
+              style={styles.textInput}
+              keyboardType="number-pad"
+              placeholder="0"
+              placeholderTextColor={theme.colors.textMuted}
+              value={discountAmountStr}
+              onChangeText={(t) => setDiscountAmountStr(formatNumericTyping(t))}
+            />
+          </View>
+
+          <Text style={[styles.label, { marginTop: 14 }]}>{COLLECT.DISCOUNT_REASON_LABEL}</Text>
+          <TextInput
+            style={[styles.textInputMulti, { minHeight: 64 }]}
+            placeholder={COLLECT.DISCOUNT_REASON_PLACEHOLDER}
+            placeholderTextColor={theme.colors.textMuted}
+            value={discountReason}
+            onChangeText={setDiscountReason}
+            multiline
+          />
+
+          <View style={styles.modalFooterRow}>
+            <View style={{ flex: 1, marginRight: 8 }}>
+              <Button
+                title={COMMON.CANCEL}
+                variant="ghost"
+                size="md"
+                onPress={() => setShowDiscountModal(false)}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button
+                title={COMMON.CONFIRM}
+                variant="primary"
+                size="md"
+                loading={applyDiscountMutation.isPending}
+                onPress={handleApplyDiscountSubmit}
+              />
+            </View>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // MAIN FLOW
+  // ─────────────────────────────────────────────────────────────────────────────
+  return (
+    <Screen style={styles.mainContainer}>
+      <PageHeader
+        title={COLLECT.SCREEN_TITLE}
+        showBack
+        onBack={() => safeBack('/(tabs)/payments')}
       />
+
+      {renderMemberPickerModal()}
+      {renderDiscountModal()}
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Error Banner */}
+        {errorMessage && (
+          <View style={styles.errorBanner}>
+            <AlertTriangle color={theme.colors.error} size={20} style={{ marginRight: 10 }} />
+            <Text style={styles.errorBannerText}>{errorMessage}</Text>
+            <TouchableOpacity
+              onPress={handleRetrySubmit}
+              style={styles.retryBtn}
+              accessibilityRole="button"
+            >
+              <RefreshCw size={14} color={theme.colors.text} style={{ marginRight: 4 }} />
+              <Text style={styles.retryBtnText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* 1. Member Selector / Change Row */}
+        {member ? (
+          <GlassCard style={styles.card} contentStyle={styles.cardContent}>
+            <View style={styles.memberHeaderRow}>
+              <Avatar name={member.name} photoUrl={member.photoUrl} size="md" />
+              <View style={styles.memberHeaderDetails}>
+                <Text style={styles.memberName}>{member.name}</Text>
+                <Text style={styles.memberSub}>
+                  {member.memberCode ? `${member.memberCode} • ` : ''}
+                  {member.phone}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowMemberPicker(true)}
+                style={styles.changeMemberBtn}
+                accessibilityRole="button"
+              >
+                <Text style={styles.changeMemberText}>Change</Text>
+              </TouchableOpacity>
+            </View>
+          </GlassCard>
+        ) : (
+          <GlassCard style={styles.card} contentStyle={styles.cardContent}>
+            <TouchableOpacity
+              style={styles.selectMemberPrompt}
+              onPress={() => setShowMemberPicker(true)}
+              accessibilityRole="button"
+            >
+              <Search color={theme.colors.primary} size={22} style={{ marginRight: 10 }} />
+              <Text style={styles.selectMemberPromptText}>Tap to search and select a member</Text>
+            </TouchableOpacity>
+          </GlassCard>
+        )}
+
+        {/* 2. Multiple Memberships Chooser (if member has > 1 due) */}
+        {memberDuesList.length > 1 && (
+          <GlassCard style={styles.card} contentStyle={styles.cardContent}>
+            <Text style={styles.sectionTitle}>{COLLECT.MULTIPLE_MEMBERSHIPS_TITLE}</Text>
+            <View style={styles.chooserList}>
+              {memberDuesList.map((m) => {
+                const isSelected = m.membershipId === selectedMembershipId;
+                return (
+                  <TouchableOpacity
+                    key={m.membershipId}
+                    style={[styles.chooserItem, isSelected && styles.chooserItemActive]}
+                    onPress={() => setSelectedMembershipId(m.membershipId)}
+                    accessibilityRole="button"
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.chooserPlan}>{m.planName || 'Plan'}</Text>
+                      {m.expiryDate && (
+                        <Text style={styles.chooserExpiry}>Valid till {m.expiryDate}</Text>
+                      )}
+                    </View>
+                    <Text style={styles.chooserDue}>{formatMoney(m.duePaise)}</Text>
+                    {isSelected && (
+                      <Check size={18} color={theme.colors.primary} style={{ marginLeft: 8 }} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </GlassCard>
+        )}
+
+        {/* 3. Summary Card with Live Balance */}
+        {chosenMembership && (
+          <GlassCard style={styles.card} contentStyle={styles.cardContent}>
+            <View style={styles.summaryHeaderRow}>
+              <View>
+                <Text style={styles.summaryPlanName}>{chosenMembership.planName}</Text>
+                {chosenMembership.expiryDate && (
+                  <Text style={styles.summaryExpiry}>Valid till {chosenMembership.expiryDate}</Text>
+                )}
+              </View>
+              {isOwner && duePaise > 0 && (
+                <TouchableOpacity
+                  style={styles.discountActionBtn}
+                  onPress={() => setShowDiscountModal(true)}
+                  accessibilityRole="button"
+                >
+                  <Tag size={13} color={theme.colors.primary} style={{ marginRight: 4 }} />
+                  <Text style={styles.discountActionText}>{COLLECT.APPLY_DISCOUNT}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownItem}>
+                <Text style={styles.breakdownLabel}>{COLLECT.TOTAL_FEE}</Text>
+                <Text style={styles.breakdownValue}>
+                  {formatMoney(chosenMembership.totalPaise)}
+                </Text>
+              </View>
+              {chosenMembership.discountPaise > 0 && (
+                <View style={styles.breakdownItem}>
+                  <Text style={styles.breakdownLabel}>{COLLECT.DISCOUNT}</Text>
+                  <Text style={[styles.breakdownValue, { color: theme.colors.primary }]}>
+                    -{formatMoney(chosenMembership.discountPaise)}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.breakdownItem}>
+                <Text style={styles.breakdownLabel}>{COLLECT.PAID}</Text>
+                <Text style={styles.breakdownValue}>{formatMoney(chosenMembership.paidPaise)}</Text>
+              </View>
+              <View style={styles.breakdownItem}>
+                <Text style={styles.breakdownLabel}>{COLLECT.DUE}</Text>
+                <Text
+                  style={[
+                    styles.breakdownValue,
+                    {
+                      color:
+                        chosenMembership.duePaise > 0 ? theme.colors.error : theme.colors.text,
+                    },
+                  ]}
+                >
+                  {formatMoney(chosenMembership.duePaise)}
+                </Text>
+              </View>
+            </View>
+          </GlassCard>
+        )}
+
+        {/* 4. Amount Input with Quick Chips & Live Balance */}
+        {chosenMembership && (
+          <GlassCard style={styles.card} contentStyle={styles.cardContent}>
+            <Text style={styles.label}>{COLLECT.AMOUNT_LABEL}</Text>
+
+            <View style={styles.amountInputRow}>
+              <Text style={styles.amountPrefix}>₹</Text>
+              <TextInput
+                style={styles.amountInput}
+                keyboardType="number-pad"
+                placeholder="0"
+                placeholderTextColor={theme.colors.textMuted}
+                value={rawAmountText}
+                onChangeText={handleAmountChange}
+              />
+            </View>
+
+            {/* Quick Chips */}
+            <View style={styles.chipsRow}>
+              <TouchableOpacity
+                style={[styles.amountChip, selectedChip === 'full' && styles.amountChipActive]}
+                onPress={() => handleSelectChip('full')}
+                accessibilityRole="button"
+              >
+                <Text
+                  style={[
+                    styles.amountChipText,
+                    selectedChip === 'full' && styles.amountChipTextActive,
+                  ]}
+                >
+                  {COLLECT.CHIP_FULL_DUE} ({formatMoney(duePaise)})
+                </Text>
+              </TouchableOpacity>
+
+              {duePaise > 100 && (
+                <TouchableOpacity
+                  style={[styles.amountChip, selectedChip === 'half' && styles.amountChipActive]}
+                  onPress={() => handleSelectChip('half')}
+                  accessibilityRole="button"
+                >
+                  <Text
+                    style={[
+                      styles.amountChipText,
+                      selectedChip === 'half' && styles.amountChipTextActive,
+                    ]}
+                  >
+                    {COLLECT.CHIP_HALF} ({formatMoney(Math.round(duePaise / 2))})
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={[styles.amountChip, selectedChip === 'custom' && styles.amountChipActive]}
+                onPress={() => handleSelectChip('custom')}
+                accessibilityRole="button"
+              >
+                <Text
+                  style={[
+                    styles.amountChipText,
+                    selectedChip === 'custom' && styles.amountChipTextActive,
+                  ]}
+                >
+                  {COLLECT.CHIP_CUSTOM}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Live Balance Line */}
+            <View style={styles.liveBalanceContainer}>
+              <Text style={styles.liveBalanceText}>
+                {COLLECT.BALANCE_AFTER(formatMoney(balanceAfterPaise))}
+              </Text>
+            </View>
+
+            {validationError && <Text style={styles.inlineErrorText}>{validationError}</Text>}
+          </GlassCard>
+        )}
+
+        {/* 5. Payment Mode Selector (3 Large Buttons) */}
+        {chosenMembership && (
+          <GlassCard style={styles.card} contentStyle={styles.cardContent}>
+            <Text style={styles.label}>{COLLECT.PAYMENT_MODE}</Text>
+
+            <View style={styles.modeButtonsRow}>
+              {(['CASH', 'UPI', 'CARD'] as const).map((m) => {
+                const isSelected = mode === m;
+                return (
+                  <TouchableOpacity
+                    key={m}
+                    style={[styles.largeModeBtn, isSelected && styles.largeModeBtnSelected]}
+                    onPress={() => setMode(m)}
+                    accessibilityRole="button"
+                  >
+                    <Text
+                      style={[
+                        styles.largeModeBtnText,
+                        isSelected && styles.largeModeBtnTextSelected,
+                      ]}
+                    >
+                      {m}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* ── UPI Details & QR ───────────────────────────────────── */}
+            {mode === 'UPI' && (
+              <View style={styles.modeSubContainer}>
+                {collectionInfo?.upiId ? (
+                  <>
+                    <TouchableOpacity
+                      style={styles.showQrBtn}
+                      onPress={() => setShowUpiQr(!showUpiQr)}
+                      accessibilityRole="button"
+                    >
+                      <QrCode size={18} color={theme.colors.primary} style={{ marginRight: 8 }} />
+                      <Text style={styles.showQrBtnText}>
+                        {showUpiQr ? COLLECT.HIDE_UPI_QR : COLLECT.SHOW_UPI_QR}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {showUpiQr && (
+                      <View style={styles.qrFullCard}>
+                        <Text style={styles.qrCardTitle}>{COLLECT.UPI_QR_TITLE}</Text>
+                        <View style={styles.qrCodeBox}>
+                          <QRCode
+                            value={upiPayLink || 'upi://pay'}
+                            size={160}
+                            color="#051F20"
+                            backgroundColor="#FFFFFF"
+                          />
+                        </View>
+                        <Text style={styles.qrAmountText}>{formatMoney(inputAmountPaise)}</Text>
+                        <Text style={styles.qrUpiIdText}>{collectionInfo.upiId}</Text>
+                        <Text style={styles.qrWarningText}>{COLLECT.UPI_QR_WARNING}</Text>
+                        <Button
+                          title={COLLECT.UPI_RECEIVED_BTN}
+                          variant="primary"
+                          size="md"
+                          onPress={() => {
+                            setShowUpiQr(false);
+                            handleSubmitPayment();
+                          }}
+                          style={{ marginTop: 12 }}
+                        />
+                      </View>
+                    )}
+                  </>
+                ) : (
+                  <View style={styles.noUpiBanner}>
+                    <Text style={styles.noUpiText}>{COLLECT.NO_UPI_CONFIGURED}</Text>
+                    {isOwner && (
+                      <TouchableOpacity
+                        onPress={() => router.push('/(tabs)/more/gym-profile')}
+                        accessibilityRole="button"
+                      >
+                        <Text style={styles.settingsLinkText}>{COLLECT.GO_TO_GYM_SETTINGS}</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+
+                <Text style={[styles.label, { marginTop: 14 }]}>{COLLECT.UPI_REF_LABEL}</Text>
+                <TextInput
+                  style={styles.textInputRegular}
+                  placeholder={COLLECT.UPI_REF_PLACEHOLDER}
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={referenceNo}
+                  onChangeText={setReferenceNo}
+                  maxLength={40}
+                />
+              </View>
+            )}
+
+            {/* ── Card Details ──────────────────────────────────────── */}
+            {mode === 'CARD' && (
+              <View style={styles.modeSubContainer}>
+                <Text style={styles.label}>{COLLECT.CARD_REF_LABEL}</Text>
+                <TextInput
+                  style={styles.textInputRegular}
+                  placeholder={COLLECT.CARD_REF_PLACEHOLDER}
+                  placeholderTextColor={theme.colors.textMuted}
+                  value={referenceNo}
+                  onChangeText={setReferenceNo}
+                  maxLength={40}
+                />
+              </View>
+            )}
+          </GlassCard>
+        )}
+
+        {/* 6. Optional Note & Owner Backdating / Promise Date */}
+        {chosenMembership && (
+          <GlassCard style={styles.card} contentStyle={styles.cardContent}>
+            <Text style={styles.label}>{COLLECT.NOTE_LABEL}</Text>
+            <TextInput
+              style={styles.textInputRegular}
+              placeholder={COLLECT.NOTE_PLACEHOLDER}
+              placeholderTextColor={theme.colors.textMuted}
+              value={note}
+              onChangeText={setNote}
+            />
+
+            {/* OWNER Only: Date row (up to 31 days back) */}
+            {isOwner && (
+              <View style={styles.ownerOptionRow}>
+                <View style={{ flex: 1, marginRight: 12 }}>
+                  <Text style={[styles.label, { marginTop: 14 }]}>
+                    {COLLECT.PAYMENT_DATE_LABEL}
+                  </Text>
+                  <View style={styles.inputWithIcon}>
+                    <Calendar size={16} color={theme.colors.textMuted} style={{ marginRight: 8 }} />
+                    <TextInput
+                      style={styles.dateInput}
+                      value={paymentDate}
+                      onChangeText={setPaymentDate}
+                      placeholder="YYYY-MM-DD"
+                      placeholderTextColor={theme.colors.textMuted}
+                      maxLength={10}
+                    />
+                  </View>
+                </View>
+
+                {/* OWNER Promise Date if balance remaining */}
+                {balanceAfterPaise > 0 && (
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.label, { marginTop: 14 }]}>
+                      {COLLECT.PROMISE_DATE_LABEL}
+                    </Text>
+                    <View style={styles.inputWithIcon}>
+                      <Clock size={16} color={theme.colors.textMuted} style={{ marginRight: 8 }} />
+                      <TextInput
+                        style={styles.dateInput}
+                        value={promiseDate}
+                        onChangeText={setPromiseDate}
+                        placeholder="YYYY-MM-DD"
+                        placeholderTextColor={theme.colors.textMuted}
+                        maxLength={10}
+                      />
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
+          </GlassCard>
+        )}
+
+        {/* 7. Action Button */}
+        {chosenMembership && (
+          <View style={styles.submitContainer}>
+            <Button
+              title={COLLECT.ACTION_COLLECT(formatMoney(inputAmountPaise))}
+              variant="primary"
+              size="lg"
+              loading={collectPaymentMutation.isPending}
+              disabled={Boolean(validationError) || inputAmountPaise <= 0}
+              onPress={handleSubmitPayment}
+            />
+          </View>
+        )}
+      </ScrollView>
     </Screen>
   );
 }
 
-const MemberPickerModal = ({ visible, onClose, onSelect }: any) => {
-  const [term, setTerm] = useState('');
-  const [debouncedTerm, setDebouncedTerm] = useState('');
-  const { isPhone } = useBreakpoint();
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+function generateIdempotencyKey(): string {
+  return 'idemp_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
+}
 
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedTerm(term), 400);
-    return () => clearTimeout(timer);
-  }, [term]);
+function formatNumericTyping(val: string): string {
+  const digits = val.replace(/\D/g, '');
+  if (!digits) return '';
+  const num = parseInt(digits, 10);
+  return num.toLocaleString('en-IN');
+}
 
-  const { data, isLoading } = useMembers({ term: debouncedTerm, status: 'DUE' });
-  const members = data?.pages.flatMap((p) => p.content) || [];
-
-  const content = (
-    <View style={isPhone ? styles.modalContainer : styles.modalCard}>
-      <View style={styles.modalHeader}>
-        <Text style={styles.modalTitle}>Select Member</Text>
-        <TouchableOpacity onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close">
-          <X color={theme.colors.text} size={22} />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.searchBox}>
-        <Search color={theme.colors.primary} size={20} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder={COLLECT.SELECT_MEMBER_PLACEHOLDER}
-          placeholderTextColor={theme.colors.textMuted}
-          value={term}
-          onChangeText={setTerm}
-        />
-      </View>
-
-      {isLoading ? (
-        <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 24 }} />
-      ) : (
-        <FlatList
-          data={members}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.pickerList}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.pickerItem}
-              onPress={() => onSelect(item.id)}
-              accessibilityRole="button"
-            >
-              <Avatar name={item.name} photoUrl={item.photoUrl} size="sm" />
-              <View style={styles.pickerInfo}>
-                <Text style={styles.pickerItemName}>{item.name}</Text>
-                <Text style={styles.pickerItemPhone}>{item.phone}</Text>
-              </View>
-            </TouchableOpacity>
-          )}
-          ListEmptyComponent={
-            <Text style={styles.emptySearchText}>No members with due found</Text>
-          }
-        />
-      )}
-    </View>
-  );
-
-  return (
-    <Modal
-      visible={visible}
-      animationType={isPhone ? 'slide' : 'fade'}
-      transparent={!isPhone}
-      presentationStyle={isPhone ? 'pageSheet' : 'overFullScreen'}
-      onRequestClose={onClose}
-    >
-      {isPhone ? (
-        <SafeAreaView style={styles.modalContainer}>{content}</SafeAreaView>
-      ) : (
-        <View style={styles.modalOverlay}>{content}</View>
-      )}
-    </Modal>
-  );
-};
-
+// ─────────────────────────────────────────────────────────────────────────────
+// STYLES
+// ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  center: {
+  mainContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 48,
+  },
+  centerContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  scroll: {
-    padding: theme.spacing.md,
-    paddingBottom: 40,
+    padding: 16,
   },
   card: {
-    marginBottom: theme.spacing.md,
+    marginBottom: 16,
   },
   cardContent: {
-    padding: theme.spacing.lg,
+    padding: 16,
   },
-  sectionTitle: {
-    ...theme.typography.h3,
-    marginBottom: theme.spacing.md,
+  label: {
+    fontFamily: theme.fonts.bodySemiBold,
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    marginBottom: 8,
   },
-  memberBox: {
+  errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.raised,
-    borderRadius: theme.radius.lg,
+    backgroundColor: 'rgba(255, 107, 107, 0.15)',
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    minHeight: 64, // 44px+ tap target
+    borderColor: 'rgba(255, 107, 107, 0.4)',
+    borderRadius: theme.radius.md,
+    padding: 12,
+    marginBottom: 16,
   },
-  memberDetails: {
+  errorBannerText: {
     flex: 1,
-    marginLeft: theme.spacing.md,
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 13,
+    color: theme.colors.error,
   },
-  memberName: {
-    ...theme.typography.bodyMedium,
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(218, 241, 222, 0.12)',
+    borderRadius: theme.radius.sm,
+    minHeight: 36,
+  },
+  retryBtnText: {
+    fontFamily: theme.fonts.bodySemiBold,
+    fontSize: 12,
     color: theme.colors.text,
   },
-  memberPhone: {
-    ...theme.typography.caption,
+  memberHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  memberHeaderDetails: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  memberName: {
+    fontFamily: theme.fonts.headingSemiBold,
+    fontSize: 16,
+    color: theme.colors.text,
+  },
+  memberSub: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 13,
     color: theme.colors.textMuted,
     marginTop: 2,
   },
-  changeText: {
-    ...theme.typography.caption,
-    color: theme.colors.primary,
-    fontFamily: theme.fonts.headingBold,
-    fontWeight: '700',
+  changeMemberBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  selectMemberBtn: {
+  changeMemberText: {
+    fontFamily: theme.fonts.bodySemiBold,
+    fontSize: 13,
+    color: theme.colors.primary,
+  },
+  selectMemberPrompt: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.raised,
-    paddingHorizontal: 16,
-    minHeight: 52, // 44px+ tap target
-    borderRadius: theme.radius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    justifyContent: 'center',
+    paddingVertical: 14,
+    minHeight: 52,
   },
-  selectMemberText: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    marginLeft: theme.spacing.md,
+  selectMemberPromptText: {
+    fontFamily: theme.fonts.bodyMedium,
+    fontSize: 14,
+    color: theme.colors.primary,
   },
-  dueSummary: {
-    marginTop: theme.spacing.md,
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.raised,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.borderLight,
+  sectionTitle: {
+    fontFamily: theme.fonts.headingMedium,
+    fontSize: 14,
+    color: theme.colors.text,
+    marginBottom: 10,
   },
-  dueRow: {
+  chooserList: {
+    gap: 8,
+  },
+  chooserItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 4,
+    alignItems: 'center',
+    backgroundColor: 'rgba(218, 241, 222, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(218, 241, 222, 0.1)',
+    borderRadius: theme.radius.md,
+    padding: 12,
+    minHeight: 48,
   },
-  dueLabel: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
+  chooserItemActive: {
+    borderColor: theme.colors.primary,
+    backgroundColor: 'rgba(142, 182, 155, 0.12)',
   },
-  dueValue: {
-    ...theme.typography.body,
+  chooserPlan: {
+    fontFamily: theme.fonts.bodySemiBold,
+    fontSize: 14,
     color: theme.colors.text,
   },
-  dueRowHighlight: {
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.borderLight,
-    paddingTop: 6,
-    marginTop: 4,
-    marginBottom: 0,
-  },
-  dueLabelHighlight: {
-    ...theme.typography.bodyMedium,
-    color: theme.colors.error,
-    fontWeight: '700',
-  },
-  dueValueHighlight: {
-    ...theme.typography.h3,
-    color: theme.colors.error,
-  },
-  label: {
-    ...theme.typography.caption,
+  chooserExpiry: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 11,
     color: theme.colors.textMuted,
-    marginBottom: 6,
+    marginTop: 2,
   },
-  amountInputContainer: {
+  chooserDue: {
+    fontFamily: theme.fonts.headingSemiBold,
+    fontSize: 14,
+    color: theme.colors.text,
+  },
+  summaryHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  summaryPlanName: {
+    fontFamily: theme.fonts.headingBold,
+    fontSize: 16,
+    color: theme.colors.text,
+  },
+  summaryExpiry: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginTop: 2,
+  },
+  discountActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.raised,
-    borderRadius: theme.radius.lg,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    paddingHorizontal: 16,
-    minHeight: 54, // 44px+ tap target
+    backgroundColor: 'rgba(142, 182, 155, 0.15)',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: theme.radius.full,
+    minHeight: 36,
+  },
+  discountActionText: {
+    fontFamily: theme.fonts.bodySemiBold,
+    fontSize: 12,
+    color: theme.colors.primary,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderColor: 'rgba(218, 241, 222, 0.08)',
+    paddingTop: 12,
+  },
+  breakdownItem: {
+    alignItems: 'center',
+  },
+  breakdownLabel: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 11,
+    color: theme.colors.textMuted,
+    marginBottom: 4,
+  },
+  breakdownValue: {
+    fontFamily: theme.fonts.bodyBold,
+    fontSize: 14,
+    color: theme.colors.text,
+  },
+  amountInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(5, 31, 32, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(218, 241, 222, 0.2)',
+    borderRadius: theme.radius.md,
+    paddingHorizontal: 14,
+    minHeight: 56,
+  },
+  amountPrefix: {
+    fontFamily: theme.fonts.headingBold,
+    fontSize: 24,
+    color: theme.colors.primary,
+    marginRight: 8,
   },
   amountInput: {
     flex: 1,
     fontFamily: theme.fonts.headingBold,
-    fontSize: 20,
+    fontSize: 24,
     color: theme.colors.text,
-    paddingVertical: 10,
+    paddingVertical: 8,
   },
-  payFullBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: theme.radius.full,
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  payFullText: {
-    ...theme.typography.small,
-    color: theme.colors.primary,
-    fontFamily: theme.fonts.headingBold,
-  },
-  errorText: {
-    ...theme.typography.small,
-    color: theme.colors.error,
-    marginTop: 4,
-    marginLeft: 4,
-  },
-  modeRow: {
+  chipsRow: {
     flexDirection: 'row',
-    gap: theme.spacing.sm,
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
   },
-  modeBtn: {
-    flex: 1,
-    minHeight: 44, // 44px tap target
-    backgroundColor: theme.colors.raised,
-    borderRadius: theme.radius.full,
+  amountChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(218, 241, 222, 0.06)',
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: 'center',
+    borderColor: 'rgba(218, 241, 222, 0.12)',
+    borderRadius: theme.radius.full,
+    minHeight: 44,
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  modeBtnSelected: {
+  amountChipActive: {
     backgroundColor: theme.colors.primary,
     borderColor: theme.colors.primary,
   },
-  modeBtnText: {
+  amountChipText: {
+    fontFamily: theme.fonts.bodyMedium,
+    fontSize: 12,
+    color: theme.colors.text,
+  },
+  amountChipTextActive: {
+    color: theme.colors.textOnPrimary,
+    fontFamily: theme.fonts.bodyBold,
+  },
+  liveBalanceContainer: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderColor: 'rgba(218, 241, 222, 0.08)',
+  },
+  liveBalanceText: {
+    fontFamily: theme.fonts.bodyMedium,
+    fontSize: 13,
+    color: theme.colors.textMuted,
+  },
+  inlineErrorText: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 12,
+    color: theme.colors.error,
+    marginTop: 6,
+  },
+  modeButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  largeModeBtn: {
+    flex: 1,
+    height: 52,
+    borderRadius: theme.radius.md,
+    backgroundColor: 'rgba(218, 241, 222, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(218, 241, 222, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  largeModeBtnSelected: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  largeModeBtnText: {
     fontFamily: theme.fonts.headingMedium,
     fontSize: 14,
     color: theme.colors.text,
   },
-  modeBtnTextSelected: {
-    color: theme.colors.textOnPrimary, // #051F20 contrast
-    fontWeight: '700',
+  largeModeBtnTextSelected: {
+    color: theme.colors.textOnPrimary,
+    fontFamily: theme.fonts.headingBold,
   },
-  notesInput: {
-    backgroundColor: theme.colors.raised,
-    borderRadius: theme.radius.lg,
+  modeSubContainer: {
+    marginTop: 14,
+  },
+  showQrBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    backgroundColor: 'rgba(142, 182, 155, 0.12)',
+    borderRadius: theme.radius.md,
+    minHeight: 46,
+    marginBottom: 8,
+  },
+  showQrBtnText: {
+    fontFamily: theme.fonts.bodySemiBold,
+    fontSize: 13,
+    color: theme.colors.primary,
+  },
+  qrFullCard: {
+    backgroundColor: '#072728',
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingHorizontal: 16,
-    minHeight: 48,
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 15,
+    borderColor: 'rgba(218, 241, 222, 0.18)',
+    borderRadius: theme.radius.lg,
+    padding: 16,
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  qrCardTitle: {
+    fontFamily: theme.fonts.headingMedium,
+    fontSize: 14,
     color: theme.colors.text,
+    marginBottom: 12,
+  },
+  qrCodeBox: {
+    padding: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: theme.radius.md,
+    marginBottom: 10,
+  },
+  qrAmountText: {
+    fontFamily: theme.fonts.headingBold,
+    fontSize: 20,
+    color: theme.colors.text,
+    marginTop: 4,
+  },
+  qrUpiIdText: {
+    fontFamily: theme.fonts.bodyMedium,
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    marginTop: 2,
+  },
+  qrWarningText: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 11,
+    color: theme.colors.warning,
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  noUpiBanner: {
+    padding: 12,
+    backgroundColor: 'rgba(218, 241, 222, 0.04)',
+    borderRadius: theme.radius.md,
+    marginBottom: 8,
+  },
+  noUpiText: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 12,
+    color: theme.colors.textMuted,
+  },
+  settingsLinkText: {
+    fontFamily: theme.fonts.bodySemiBold,
+    fontSize: 12,
+    color: theme.colors.primary,
+    marginTop: 4,
+  },
+  textInputRegular: {
+    height: 48,
+    backgroundColor: 'rgba(5, 31, 32, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(218, 241, 222, 0.16)',
+    borderRadius: theme.radius.md,
+    paddingHorizontal: 12,
+    color: theme.colors.text,
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 14,
+  },
+  ownerOptionRow: {
+    flexDirection: 'row',
+  },
+  inputWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 48,
+    backgroundColor: 'rgba(5, 31, 32, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(218, 241, 222, 0.16)',
+    borderRadius: theme.radius.md,
+    paddingHorizontal: 10,
+  },
+  dateInput: {
+    flex: 1,
+    color: theme.colors.text,
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 13,
   },
   submitContainer: {
-    marginTop: theme.spacing.md,
+    marginTop: 8,
+    marginBottom: 24,
   },
-  successScreen: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.xl,
-  },
-  successIconCircle: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: 'rgba(142, 182, 155, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(142, 182, 155, 0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  successTitle: {
-    ...theme.typography.h1,
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  receiptText: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    marginBottom: theme.spacing.xxl,
-    textAlign: 'center',
-  },
-  successBtnContainer: {
-    width: '100%',
-    maxWidth: 320,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
+  // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
+    backgroundColor: 'rgba(5, 31, 32, 0.85)',
+    justifyContent: 'flex-end',
   },
-  modalCard: {
-    width: '100%',
-    maxWidth: 440,
-    maxHeight: '80%',
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.radius.xl,
+  modalContent: {
+    backgroundColor: '#072728',
+    borderTopLeftRadius: theme.radius.lg,
+    borderTopRightRadius: theme.radius.lg,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    overflow: 'hidden',
+    borderColor: 'rgba(218, 241, 222, 0.16)',
+    maxHeight: '85%',
+    minHeight: '55%',
+    padding: 16,
+  },
+  modalContentSmall: {
+    backgroundColor: '#072728',
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(218, 241, 222, 0.16)',
+    padding: 20,
+    margin: 20,
+    alignSelf: 'center',
+    width: '90%',
+    maxWidth: 480,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
+    marginBottom: 14,
   },
   modalTitle: {
-    ...theme.typography.h2,
+    fontFamily: theme.fonts.headingSemiBold,
+    fontSize: 16,
     color: theme.colors.text,
   },
-  closeBtn: {
-    minWidth: 44,
-    minHeight: 44,
+  iconBtn: {
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  searchBox: {
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.raised,
-    margin: theme.spacing.md,
-    paddingHorizontal: 16,
-    minHeight: 48,
-    borderRadius: theme.radius.full,
+    height: 46,
+    backgroundColor: 'rgba(5, 31, 32, 0.6)',
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: 'rgba(218, 241, 222, 0.16)',
+    borderRadius: theme.radius.md,
+    paddingHorizontal: 12,
+    marginBottom: 8,
   },
   searchInput: {
     flex: 1,
-    marginLeft: theme.spacing.sm,
+    marginLeft: 8,
+    color: theme.colors.text,
     fontFamily: theme.fonts.bodyRegular,
+    fontSize: 14,
+  },
+  memberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(218, 241, 222, 0.06)',
+    minHeight: 56,
+  },
+  memberInfoCol: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  memberRowName: {
+    fontFamily: theme.fonts.bodySemiBold,
     fontSize: 15,
     color: theme.colors.text,
   },
-  pickerList: {
-    paddingHorizontal: theme.spacing.md,
+  memberRowSub: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginTop: 2,
   },
-  pickerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: theme.radius.lg,
-    backgroundColor: theme.colors.surface,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    minHeight: 56, // 44px+ tap target
+  memberRowDueCol: {
+    alignItems: 'flex-end',
   },
-  pickerInfo: {
-    marginLeft: 12,
-    flex: 1,
+  dueBadge: {
+    backgroundColor: 'rgba(255, 107, 107, 0.18)',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: theme.radius.sm,
   },
-  pickerItemName: {
-    ...theme.typography.bodyMedium,
-    color: theme.colors.text,
+  dueBadgeText: {
+    fontFamily: theme.fonts.bodyBold,
+    fontSize: 12,
+    color: theme.colors.error,
   },
-  pickerItemPhone: {
-    ...theme.typography.caption,
+  noDueText: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 12,
     color: theme.colors.textMuted,
   },
-  emptySearchText: {
-    ...theme.typography.body,
+  emptyContainer: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 14,
     color: theme.colors.textMuted,
     textAlign: 'center',
-    marginTop: 24,
   },
-  desktopScroll: {
+  inputContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 24,
-  },
-  desktopFormWrapper: {
-    maxWidth: 560,
-    width: '100%',
-    backgroundColor: '#072728',
-    borderRadius: 16,
+    height: 48,
+    backgroundColor: 'rgba(5, 31, 32, 0.6)',
     borderWidth: 1,
     borderColor: 'rgba(218, 241, 222, 0.16)',
+    borderRadius: theme.radius.md,
+    paddingHorizontal: 12,
+  },
+  inputPrefix: {
+    fontFamily: theme.fonts.headingBold,
+    fontSize: 18,
+    color: theme.colors.primary,
+    marginRight: 6,
+  },
+  textInput: {
+    flex: 1,
+    color: theme.colors.text,
+    fontFamily: theme.fonts.headingSemiBold,
+    fontSize: 16,
+  },
+  textInputMulti: {
+    backgroundColor: 'rgba(5, 31, 32, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(218, 241, 222, 0.16)',
+    borderRadius: theme.radius.md,
+    padding: 10,
+    color: theme.colors.text,
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 13,
+  },
+  modalFooterRow: {
+    flexDirection: 'row',
+    marginTop: 18,
+  },
+  // Success Card Styles
+  successCard: {
+    backgroundColor: '#072728',
+    borderWidth: 1,
+    borderColor: 'rgba(218, 241, 222, 0.18)',
+    borderRadius: theme.radius.lg,
     padding: 24,
-    ...(Platform.OS === 'web'
-      ? ({
-          boxShadow: '0 16px 40px rgba(0, 0, 0, 0.7)',
-        } as any)
-      : {}),
+    alignItems: 'center',
+    maxWidth: 480,
+    width: '100%',
+  },
+  successIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(142, 182, 155, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  successTitle: {
+    fontFamily: theme.fonts.headingBold,
+    fontSize: 20,
+    color: theme.colors.text,
+    marginBottom: 8,
+  },
+  successAmount: {
+    fontFamily: theme.fonts.headingBold,
+    fontSize: 32,
+    color: theme.colors.primary,
+    marginBottom: 6,
+  },
+  successReceipt: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    marginBottom: 12,
+  },
+  successBalanceBadge: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(218, 241, 222, 0.08)',
+    borderRadius: theme.radius.full,
+    marginBottom: 24,
+  },
+  successBalanceText: {
+    fontFamily: theme.fonts.bodySemiBold,
+    fontSize: 13,
+    color: theme.colors.text,
+  },
+  successActionsColumn: {
+    width: '100%',
+    gap: 10,
+  },
+  actionBtn: {
+    width: '100%',
+  },
+  successBottomRow: {
+    flexDirection: 'row',
+    marginTop: 4,
   },
 });

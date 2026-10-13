@@ -4,9 +4,11 @@ import com.gymapp.common.TenantContext;
 import com.gymapp.common.exception.AppException;
 import com.gymapp.common.exception.ErrorCode;
 import com.gymapp.module.audit.service.AuditLogService;
+import com.gymapp.module.auth.dto.CollectionInfoResponse;
 import com.gymapp.module.auth.dto.CompleteRegistrationRequest;
 import com.gymapp.module.auth.dto.GymProfileResponse;
 import com.gymapp.module.auth.dto.GymSettingsRequest;
+import com.gymapp.module.auth.dto.UpdateCollectionInfoRequest;
 import com.gymapp.module.auth.dto.UpdateGymProfileRequest;
 import com.gymapp.module.auth.entity.Gym;
 import com.gymapp.module.auth.entity.GymAddress;
@@ -31,6 +33,7 @@ public class GymSettingsService {
     private static final Pattern UDYAM_PATTERN = Pattern.compile("^UDYAM-[A-Z]{2}-\\d{2}-\\d{7}$");
     private static final Pattern GSTIN_PATTERN = Pattern.compile("^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$");
     private static final Pattern NIC_PATTERN = Pattern.compile("^\\d{4,5}$");
+    private static final Pattern UPI_PATTERN = Pattern.compile("^[a-zA-Z0-9.\\-_]{2,256}@[a-zA-Z]{2,64}$");
 
     private final GymRepository gymRepository;
     private final AuditLogService auditLogService;
@@ -53,6 +56,8 @@ public class GymSettingsService {
                     .phone(gym.getPhone())
                     .address(gym.getAddress())
                     .logoUrl(gym.getLogoUrl())
+                    .upiId(gym.getUpiId())
+                    .upiName(gym.getUpiName())
                     .status(gym.getStatus())
                     .subscriptionPlan(gym.getSubscriptionPlan())
                     .subscriptionValidTill(gym.getSubscriptionValidTill())
@@ -84,6 +89,19 @@ public class GymSettingsService {
         gym.setAllowExpiredCheckin(request.isAllowExpiredCheckin());
         gym.setReminderDaysBefore(request.getReminderDaysBefore());
 
+        if (StringUtils.hasText(request.getUpiId())) {
+            if (!UPI_PATTERN.matcher(request.getUpiId().trim()).matches()) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, "Invalid UPI ID format");
+            }
+            gym.setUpiId(request.getUpiId().trim());
+        } else if (request.getUpiId() != null) {
+            gym.setUpiId(null);
+        }
+
+        if (request.getUpiName() != null) {
+            gym.setUpiName(request.getUpiName().trim());
+        }
+
         if (request.getStaffCanSeeFullPhone() != null &&
                 request.getStaffCanSeeFullPhone() != gym.isStaffCanSeeFullPhone()) {
             boolean previous = gym.isStaffCanSeeFullPhone();
@@ -93,6 +111,43 @@ public class GymSettingsService {
         }
 
         return gymRepository.save(gym);
+    }
+
+    public CollectionInfoResponse getCollectionInfo() {
+        if (SecurityUtils.isTrainer()) {
+            throw new AppException(ErrorCode.ACCESS_DENIED, "Trainers cannot access collection info");
+        }
+        String gymId = TenantContext.getGymId();
+        Gym gym = gymRepository.findById(gymId)
+                .orElseThrow(() -> new AppException(ErrorCode.GYM_NOT_FOUND));
+
+        return CollectionInfoResponse.builder()
+                .upiId(gym.getUpiId())
+                .upiName(gym.getUpiName())
+                .build();
+    }
+
+    @Transactional
+    public CollectionInfoResponse updateCollectionInfo(UpdateCollectionInfoRequest request) {
+        if (SecurityUtils.getCurrentRole() != null && !SecurityUtils.isOwner()) {
+            throw new AppException(ErrorCode.ACCESS_DENIED, "Only owners can update collection info");
+        }
+        String gymId = TenantContext.getGymId();
+        Gym gym = gymRepository.findById(gymId)
+                .orElseThrow(() -> new AppException(ErrorCode.GYM_NOT_FOUND));
+
+        if (!UPI_PATTERN.matcher(request.getUpiId().trim()).matches()) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Invalid UPI ID format");
+        }
+
+        gym.setUpiId(request.getUpiId().trim());
+        gym.setUpiName(request.getUpiName() != null ? request.getUpiName().trim() : null);
+        gymRepository.save(gym);
+
+        return CollectionInfoResponse.builder()
+                .upiId(gym.getUpiId())
+                .upiName(gym.getUpiName())
+                .build();
     }
 
     public GymProfileResponse getGymProfile(boolean reveal) {

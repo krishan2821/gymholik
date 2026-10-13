@@ -23,6 +23,8 @@ public class Gym {
     private String phone;
     private GymAddress address;
     private String logoUrl;
+    private String upiId;
+    private String upiName;
 
     @Indexed(unique = true, sparse = true)
     private String gymCode;

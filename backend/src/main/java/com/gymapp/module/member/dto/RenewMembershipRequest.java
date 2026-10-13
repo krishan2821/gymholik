@@ -13,4 +13,7 @@ public class RenewMembershipRequest {
 
     // Optional: if not provided, defaults to continuous renewal (expiry of previous + 1 day, or today if expired)
     private LocalDate startDate;
+
+    private Long paidAmount; // in paise
+    private String paymentMode; // CASH, UPI, CARD
 }

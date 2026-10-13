@@ -6,35 +6,210 @@ import * as FileSystem from 'expo-file-system';
 import { safeShareAsync, safeIsAvailableAsync } from '../utils/safeSharing';
 import { getAccessToken } from '../utils/tokenUtils';
 
-import { components } from './types';
+export interface PaymentItem {
+  id: string;
+  gymId?: string;
+  memberId: string;
+  memberName?: string;
+  memberCode?: string;
+  membershipId?: string;
+  planName?: string;
+  amountPaise: number;
+  mode: string;
+  paidAt?: string;
+  receiptNo: string;
+  type: string;
+  reversalOfId?: string;
+  reason?: string;
+  collectedByName?: string;
+  referenceNo?: string;
+  createdAt?: string;
+}
 
-export type Payment = Required<components['schemas']['PaymentResponse']>;
-export type DueRecord = Required<components['schemas']['MemberDueResponse']>;
+export interface DayTotal {
+  date: string;
+  totalPaise: number;
+}
 
-export const fetchPayments = async ({ pageParam = 0, queryKey }: any) => {
+export interface PaymentListResponse {
+  payments: {
+    content: PaymentItem[];
+    page: number;
+    size: number;
+    totalElements: number;
+    totalPages: number;
+    last: boolean;
+  };
+  totalsByMode?: Record<string, number>;
+  dayTotals?: DayTotal[];
+}
+
+export interface ModeSummary {
+  paise: number;
+  percent: number;
+}
+
+export interface PaymentSummaryResponse {
+  collectedPaise: number;
+  count: number;
+  byMode: {
+    CASH?: ModeSummary;
+    UPI?: ModeSummary;
+    CARD?: ModeSummary;
+    [key: string]: ModeSummary | undefined;
+  };
+  previousPeriodPaise?: number | null;
+  percentChange?: number | null;
+  pendingDuePaise: number;
+  pendingMembersCount: number;
+}
+
+export interface MembershipSummary {
+  id: string;
+  planName?: string;
+  totalPaise: number;
+  discountPaise: number;
+  paidPaise: number;
+  duePaise: number;
+  startDate?: string;
+  expiryDate?: string;
+  status?: string;
+}
+
+export interface PaymentDetailResponse {
+  id: string;
+  receiptNo: string;
+  gymId: string;
+  memberId: string;
+  memberName: string;
+  memberCode?: string;
+  membershipId?: string;
+  planName?: string;
+  amountPaise: number;
+  mode: string;
+  type: string;
+  paidAt?: string;
+  createdAt?: string;
+  collectedByName?: string;
+  collectedByUserId?: string;
+  referenceNo?: string;
+  reason?: string;
+  note?: string;
+  membershipSummary?: MembershipSummary;
+  reversalOfId?: string;
+  reversalOfReceiptNo?: string;
+  reversedByPaymentId?: string;
+  reversalReceiptNo?: string;
+  reversedAt?: string;
+}
+
+export interface DueItem {
+  memberId: string;
+  name?: string;
+  memberName?: string;
+  memberCode?: string;
+  phone?: string;
+  membershipId?: string;
+  planName?: string;
+  duePaise: number;
+  totalDuePaise?: number;
+  totalPaise: number;
+  paidPaise: number;
+  expiryDate?: string;
+  daysOverdue?: number;
+  daysToExpiry?: number;
+  lastPaymentAt?: string;
+  promisedDate?: string;
+  promiseBroken?: boolean;
+}
+
+export interface DuesListResponse {
+  items: DueItem[];
+  content?: DueItem[];
+  totalDuePaise: number;
+  count: number;
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  last: boolean;
+}
+
+// Backward compat
+export type Payment = PaymentItem;
+export type DueRecord = DueItem;
+
+/**
+ * Universal invalidate helper for payments, summary, dues, dashboard and member queries.
+ */
+export const invalidatePaymentQueries = (queryClient: any) => {
+  queryClient.invalidateQueries({ queryKey: ['payments'] });
+  queryClient.invalidateQueries({ queryKey: ['payments-summary'] });
+  queryClient.invalidateQueries({ queryKey: ['dues'] });
+  queryClient.invalidateQueries({ queryKey: ['members'] });
+  queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+};
+
+export const fetchPaymentSummary = async (
+  period: string = 'MONTH',
+  from?: string,
+  to?: string
+): Promise<PaymentSummaryResponse> => {
+  const { data } = await apiClient.get('/api/payments/summary', {
+    params: {
+      period,
+      from: from || undefined,
+      to: to || undefined,
+    },
+  });
+  return data?.data;
+};
+
+export const usePaymentSummary = (
+  period: string = 'MONTH',
+  from?: string,
+  to?: string,
+  enabled: boolean = true
+) => {
+  return useQuery({
+    queryKey: ['payments-summary', period, from, to],
+    queryFn: () => fetchPaymentSummary(period, from, to),
+    enabled,
+    staleTime: 1000 * 30, // 30s cache
+  });
+};
+
+export const fetchPayments = async ({ pageParam = 0, queryKey }: any): Promise<PaymentListResponse> => {
   const [_key, filters] = queryKey;
   const { data } = await apiClient.get('/api/payments', {
     params: {
       page: pageParam,
       size: 20,
-      startDate: filters?.fromDate || undefined,
-      endDate: filters?.toDate || undefined,
-      mode: filters?.mode || undefined,
+      period: filters?.period || undefined,
+      startDate: filters?.startDate || undefined,
+      endDate: filters?.endDate || undefined,
+      mode: filters?.mode && filters.mode !== 'ALL' ? filters.mode : undefined,
+      search: filters?.search?.trim() ? filters.search.trim() : undefined,
+      memberId: filters?.memberId || undefined,
     },
   });
-  // Backend returns ApiResponse<PaymentListResponse> where data.data.payments has the PagedResponse
-  if (data?.data?.payments) {
-    return data.data.payments;
-  }
   return data?.data;
 };
 
-export const usePayments = (filters: { fromDate?: string; toDate?: string; mode?: string }) => {
+export const usePayments = (filters: {
+  period?: string;
+  startDate?: string;
+  endDate?: string;
+  mode?: string;
+  search?: string;
+  memberId?: string;
+}) => {
+
   return useInfiniteQuery({
     queryKey: ['payments', filters],
     queryFn: fetchPayments,
-    getNextPageParam: (lastPage: any) => {
-      const paged = lastPage?.payments || lastPage;
+    getNextPageParam: (lastPage: PaymentListResponse) => {
+      const paged = lastPage?.payments;
       if (!paged || paged.last) return undefined;
       return (paged.page ?? 0) + 1;
     },
@@ -42,57 +217,115 @@ export const usePayments = (filters: { fromDate?: string; toDate?: string; mode?
   });
 };
 
+export const fetchPaymentDetail = async (id: string): Promise<PaymentDetailResponse> => {
+  const { data } = await apiClient.get(`/api/payments/${id}`);
+  return data?.data;
+};
+
+export const usePaymentDetail = (id: string | null) => {
+  return useQuery({
+    queryKey: ['payments', 'detail', id],
+    queryFn: () => fetchPaymentDetail(id!),
+    enabled: !!id,
+  });
+};
+
+export const fetchDues = async (
+  filter: string = 'ALL',
+  search?: string,
+  page: number = 0,
+  size: number = 50
+): Promise<DuesListResponse> => {
+  const { data } = await apiClient.get('/api/dues', {
+    params: {
+      filter,
+      search: search?.trim() ? search.trim() : undefined,
+      page,
+      size,
+    },
+  });
+  return data?.data;
+};
+
+export const useDues = (filter: string = 'ALL', search?: string) => {
+  return useQuery({
+    queryKey: ['dues', filter, search],
+    queryFn: () => fetchDues(filter, search),
+  });
+};
+
 export const useCollectPayment = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: { memberId: string; amount: number; mode: string; notes?: string }) => {
-      const { data } = await apiClient.post('/api/payments', payload);
-      return data.data;
+    mutationFn: async (payload: {
+      memberId: string;
+      membershipId?: string;
+      amount?: number;
+      amountPaise?: number;
+      mode: string;
+      notes?: string;
+      reason?: string;
+      referenceNo?: string;
+      receivedAt?: string;
+      idempotencyKey?: string;
+    }) => {
+      const body = {
+        memberId: payload.memberId,
+        membershipId: payload.membershipId,
+        amountPaise: payload.amountPaise ?? payload.amount ?? 0,
+        mode: payload.mode,
+        reason: payload.reason ?? payload.notes,
+        referenceNo: payload.referenceNo,
+        receivedAt: payload.receivedAt,
+        idempotencyKey: payload.idempotencyKey,
+      };
+      const headers = payload.idempotencyKey
+        ? { 'Idempotency-Key': payload.idempotencyKey }
+        : undefined;
+      const { data } = await apiClient.post('/api/payments', body, { headers });
+      return data?.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['payments'] });
-      queryClient.invalidateQueries({ queryKey: ['dues'] });
-      queryClient.invalidateQueries({ queryKey: ['members'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      invalidatePaymentQueries(queryClient);
     },
   });
 };
 
-export const fetchDues = async (): Promise<DueRecord[]> => {
-  const { data } = await apiClient.get('/api/dues');
-  if (data?.data?.content && Array.isArray(data.data.content)) {
-    return data.data.content;
-  }
-  if (Array.isArray(data?.data)) {
-    return data.data;
-  }
-  return [];
-};
 
-export const useDues = () => {
-  return useQuery({
-    queryKey: ['dues'],
-    queryFn: fetchDues,
-  });
-};
+export type ReversalReasonCode = 'WRONG_ENTRY' | 'DUPLICATE' | 'REFUND' | 'OTHER';
 
 export const useReversePayment = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, notes }: { id: string; notes: string }) => {
-      const { data } = await apiClient.post(`/api/payments/${id}/reverse`, { notes });
-      return data;
+    mutationFn: async ({
+      id,
+      reasonCode,
+      note,
+      notes,
+    }: {
+      id: string;
+      reasonCode?: ReversalReasonCode;
+      note?: string;
+      notes?: string;
+    }) => {
+      const body = {
+        reasonCode: reasonCode || 'OTHER',
+        note: note || notes || 'Reversal requested',
+      };
+      const { data } = await apiClient.post(`/api/payments/${id}/reverse`, body);
+      return data?.data;
     },
     onSuccess: () => {
       Toast.show({ type: 'success', text1: 'Payment reversed successfully' });
-      queryClient.invalidateQueries({ queryKey: ['payments'] });
-      queryClient.invalidateQueries({ queryKey: ['dues'] });
-      queryClient.invalidateQueries({ queryKey: ['members'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      invalidatePaymentQueries(queryClient);
     },
     onError: (error: any) => {
-      Toast.show({ type: 'error', text1: 'Reversal failed', text2: error.response?.data?.message || 'Error reversing payment' });
-    }
+      Toast.show({
+        type: 'error',
+        text1: 'Reversal failed',
+        text2: error.response?.data?.message || 'Error reversing payment',
+      });
+    },
   });
 };
 
@@ -119,8 +352,8 @@ export const downloadAndShareReceipt = async (paymentId: string, receiptNumber: 
 
     const downloadResult = await FileSystem.downloadAsync(url, fileUri, {
       headers: {
-        Authorization: `Bearer ${token}`
-      }
+        Authorization: `Bearer ${token}`,
+      },
     });
 
     if (downloadResult.status !== 200) {
@@ -140,3 +373,81 @@ export const downloadAndShareReceipt = async (paymentId: string, receiptNumber: 
     Toast.show({ type: 'error', text1: 'Failed to download receipt' });
   }
 };
+
+export interface StaffBreakdownItem {
+  userId: string;
+  name: string;
+  role: string;
+  amountPaise: number;
+}
+
+export interface DayCloseReport {
+  date: string;
+  totalCollectedPaise: number;
+  count: number;
+  reversalsCount: number;
+  reversalsPaise: number;
+  byMode: Record<string, number>;
+  expectedCashPaise: number;
+  staffBreakdown: StaffBreakdownItem[];
+  isClosed: boolean;
+  dayClose?: {
+    id: string;
+    gymId: string;
+    date: string;
+    countedCashPaise: number;
+    differencePaise: number;
+    note?: string;
+    createdAt?: string;
+  };
+}
+
+export const fetchDayCloseReport = async (date?: string): Promise<DayCloseReport> => {
+  const { data } = await apiClient.get('/api/payments/day-close', {
+    params: date ? { date } : undefined,
+  });
+  return data?.data;
+};
+
+export const useDayCloseReport = (date?: string, enabled: boolean = true) => {
+  return useQuery({
+    queryKey: ['day-close', date],
+    queryFn: () => fetchDayCloseReport(date),
+    enabled,
+  });
+};
+
+export const useSubmitDayClose = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      date,
+      countedCashPaise,
+      note,
+    }: {
+      date: string;
+      countedCashPaise: number;
+      note?: string;
+    }) => {
+      const { data } = await apiClient.post('/api/payments/day-close', {
+        date,
+        countedCashPaise,
+        note,
+      });
+      return data?.data;
+    },
+    onSuccess: (_, variables) => {
+      Toast.show({ type: 'success', text1: 'Day close submitted successfully' });
+      queryClient.invalidateQueries({ queryKey: ['day-close', variables.date] });
+      invalidatePaymentQueries(queryClient);
+    },
+    onError: (error: any) => {
+      Toast.show({
+        type: 'error',
+        text1: 'Day close failed',
+        text2: error.response?.data?.message || 'Error submitting day close',
+      });
+    },
+  });
+};
+

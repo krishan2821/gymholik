@@ -18,5 +18,9 @@ public interface PaymentRepository extends MongoRepository<Payment, String> {
     Page<Payment> findByGymIdAndMode(String gymId, String mode, Pageable pageable);
     Page<Payment> findByGymIdAndPaidAtBetween(String gymId, LocalDateTime start, LocalDateTime end, Pageable pageable);
     Page<Payment> findByGymIdAndModeAndPaidAtBetween(String gymId, String mode, LocalDateTime start, LocalDateTime end, Pageable pageable);
+    List<Payment> findAllByGymIdAndPaidAtBetween(String gymId, LocalDateTime start, LocalDateTime end);
     boolean existsByGymIdAndIdempotencyKey(String gymId, String idempotencyKey);
+    Optional<Payment> findByGymIdAndIdempotencyKey(String gymId, String idempotencyKey);
+    Optional<Payment> findByGymIdAndReversalOfId(String gymId, String reversalOfId);
+    List<Payment> findByGymIdAndMembershipId(String gymId, String membershipId);
 }

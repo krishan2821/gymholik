@@ -16,6 +16,9 @@ public class MembershipResponse {
     private String planId;
     private String planName;
     private long totalPaise;
+    private long discountPaise;
+    private String discountReason;
+    private LocalDate promisedDate;
     private long paidPaise;
     private long duePaise;
     private LocalDate startDate;

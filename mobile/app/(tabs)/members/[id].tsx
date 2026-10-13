@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -39,6 +39,9 @@ import {
   Edit2,
   Lock,
   Plus,
+  Receipt,
+  Clock,
+  Tag,
 } from 'lucide-react-native';
 import { differenceInDays, parseISO, format } from 'date-fns';
 import QRCode from 'react-native-qrcode-svg';
@@ -47,12 +50,15 @@ import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import { useBreakpoint } from '../../../src/hooks/useBreakpoint';
 import { theme } from '../../../src/theme/theme';
 import { useMember } from '../../../src/api/members';
+import { usePayments, PaymentItem } from '../../../src/api/payments';
+import { PaymentDetailSheet } from '../../../src/components/PaymentDetailSheet';
 import {
   useTrainerAssignments,
   useTrainers,
   useEndAssignment,
   useAssignMembers,
 } from '../../../src/api/trainers';
+
 import {
   useMemberNotes,
   useCreateMemberNote,
@@ -125,6 +131,20 @@ export default function MemberDetailScreen() {
   const [noteWaist, setNoteWaist] = useState('');
   const [noteHips, setNoteHips] = useState('');
   const [noteArms, setNoteArms] = useState('');
+
+  // Payments for member (OWNER / STAFF)
+  const { data: memberPaymentsData, isLoading: isLoadingPayments } = usePayments({
+    memberId: id as string,
+  });
+  const memberPayments = useMemo(() => {
+    return (
+      memberPaymentsData?.pages?.flatMap(
+        (page) => page.payments?.content || []
+      ) || []
+    );
+  }, [memberPaymentsData]);
+  const [selectedPaymentDetailId, setSelectedPaymentDetailId] = useState<string | null>(null);
+
 
   const openCreateNoteModal = () => {
     setEditingNote(null);
@@ -447,6 +467,18 @@ export default function MemberDetailScreen() {
                       <Text style={styles.detailLabel}>Total Fee</Text>
                       <Text style={styles.detailValue}>{formatMoney(currentMembership.totalPaise)}</Text>
                     </View>
+                    {(currentMembership.discountPaise || 0) > 0 && (
+                      <View style={styles.detailBox}>
+                        <Text style={styles.detailLabel}>Discount</Text>
+                        <Text style={[styles.detailValue, { color: theme.colors.primary }]}>
+                          -{formatMoney(currentMembership.discountPaise)}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={styles.detailBox}>
+                      <Text style={styles.detailLabel}>Paid</Text>
+                      <Text style={styles.detailValue}>{formatMoney(currentMembership.paidPaise)}</Text>
+                    </View>
                     <View style={styles.detailBox}>
                       <Text style={styles.detailLabel}>Due Amount</Text>
                       <Text
@@ -459,9 +491,19 @@ export default function MemberDetailScreen() {
                       </Text>
                     </View>
                   </View>
+
+                  {currentMembership.promisedDate && (
+                    <View style={styles.promisedDateRow}>
+                      <Clock size={13} color={theme.colors.warning} style={{ marginRight: 6 }} />
+                      <Text style={styles.promisedDateText}>
+                        Promised date: {currentMembership.promisedDate}
+                      </Text>
+                    </View>
+                  )}
                 </>
               )}
             </View>
+
 
             {!isTrainer && (
               <>
@@ -519,6 +561,68 @@ export default function MemberDetailScreen() {
           </View>
         )}
       </GlassCard>
+
+      {/* ── Payments History (Owner and Staff only) ────────────────── */}
+      {!isTrainer && (
+        <GlassCard style={styles.sectionCard} contentStyle={styles.sectionInner}>
+          <View style={styles.sectionHeaderRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Receipt size={18} color={theme.colors.primary} style={{ marginRight: 8 }} />
+              <Text style={styles.sectionTitle}>Payments</Text>
+            </View>
+            <Badge
+              label={`${memberPayments.length} Records`}
+              variant={memberPayments.length > 0 ? 'success' : 'neutral'}
+              size="sm"
+            />
+          </View>
+
+          {isLoadingPayments ? (
+            <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 12 }} />
+          ) : !memberPayments.length ? (
+            <Text style={styles.emptyAttendanceText}>No payment records found for this member.</Text>
+          ) : (
+            <View style={styles.paymentsListWrap}>
+              {memberPayments.map((payment: PaymentItem) => {
+                const isReversal = payment.type === 'REVERSAL' || payment.amountPaise < 0;
+                let paidTime = payment.paidAt || payment.createdAt || '';
+                try {
+                  paidTime = format(parseISO(paidTime), 'dd MMM yyyy, hh:mm a');
+                } catch {}
+
+                return (
+                  <TouchableOpacity
+                    key={payment.id}
+                    style={styles.paymentItemRow}
+                    onPress={() => setSelectedPaymentDetailId(payment.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Payment receipt ${payment.receiptNo}`}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.paymentReceiptText}>{payment.receiptNo}</Text>
+                      <Text style={styles.paymentSubText}>
+                        {paidTime} • {payment.mode}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text
+                        style={[
+                          styles.paymentAmountText,
+                          isReversal ? { color: '#FF6B6B' } : { color: theme.colors.primary },
+                        ]}
+                      >
+                        {isReversal ? '-' : '+'}{formatMoney(Math.abs(payment.amountPaise))}
+                      </Text>
+                      <Text style={styles.paymentActionHint}>Receipt details</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </GlassCard>
+      )}
+
 
       {/* ── Last 30 Days Attendance (for Trainer and others) ─────── */}
       <GlassCard style={styles.sectionCard} contentStyle={styles.sectionInner}>
@@ -956,9 +1060,18 @@ export default function MemberDetailScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* ── Payment Detail Sheet / Receipt Actions ────────────────── */}
+      <PaymentDetailSheet
+        paymentId={selectedPaymentDetailId}
+        isOwner={isOwner}
+        onClose={() => setSelectedPaymentDetailId(null)}
+        onViewMember={() => {}}
+      />
     </Screen>
   );
 }
+
 
 function DaysLeftProgressRing({
   startDate,
@@ -1577,4 +1690,54 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     marginBottom: 4,
   },
+  promisedDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(218, 241, 222, 0.08)',
+  },
+  promisedDateText: {
+    fontFamily: theme.fonts.bodyMedium,
+    fontSize: 12,
+    color: theme.colors.warning,
+  },
+  paymentsListWrap: {
+    gap: 8,
+    marginTop: 8,
+  },
+  paymentItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(218, 241, 222, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(218, 241, 222, 0.08)',
+    borderRadius: theme.radius.md,
+    padding: 12,
+    minHeight: 48,
+  },
+  paymentReceiptText: {
+    fontFamily: theme.fonts.bodySemiBold,
+    fontSize: 14,
+    color: theme.colors.text,
+  },
+  paymentSubText: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginTop: 2,
+  },
+  paymentAmountText: {
+    fontFamily: theme.fonts.headingBold,
+    fontSize: 14,
+  },
+  paymentActionHint: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 11,
+    color: theme.colors.primary,
+    marginTop: 2,
+  },
 });
+

@@ -13,6 +13,7 @@ import { theme } from '../../../src/theme/theme';
 import { useCheckIn } from '../../../src/api/attendance';
 import { Button } from '../../../src/components/Button';
 import { CheckInSuccessModal } from '../../../src/components/CheckInSuccessModal';
+import { formatMoney } from '../../../src/utils/formatters';
 import { SCANNER, COMMON } from '../../../src/constants/strings';
 
 export default function ScanScreen() {
@@ -22,10 +23,13 @@ export default function ScanScreen() {
 
   const [scannedData, setScannedData] = useState<string | null>(null);
   const [resultOverlay, setResultOverlay] = useState<{
-    type: 'success' | 'error';
+    type: 'success' | 'error' | 'warning';
     message: string;
     name?: string;
     photo?: string;
+    memberId?: string;
+    membershipId?: string;
+    duePaise?: number;
   } | null>(null);
   const lastScanTimeRef = useRef(0);
   const lastCodeRef = useRef<string | null>(null);
@@ -89,6 +93,22 @@ export default function ScanScreen() {
       const res = await checkInMutation.mutateAsync({ memberCode: data, method: 'QR' });
 
       if (isMounted.current) {
+        const hasWarning = res.data?.membershipExpiredWarning || res.data?.hasDue;
+        if (hasWarning) {
+          safeNotificationAsync(NotificationFeedbackType.Warning).catch(() => {});
+          setResultOverlay({
+            type: 'warning',
+            message: res.data?.membershipExpiredWarning
+              ? 'Membership has expired!'
+              : 'Pending fee balance',
+            name: res.data?.memberName || 'Member',
+            memberId: res.data?.memberId,
+            membershipId: res.data?.membershipId,
+            duePaise: res.data?.duePaise,
+          });
+          return;
+        }
+
         safeNotificationAsync(NotificationFeedbackType.Success).catch(() => {});
         setResultOverlay({
           type: 'success',
@@ -167,6 +187,63 @@ export default function ScanScreen() {
         }}
       />
 
+      {/* Warning Card for Expired or Due Check-In */}
+      {resultOverlay && resultOverlay.type === 'warning' && (
+        <View style={[styles.resultOverlay, styles.resultWarningOverlay]}>
+          <View style={styles.warningCard}>
+            <View style={styles.warningIconCircle}>
+              <AlertCircle color={theme.colors.warning} size={44} />
+            </View>
+            <Text style={styles.warningTitle}>{resultOverlay.name || 'Member Checked In'}</Text>
+            <Text style={styles.warningSubtitle}>{resultOverlay.message}</Text>
+            {resultOverlay.duePaise ? (
+              <View style={styles.warningDueBox}>
+                <Text style={styles.warningDueLabel}>Outstanding Balance</Text>
+                <Text style={styles.warningDueAmount}>
+                  {formatMoney(resultOverlay.duePaise)}
+                </Text>
+              </View>
+            ) : null}
+
+            <View style={styles.warningActionsCol}>
+              <Button
+                title="Collect Fee"
+                variant="primary"
+                size="md"
+                onPress={() => {
+                  setResultOverlay(null);
+                  router.push({
+                    pathname: '/(tabs)/payments/collect',
+                    params: {
+                      memberId: resultOverlay.memberId,
+                      membershipId: resultOverlay.membershipId,
+                    },
+                  });
+                }}
+              />
+              <Button
+                title="Renew Now"
+                variant="secondary"
+                size="md"
+                onPress={() => {
+                  setResultOverlay(null);
+                  router.push(`/(tabs)/members/${resultOverlay.memberId}/renew`);
+                }}
+              />
+              <Button
+                title="Dismiss"
+                variant="ghost"
+                size="sm"
+                onPress={() => {
+                  setResultOverlay(null);
+                  setScannedData(null);
+                }}
+              />
+            </View>
+          </View>
+        </View>
+      )}
+
       {/* Result Error Overlay */}
       {resultOverlay && resultOverlay.type === 'error' && (
         <View style={[styles.resultOverlay, styles.resultError]}>
@@ -177,6 +254,7 @@ export default function ScanScreen() {
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
@@ -276,5 +354,65 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     marginTop: 6,
     textAlign: 'center',
+  },
+  resultWarningOverlay: {
+    backgroundColor: 'rgba(5, 31, 32, 0.92)',
+  },
+  warningCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.xl,
+    padding: theme.spacing.xl,
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 179, 0, 0.3)',
+  },
+  warningIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255, 179, 0, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  warningTitle: {
+    ...theme.typography.h2,
+    color: theme.colors.text,
+    textAlign: 'center',
+  },
+  warningSubtitle: {
+    ...theme.typography.body,
+    color: theme.colors.warning,
+    marginTop: 4,
+    marginBottom: theme.spacing.md,
+    textAlign: 'center',
+  },
+  warningDueBox: {
+    backgroundColor: 'rgba(255, 107, 107, 0.12)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: theme.radius.md,
+    marginBottom: theme.spacing.lg,
+    alignItems: 'center',
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 107, 0.25)',
+  },
+  warningDueLabel: {
+    ...theme.typography.caption,
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  warningDueAmount: {
+    ...theme.typography.h2,
+    color: theme.colors.coral,
+    marginTop: 2,
+  },
+  warningActionsCol: {
+    width: '100%',
+    gap: theme.spacing.sm,
   },
 });

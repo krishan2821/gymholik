@@ -29,7 +29,10 @@ public class Payment extends TenantDocument {
     private String reason;
     private String receiptNo;
     private LocalDateTime paidAt;
+    private LocalDateTime receivedAt;
     private String receivedBy;
     private String note;
     private String idempotencyKey;
+    private String referenceNo;
+    private String reasonCode;
 }

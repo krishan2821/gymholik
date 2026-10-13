@@ -220,8 +220,310 @@ Open in browser: `http://localhost:8080/swagger-ui.html`
 
 ---
 
+## 9. Payments & Dues API Examples
+
+Use an owner access token (`export ACCESS_TOKEN="ey..."`) or staff access token. Note that all monetary values are in **paise** (1 INR = 100 paise).
+
+### 9.1 Get Payment Summary (OWNER Only)
+Cached per gym for 30s. Automatically evicted on payment, reversal, or membership change.
+
+```bash
+# Period can be TODAY, WEEK, MONTH, ALL (default: MONTH)
+curl -s -X GET "http://localhost:8080/api/payments/summary?period=TODAY" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" | jq .
+
+# Custom date range
+curl -s -X GET "http://localhost:8080/api/payments/summary?from=2026-10-01&to=2026-10-15" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" | jq .
+```
+
+**Expected response:**
+```json
+{
+  "success": true,
+  "message": "Payment summary fetched successfully",
+  "data": {
+    "collectedPaise": 500000,
+    "count": 5,
+    "byMode": {
+      "CASH": { "paise": 200000, "percent": 40.0 },
+      "UPI":  { "paise": 300000, "percent": 60.0 },
+      "CARD": { "paise": 0,      "percent": 0.0 }
+    },
+    "previousPeriodPaise": 400000,
+    "percentChange": 25.0,
+    "pendingDuePaise": 150000,
+    "pendingMembersCount": 3
+  }
+}
+```
+
+---
+
+### 9.2 Record a Payment (OWNER or STAFF)
+- `referenceNo`: Optional, max 40 chars (e.g. UPI txn id or last 4 digits of card).
+- `receivedAt`: Optional business date (defaults to today). A past date up to 31 days back is allowed for OWNER only (triggers `PAYMENT_BACKDATED` audit).
+
+```bash
+curl -s -X POST http://localhost:8080/api/payments \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -d '{
+    "memberId":     "<member-mongo-id>",
+    "membershipId": "<membership-mongo-id>",
+    "amountPaise":  250000,
+    "mode":         "UPI",
+    "referenceNo":  "UPI-992384729182",
+    "receivedAt":   "2026-10-13",
+    "reason":       "Membership subscription partial payment"
+  }' | jq .
+```
+
+---
+
+### 9.3 List Grouped-Ready Payments (OWNER or STAFF)
+- OWNER sees all gym payments.
+- STAFF sees only payments collected by them in the last 7 days (with masked phone numbers).
+- TRAINER is forbidden (403).
+
+```bash
+curl -s -X GET "http://localhost:8080/api/payments?period=MONTH&mode=UPI&search=Rahul&page=0&size=20" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" | jq .
+```
+
+**Expected response:**
+```json
+{
+  "success": true,
+  "message": "Payments fetched successfully",
+  "data": {
+    "items": [
+      {
+        "id": "670c...",
+        "receiptNo": "FIT-00001",
+        "memberId": "670c...",
+        "memberName": "Rahul Sharma",
+        "memberCode": "FIT-M001",
+        "planName": "Monthly Gold",
+        "amountPaise": 250000,
+        "mode": "UPI",
+        "type": "PAYMENT",
+        "paidAt": "2026-10-13T10:30:00Z",
+        "collectedByName": "Priya Staff",
+        "referenceNo": "UPI-992384729182"
+      }
+    ],
+    "dayTotals": [
+      {
+        "date": "2026-10-13",
+        "totalPaise": 250000
+      }
+    ],
+    "page": 0,
+    "size": 20,
+    "totalElements": 1,
+    "totalPages": 1,
+    "last": true
+  }
+}
+```
+
+---
+
+### 9.4 Get Payment Detail (OWNER or STAFF)
+Includes membership payment snapshot and reversal tracking.
+
+```bash
+curl -s -X GET "http://localhost:8080/api/payments/<payment-id>" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" | jq .
+```
+
+**Expected response:**
+```json
+{
+  "success": true,
+  "message": "Payment details fetched successfully",
+  "data": {
+    "id": "670c...",
+    "receiptNo": "FIT-00001",
+    "memberId": "670c...",
+    "memberName": "Rahul Sharma",
+    "memberCode": "FIT-M001",
+    "planName": "Monthly Gold",
+    "amountPaise": 250000,
+    "mode": "UPI",
+    "type": "PAYMENT",
+    "paidAt": "2026-10-13T10:30:00Z",
+    "collectedByName": "Priya Staff",
+    "referenceNo": "UPI-992384729182",
+    "membershipSummary": {
+      "membershipId": "670c...",
+      "planName": "Monthly Gold",
+      "totalPaise": 500000,
+      "discountPaise": 0,
+      "paidPaise": 250000,
+      "duePaise": 250000
+    },
+    "isReversed": false
+  }
+}
+```
+
+---
+
+### 9.5 Reverse a Payment (OWNER Only)
+Requires `reasonCode` (`WRONG_ENTRY`, `DUPLICATE`, `REFUND`, `OTHER`) and a note (5-300 characters). Cannot reverse a reversal; each payment can only be reversed once.
+
+```bash
+curl -s -X POST "http://localhost:8080/api/payments/<payment-id>/reverse" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -d '{
+    "reasonCode": "WRONG_ENTRY",
+    "note": "Cashier entered incorrect amount"
+  }' | jq .
+```
+
+---
+
+### 9.6 Download Payment Receipt PDF (OWNER or STAFF)
+
+```bash
+curl -s -X GET "http://localhost:8080/api/payments/<payment-id>/receipt" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -o receipt.pdf
+```
+
+---
+
+### 9.7 List Dues (OWNER or STAFF)
+- `filter` options: `ALL`, `OVERDUE`, `EXPIRING`, `PARTIAL` (default: `ALL`).
+- Sorted by `duePaise` descending, then most overdue first.
+- Returns `promisedDate` and `promiseBroken` flag when the date has passed and due is still positive.
+
+```bash
+curl -s -X GET "http://localhost:8080/api/dues?filter=OVERDUE&search=Rahul&page=0&size=20" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" | jq .
+```
+
+**Expected response:**
+```json
+{
+  "success": true,
+  "message": "Dues fetched successfully",
+  "data": {
+    "items": [
+      {
+        "memberId": "670c...",
+        "name": "Rahul Sharma",
+        "memberCode": "FIT-M001",
+        "phone": "+91 98*** ***11",
+        "planName": "Monthly Gold",
+        "duePaise": 250000,
+        "totalPaise": 500000,
+        "paidPaise": 250000,
+        "expiryDate": "2026-10-10",
+        "daysOverdue": 3,
+        "lastPaymentAt": "2026-10-01T12:00:00Z",
+        "promisedDate": "2026-10-12",
+        "promiseBroken": true
+      }
+    ],
+    "totalDuePaise": 250000,
+    "count": 1,
+    "page": 0,
+    "size": 20,
+    "totalElements": 1,
+    "totalPages": 1,
+    "last": true
+  }
+}
+```
+
+---
+
+### 9.8 Apply Membership Discount (OWNER Only)
+Applies a controlled discount on an existing membership. The discount cannot make the due negative and cannot be greater than the current balance due. Evicts dashboard and summary caches.
+
+```bash
+curl -s -X POST "http://localhost:8080/api/memberships/<membership-id>/discount" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -d '{
+    "discountPaise": 50000,
+    "reason": "Promotional loyalty discount approved by management"
+  }' | jq .
+```
+
+---
+
+### 9.9 Set Promised Payment Date (OWNER or STAFF)
+Sets the date by which the balance will be paid. Must be in the future and at most 90 days ahead.
+
+```bash
+curl -s -X PATCH "http://localhost:8080/api/memberships/<membership-id>/promised-date" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -d '{
+    "promisedDate": "2026-11-01"
+  }' | jq .
+```
+
+### 9.10 Gym Collection Info (OWNER and STAFF)
+Get or update the gym's collection UPI ID and name for collecting fees. Completely separate from Gymholik platform subscription UPI.
+
+```bash
+# Get Gym Collection Info (OWNER, STAFF)
+curl -s -X GET http://localhost:8080/api/gym/collection-info \
+  -H "Authorization: Bearer $ACCESS_TOKEN" | jq .
+
+# Update Gym Collection Info (OWNER only)
+curl -s -X PUT http://localhost:8080/api/gym/collection-info \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -d '{
+    "upiId": "gymfitness@okhdfcbank",
+    "upiName": "Gym Fitness Collections"
+  }' | jq .
+```
+
+---
+
+### 9.11 Download Payment / Reversal Receipt PDF (OWNER or STAFF)
+Generates OpenPDF receipt including gym details, member details (without phone), plan details, amounts in figures & Indian words, mode, reference number, balance due, staff first name, and footer.
+
+```bash
+curl -s -X GET "http://localhost:8080/api/payments/<payment-id>/receipt" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  --output receipt.pdf
+```
+
+---
+
+### 9.12 Day-Close Report and Submission (OWNER Only)
+Reconcile cash drawer and payments for a business date.
+
+```bash
+# Get Day-Close Report
+curl -s -X GET "http://localhost:8080/api/payments/day-close?date=2026-10-13" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" | jq .
+
+# Submit Day-Close (Lock drawer counts; immutable after submission)
+curl -s -X POST http://localhost:8080/api/payments/day-close \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -d '{
+    "date": "2026-10-13",
+    "countedCashPaise": 300000,
+    "note": "Drawer cash verified with evening shift handover"
+  }' | jq .
+```
+
+---
+
 ## Run All Tests
 
 ```bash
 cd backend && mvn clean test
 ```
+

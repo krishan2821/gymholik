@@ -14,4 +14,6 @@ public class GymSettingsRequest {
     private boolean allowExpiredCheckin;
     private int reminderDaysBefore;
     private Boolean staffCanSeeFullPhone;
+    private String upiId;
+    private String upiName;
 }

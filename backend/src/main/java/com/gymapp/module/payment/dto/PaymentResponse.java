@@ -14,7 +14,9 @@ public class PaymentResponse {
     private String gymId;
     private String memberId;
     private String memberName;
+    private String memberCode;
     private String membershipId;
+    private String planName;
     private long amountPaise;
     private String mode;
     private LocalDateTime paidAt;
@@ -22,5 +24,7 @@ public class PaymentResponse {
     private String type;
     private String reversalOfId;
     private String reason;
+    private String collectedByName;
+    private String referenceNo;
     private LocalDateTime createdAt;
 }
