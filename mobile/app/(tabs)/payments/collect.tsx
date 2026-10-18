@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Platform,
   Alert,
+  Animated,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -96,7 +97,11 @@ export default function CollectPaymentScreen() {
   const [paymentDate, setPaymentDate] = useState<string>(() => {
     return new Date().toISOString().split('T')[0];
   });
+  const [dateChip, setDateChip] = useState<'today' | 'yesterday' | 'other'>('today');
   const [promiseDate, setPromiseDate] = useState<string>('');
+  const [promiseDateChip, setPromiseDateChip] = useState<'7' | '15' | '30' | 'custom' | null>(
+    null
+  );
 
   // UPI QR toggle
   const [showUpiQr, setShowUpiQr] = useState(false);
@@ -106,8 +111,13 @@ export default function CollectPaymentScreen() {
   const [discountAmountStr, setDiscountAmountStr] = useState('');
   const [discountReason, setDiscountReason] = useState('');
 
-  // Idempotency key per attempt
+  // Idempotency key per attempt & submit safety
   const idempotencyKeyRef = useRef<string>(generateIdempotencyKey());
+  const isSubmittingRef = useRef<boolean>(false);
+
+  // Animation values for success check
+  const checkScale = useRef(new Animated.Value(0.5)).current;
+  const checkOpacity = useRef(new Animated.Value(0)).current;
 
   // Error banner state
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -122,6 +132,27 @@ export default function CollectPaymentScreen() {
     memberName?: string;
   } | null>(null);
   const [isSharingReceipt, setIsSharingReceipt] = useState(false);
+
+  useEffect(() => {
+    if (successPayment) {
+      Animated.parallel([
+        Animated.spring(checkScale, {
+          toValue: 1,
+          friction: 4,
+          tension: 50,
+          useNativeDriver: true,
+        }),
+        Animated.timing(checkOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      checkScale.setValue(0.5);
+      checkOpacity.setValue(0);
+    }
+  }, [successPayment]);
 
   // Fetch Member Details
   const {
@@ -251,6 +282,44 @@ export default function CollectPaymentScreen() {
     setSelectedChip('custom');
   };
 
+  // Date calculation helpers
+  const getTodayStr = () => new Date().toISOString().split('T')[0];
+  const getYesterdayStr = () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().split('T')[0];
+  };
+  const getFutureDateStr = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split('T')[0];
+  };
+
+  const isPaymentDateValid = useMemo(() => {
+    if (!isOwner || !paymentDate) return true;
+    const parts = paymentDate.split('-');
+    if (parts.length !== 3) return false;
+    const pDate = new Date(paymentDate + 'T00:00:00');
+    if (isNaN(pDate.getTime())) return false;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const minDate = new Date(today);
+    minDate.setDate(minDate.getDate() - 31);
+    return pDate <= today && pDate >= minDate;
+  }, [isOwner, paymentDate]);
+
+  const isPromiseDateValid = useMemo(() => {
+    if (!promiseDate.trim()) return true;
+    const parts = promiseDate.trim().split('-');
+    if (parts.length !== 3) return false;
+    const pDate = new Date(promiseDate.trim() + 'T00:00:00');
+    if (isNaN(pDate.getTime())) return false;
+    const now = new Date();
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const maxDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 90);
+    return pDate >= tomorrow && pDate <= maxDate;
+  }, [promiseDate]);
+
   // Validation
   const validationError = useMemo(() => {
     if (!selectedMemberId) return null;
@@ -260,11 +329,20 @@ export default function CollectPaymentScreen() {
     if (inputAmountPaise > duePaise) {
       return ERRORS.AMOUNT_EXCEEDS_DUE;
     }
+    if (!isPaymentDateValid) {
+      return COLLECT.INVALID_DATE_RANGE;
+    }
+    if (promiseDate.trim() && !isPromiseDateValid) {
+      return COLLECT.INVALID_PROMISE_DATE;
+    }
     return null;
-  }, [selectedMemberId, inputAmountPaise, duePaise]);
+  }, [selectedMemberId, inputAmountPaise, duePaise, isPaymentDateValid, promiseDate, isPromiseDateValid]);
 
   // Submit Payment
   const handleSubmitPayment = async () => {
+    if (isSubmittingRef.current || collectPaymentMutation.isPending) {
+      return;
+    }
     if (validationError) {
       setErrorMessage(validationError);
       return;
@@ -275,6 +353,7 @@ export default function CollectPaymentScreen() {
     }
 
     setErrorMessage(null);
+    isSubmittingRef.current = true;
 
     // Save promise date in background if OWNER specified it and balance remains
     if (isOwner && balanceAfterPaise > 0 && promiseDate.trim() && chosenMembership?.id) {
@@ -312,15 +391,27 @@ export default function CollectPaymentScreen() {
         memberName: member?.name,
       });
     } catch (err: any) {
-      const msg =
-        err?.response?.data?.message ||
-        (err?.message?.includes('Network') ? ERRORS.NETWORK : ERRORS.GENERIC);
+      const status = err?.response?.status;
+      const code = err?.response?.data?.code || err?.response?.data?.errorCode;
+      let msg = err?.response?.data?.message;
+
+      if (status === 402 || code === 'SUBSCRIPTION_EXPIRED') {
+        msg = COLLECT.SUBSCRIPTION_EXPIRED_ERR;
+      } else if (status === 409 || code === 'DUPLICATE' || code === 'PAYMENT_DUPLICATE') {
+        msg = COLLECT.DUPLICATE_PAYMENT_ERR;
+      } else if (err?.message?.includes('Network') || !err?.response) {
+        msg = ERRORS.NETWORK;
+      } else if (!msg) {
+        msg = ERRORS.GENERIC;
+      }
       setErrorMessage(msg);
       Toast.show({
         type: 'error',
         text1: 'Payment Failed',
         text2: msg,
       });
+    } finally {
+      isSubmittingRef.current = false;
     }
   };
 
@@ -418,7 +509,11 @@ export default function CollectPaymentScreen() {
     const amtStr = formatMoney(successPayment.amountPaise);
     const recNo = successPayment.receiptNo;
     const gymName = gymProfile?.name || 'our gym';
-    const msg = `Hello ${successPayment.memberName || ''}, thank you for your payment of ${amtStr} at ${gymName}. Receipt No: ${recNo}.`;
+    const balStr =
+      successPayment.remainingDuePaise === 0
+        ? COLLECT.FULLY_PAID
+        : COLLECT.BALANCE_DUE(formatMoney(successPayment.remainingDuePaise));
+    const msg = `Hello ${successPayment.memberName || 'Member'}, thank you for your payment of ${amtStr} at ${gymName}. Receipt No: ${recNo}. ${balStr}.`;
     safeOpenURL(`https://wa.me/91${phone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`);
   };
 
@@ -450,9 +545,10 @@ export default function CollectPaymentScreen() {
     const pn = encodeURIComponent(collectionInfo.upiName || gymProfile?.name || 'Gym');
     const am = encodeURIComponent((inputAmountPaise / 100).toFixed(2));
     const code = member?.memberCode || 'MEMBER';
-    const noteStr = encodeURIComponent(`Gym fee ${code}`);
-    return `upi://pay?pa=${pa}&pn=${pn}&am=${am}&cu=INR&tn=${noteStr}`;
-  }, [collectionInfo, gymProfile, inputAmountPaise, member]);
+    const noteText = note.trim() ? `${code} - ${note.trim()}` : `Gym fee ${code}`;
+    const tn = encodeURIComponent(noteText);
+    return `upi://pay?pa=${pa}&pn=${pn}&am=${am}&cu=INR&tn=${tn}`;
+  }, [collectionInfo, gymProfile, inputAmountPaise, member, note]);
 
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER: SUCCESS SCREEN
@@ -461,9 +557,17 @@ export default function CollectPaymentScreen() {
     return (
       <Screen style={styles.centerContainer}>
         <View style={styles.successCard}>
-          <View style={styles.successIconCircle}>
+          <Animated.View
+            style={[
+              styles.successIconCircle,
+              {
+                transform: [{ scale: checkScale }],
+                opacity: checkOpacity,
+              },
+            ]}
+          >
             <CheckCircle color={theme.colors.primary} size={64} strokeWidth={2.4} />
-          </View>
+          </Animated.View>
 
           <Text style={styles.successTitle}>{COLLECT.SUCCESS_TITLE}</Text>
           <Text style={styles.successAmount}>{formatMoney(successPayment.amountPaise)}</Text>
@@ -652,6 +756,11 @@ export default function CollectPaymentScreen() {
             >
               <X color={theme.colors.text} size={20} />
             </TouchableOpacity>
+          </View>
+
+          <View style={styles.discountAlertBanner}>
+            <AlertTriangle size={16} color={theme.colors.warning} style={{ marginRight: 8 }} />
+            <Text style={styles.discountAlertText}>{COLLECT.DISCOUNT_CANNOT_BE_UNDONE}</Text>
           </View>
 
           <Text style={styles.label}>{COLLECT.DISCOUNT_AMOUNT_LABEL} (₹)</Text>
@@ -1061,45 +1170,188 @@ export default function CollectPaymentScreen() {
               placeholderTextColor={theme.colors.textMuted}
               value={note}
               onChangeText={setNote}
+              maxLength={140}
             />
 
-            {/* OWNER Only: Date row (up to 31 days back) */}
+            {/* OWNER Only: Date row (default today; quick chips Today, Yesterday, Other up to 31 days back) */}
             {isOwner && (
-              <View style={styles.ownerOptionRow}>
-                <View style={{ flex: 1, marginRight: 12 }}>
-                  <Text style={[styles.label, { marginTop: 14 }]}>
-                    {COLLECT.PAYMENT_DATE_LABEL}
-                  </Text>
-                  <View style={styles.inputWithIcon}>
-                    <Calendar size={16} color={theme.colors.textMuted} style={{ marginRight: 8 }} />
-                    <TextInput
-                      style={styles.dateInput}
-                      value={paymentDate}
-                      onChangeText={setPaymentDate}
-                      placeholder="YYYY-MM-DD"
-                      placeholderTextColor={theme.colors.textMuted}
-                      maxLength={10}
-                    />
-                  </View>
+              <View style={{ marginTop: 16 }}>
+                <Text style={styles.label}>{COLLECT.PAYMENT_DATE_LABEL}</Text>
+                <View style={styles.chipsRowSmall}>
+                  <TouchableOpacity
+                    style={[styles.smallChip, dateChip === 'today' && styles.smallChipActive]}
+                    onPress={() => {
+                      setDateChip('today');
+                      setPaymentDate(getTodayStr());
+                    }}
+                    accessibilityRole="button"
+                  >
+                    <Text
+                      style={[
+                        styles.smallChipText,
+                        dateChip === 'today' && styles.smallChipTextActive,
+                      ]}
+                    >
+                      Today
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.smallChip, dateChip === 'yesterday' && styles.smallChipActive]}
+                    onPress={() => {
+                      setDateChip('yesterday');
+                      setPaymentDate(getYesterdayStr());
+                    }}
+                    accessibilityRole="button"
+                  >
+                    <Text
+                      style={[
+                        styles.smallChipText,
+                        dateChip === 'yesterday' && styles.smallChipTextActive,
+                      ]}
+                    >
+                      Yesterday
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.smallChip, dateChip === 'other' && styles.smallChipActive]}
+                    onPress={() => setDateChip('other')}
+                    accessibilityRole="button"
+                  >
+                    <Text
+                      style={[
+                        styles.smallChipText,
+                        dateChip === 'other' && styles.smallChipTextActive,
+                      ]}
+                    >
+                      Other
+                    </Text>
+                  </TouchableOpacity>
                 </View>
 
-                {/* OWNER Promise Date if balance remaining */}
-                {balanceAfterPaise > 0 && (
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.label, { marginTop: 14 }]}>
-                      {COLLECT.PROMISE_DATE_LABEL}
-                    </Text>
+                {dateChip === 'other' && (
+                  <View style={{ marginTop: 8 }}>
                     <View style={styles.inputWithIcon}>
-                      <Clock size={16} color={theme.colors.textMuted} style={{ marginRight: 8 }} />
+                      <Calendar size={16} color={theme.colors.textMuted} style={{ marginRight: 8 }} />
                       <TextInput
                         style={styles.dateInput}
-                        value={promiseDate}
-                        onChangeText={setPromiseDate}
+                        value={paymentDate}
+                        onChangeText={setPaymentDate}
                         placeholder="YYYY-MM-DD"
                         placeholderTextColor={theme.colors.textMuted}
                         maxLength={10}
                       />
                     </View>
+                    <Text style={styles.dateHelperText}>Allowed up to 31 days back</Text>
+                  </View>
+                )}
+
+                {/* OWNER Promise Date if balance remaining */}
+                {balanceAfterPaise > 0 && (
+                  <View style={{ marginTop: 16 }}>
+                    <View style={styles.promiseHeaderRow}>
+                      <Text style={styles.label}>{COLLECT.PROMISE_DATE_LABEL}</Text>
+                      <Text style={styles.promiseRuleText}>{COLLECT.PROMISE_DATE_RULE}</Text>
+                    </View>
+
+                    <View style={styles.chipsRowSmall}>
+                      <TouchableOpacity
+                        style={[
+                          styles.smallChip,
+                          promiseDateChip === '7' && styles.smallChipActive,
+                        ]}
+                        onPress={() => {
+                          setPromiseDateChip('7');
+                          setPromiseDate(getFutureDateStr(7));
+                        }}
+                        accessibilityRole="button"
+                      >
+                        <Text
+                          style={[
+                            styles.smallChipText,
+                            promiseDateChip === '7' && styles.smallChipTextActive,
+                          ]}
+                        >
+                          +7 days
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.smallChip,
+                          promiseDateChip === '15' && styles.smallChipActive,
+                        ]}
+                        onPress={() => {
+                          setPromiseDateChip('15');
+                          setPromiseDate(getFutureDateStr(15));
+                        }}
+                        accessibilityRole="button"
+                      >
+                        <Text
+                          style={[
+                            styles.smallChipText,
+                            promiseDateChip === '15' && styles.smallChipTextActive,
+                          ]}
+                        >
+                          +15 days
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.smallChip,
+                          promiseDateChip === '30' && styles.smallChipActive,
+                        ]}
+                        onPress={() => {
+                          setPromiseDateChip('30');
+                          setPromiseDate(getFutureDateStr(30));
+                        }}
+                        accessibilityRole="button"
+                      >
+                        <Text
+                          style={[
+                            styles.smallChipText,
+                            promiseDateChip === '30' && styles.smallChipTextActive,
+                          ]}
+                        >
+                          +30 days
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.smallChip,
+                          promiseDateChip === 'custom' && styles.smallChipActive,
+                        ]}
+                        onPress={() => setPromiseDateChip('custom')}
+                        accessibilityRole="button"
+                      >
+                        <Text
+                          style={[
+                            styles.smallChipText,
+                            promiseDateChip === 'custom' && styles.smallChipTextActive,
+                          ]}
+                        >
+                          Custom
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {(promiseDateChip === 'custom' || !promiseDateChip) && (
+                      <View style={{ marginTop: 8 }}>
+                        <View style={styles.inputWithIcon}>
+                          <Clock size={16} color={theme.colors.textMuted} style={{ marginRight: 8 }} />
+                          <TextInput
+                            style={styles.dateInput}
+                            value={promiseDate}
+                            onChangeText={(t) => {
+                              setPromiseDate(t);
+                              setPromiseDateChip('custom');
+                            }}
+                            placeholder="YYYY-MM-DD"
+                            placeholderTextColor={theme.colors.textMuted}
+                            maxLength={10}
+                          />
+                        </View>
+                        <Text style={styles.dateHelperText}>Tomorrow to 90 days</Text>
+                      </View>
+                    )}
                   </View>
                 )}
               </View>
@@ -1114,8 +1366,13 @@ export default function CollectPaymentScreen() {
               title={COLLECT.ACTION_COLLECT(formatMoney(inputAmountPaise))}
               variant="primary"
               size="lg"
-              loading={collectPaymentMutation.isPending}
-              disabled={Boolean(validationError) || inputAmountPaise <= 0}
+              loading={collectPaymentMutation.isPending || isSubmittingRef.current}
+              disabled={
+                Boolean(validationError) ||
+                inputAmountPaise <= 0 ||
+                collectPaymentMutation.isPending ||
+                isSubmittingRef.current
+              }
               onPress={handleSubmitPayment}
             />
           </View>
@@ -1750,5 +2007,68 @@ const styles = StyleSheet.create({
   successBottomRow: {
     flexDirection: 'row',
     marginTop: 4,
+  },
+  discountAlertBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 107, 107, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 107, 0.3)',
+    borderRadius: theme.radius.md,
+    padding: 10,
+    marginBottom: 16,
+  },
+  discountAlertText: {
+    fontFamily: theme.fonts.bodyMedium,
+    fontSize: 13,
+    color: theme.colors.error,
+  },
+  chipsRowSmall: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 6,
+  },
+  smallChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(218, 241, 222, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(218, 241, 222, 0.14)',
+    borderRadius: theme.radius.full,
+    minHeight: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  smallChipActive: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  smallChipText: {
+    fontFamily: theme.fonts.bodyMedium,
+    fontSize: 12,
+    color: theme.colors.text,
+  },
+  smallChipTextActive: {
+    fontFamily: theme.fonts.bodyBold,
+    color: theme.colors.textOnPrimary,
+  },
+  promiseHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  promiseRuleText: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 11,
+    color: theme.colors.textMuted,
+  },
+  dateHelperText: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 11,
+    color: theme.colors.textMuted,
+    marginTop: 4,
+    marginLeft: 2,
   },
 });

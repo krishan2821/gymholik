@@ -439,6 +439,11 @@ export const COLLECT = {
   DONE: 'Done',
   SUBMIT: 'Record payment',
   SUBSCRIPTION_EXPIRED_ERR: 'Gym subscription is expired or inactive. Payments cannot be collected.',
+  DISCOUNT_CANNOT_BE_UNDONE: 'This cannot be undone',
+  PROMISE_DATE_RULE: 'Sets a reminder on Dues',
+  DUPLICATE_PAYMENT_ERR: 'Duplicate payment detected. Please check payment history.',
+  INVALID_DATE_RANGE: 'Date must be within the last 31 days',
+  INVALID_PROMISE_DATE: 'Promise date must be between tomorrow and 90 days ahead',
 } as const;
 
 
