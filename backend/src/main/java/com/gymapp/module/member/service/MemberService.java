@@ -48,6 +48,7 @@ public class MemberService {
     private final com.gymapp.module.trainer.service.TrainerAssignmentService trainerAssignmentService;
     private final com.gymapp.module.dashboard.service.DashboardService dashboardService;
     private final AuditLogService auditLogService;
+    private final MembershipLedgerService membershipLedgerService;
     @org.springframework.context.annotation.Lazy
     private final com.gymapp.module.payment.service.PaymentService paymentService;
 
@@ -130,12 +131,9 @@ public class MemberService {
             mongoTemplate.save(initialPayment);
         }
 
-        if (dashboardService != null) {
-            dashboardService.evictCache(gymId);
-        }
-        if (paymentService != null) {
-            paymentService.evictSummaryCache(gymId);
-        }
+        membershipLedgerService.recalculate(gymId, membership.getId());
+        member = memberRepository.findByIdAndGymId(member.getId(), gymId).orElse(member);
+        membership = membershipRepository.findByIdAndGymId(membership.getId(), gymId).orElse(membership);
 
         return mapToResponse(member, membership);
     }
@@ -366,12 +364,6 @@ public class MemberService {
 
         newMembership = membershipRepository.save(newMembership);
 
-        member.setCurrentDuePaise(member.getCurrentDuePaise() + initialDue);
-        if (member.getCurrentExpiry() == null || expiryDate.isAfter(member.getCurrentExpiry())) {
-            member.setCurrentExpiry(expiryDate);
-        }
-        memberRepository.save(member);
-
         if (initialPaid > 0) {
             String receiptNo = sequenceService.generateNextReceiptNo(gymId);
             String currentUserId = com.gymapp.security.SecurityUtils.getCurrentUserId();
@@ -399,12 +391,8 @@ public class MemberService {
              }
         }
 
-        if (dashboardService != null) {
-            dashboardService.evictCache(gymId);
-        }
-        if (paymentService != null) {
-            paymentService.evictSummaryCache(gymId);
-        }
+        membershipLedgerService.recalculate(gymId, newMembership.getId());
+        newMembership = membershipRepository.findByIdAndGymId(newMembership.getId(), gymId).orElse(newMembership);
 
         return mapToMembershipResponse(newMembership);
     }
@@ -488,28 +476,13 @@ public class MemberService {
         long newTotalDiscount = membership.getDiscountPaise() + request.getDiscountPaise();
         membership.setDiscountPaise(newTotalDiscount);
         membership.setDiscountReason(request.getReason() != null ? request.getReason().trim() : null);
-        long newDue = Math.max(0, membership.getTotalPaise() - newTotalDiscount - membership.getPaidPaise());
-        membership.setDuePaise(newDue);
         membership = membershipRepository.save(membership);
 
-        // Update denormalised member due
-        List<Membership> memberMemberships = membershipRepository.findByGymIdAndMemberId(gymId, membership.getMemberId());
-        long totalMemberDue = memberMemberships.stream().mapToLong(Membership::getDuePaise).sum();
-        Member member = memberRepository.findByIdAndGymId(membership.getMemberId(), gymId)
-                .orElseThrow(() -> new AppException(ErrorCode.MEMBER_NOT_FOUND));
-        member.setCurrentDuePaise(Math.max(0, totalMemberDue));
-        memberRepository.save(member);
+        membershipLedgerService.recalculate(gymId, membership.getId());
+        membership = membershipRepository.findByIdAndGymId(membership.getId(), gymId).orElse(membership);
 
         // Audit entry: DISCOUNT_APPLIED (amount only, no personal data)
         auditLogService.log("DISCOUNT_APPLIED", membership.getId(), "{\"amountPaise\":" + request.getDiscountPaise() + "}");
-
-        // Evict caches
-        if (paymentService != null) {
-            paymentService.evictSummaryCache(gymId);
-        }
-        if (dashboardService != null) {
-            dashboardService.evictCache(gymId);
-        }
 
         return mapToMembershipResponse(membership);
     }

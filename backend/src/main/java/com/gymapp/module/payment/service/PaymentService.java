@@ -14,6 +14,7 @@ import com.gymapp.module.member.entity.Member;
 import com.gymapp.module.member.entity.Membership;
 import com.gymapp.module.member.repository.MemberRepository;
 import com.gymapp.module.member.repository.MembershipRepository;
+import com.gymapp.module.member.service.MembershipLedgerService;
 import com.gymapp.module.member.service.SequenceService;
 import com.gymapp.module.payment.dto.*;
 import com.gymapp.module.payment.entity.DayClose;
@@ -63,6 +64,7 @@ public class PaymentService {
     private final DashboardService dashboardService;
     private final AuditLogService auditLogService;
     private final DayCloseRepository dayCloseRepository;
+    private final MembershipLedgerService membershipLedgerService;
 
     // Cache per gym for 30 seconds
     private final Map<String, CachedSummary> summaryCache = new ConcurrentHashMap<>();
@@ -609,85 +611,184 @@ public class PaymentService {
             query.addCriteria(Criteria.where("memberId").in(matchingMemberIds));
         }
 
-        // Calculate totalDuePaise and count over all matching items
-        List<Membership> allMatching = mongoTemplate.find(Query.of(query), Membership.class);
-        long totalDuePaise = allMatching.stream().mapToLong(Membership::getDuePaise).sum();
-        long totalElements = allMatching.size();
+        List<Membership> matchingMemberships = mongoTemplate.find(query, Membership.class);
+        if (matchingMemberships.isEmpty()) {
+            return DuesListResponse.builder()
+                    .items(List.of())
+                    .content(List.of())
+                    .totalDuePaise(0L)
+                    .count(0L)
+                    .page(pageable.getPageNumber())
+                    .size(pageable.getPageSize())
+                    .totalElements(0L)
+                    .totalPages(0)
+                    .last(true)
+                    .build();
+        }
 
-        // Sort by due descending, then by most overdue (earliest expiry date first)
-        query.with(Sort.by(Sort.Order.desc("duePaise"), Sort.Order.asc("expiryDate")));
-        query.with(pageable);
+        // Group matching memberships by memberId
+        Map<String, List<Membership>> memberMemsMap = matchingMemberships.stream()
+                .collect(Collectors.groupingBy(Membership::getMemberId, LinkedHashMap::new, Collectors.toList()));
 
-        List<Membership> pageMemberships = mongoTemplate.find(query, Membership.class);
-
-        Set<String> memberIds = pageMemberships.stream().map(Membership::getMemberId).collect(Collectors.toSet());
+        Set<String> memberIds = memberMemsMap.keySet();
         Map<String, Member> memberMap = memberRepository.findByGymIdAndIdIn(gymId, memberIds).stream()
                 .collect(Collectors.toMap(Member::getId, m -> m));
 
         boolean isStaff = SecurityUtils.isStaff();
 
-        List<DueItemResponse> items = pageMemberships.stream()
-                .filter(m -> memberMap.containsKey(m.getMemberId()))
-                .map(m -> {
-                    Member member = memberMap.get(m.getMemberId());
-                    String phone = isStaff ? PhoneMasker.mask(member.getPhone()) : member.getPhone();
+        List<DueItemResponse> allMemberDueResponses = new ArrayList<>();
+        long grandTotalDuePaise = 0L;
 
-                    LocalDate expDate = m.getExpiryDate();
-                    Long daysOverdue = null;
-                    Long daysToExpiry = null;
-                    if (expDate != null) {
-                        if (expDate.isBefore(today)) {
-                            daysOverdue = ChronoUnit.DAYS.between(expDate, today);
-                        } else {
-                            daysToExpiry = ChronoUnit.DAYS.between(today, expDate);
-                        }
-                    }
+        for (Map.Entry<String, List<Membership>> entry : memberMemsMap.entrySet()) {
+            String mId = entry.getKey();
+            Member member = memberMap.get(mId);
+            if (member == null) continue;
 
-                    // Last payment date
-                    List<Payment> memPayments = paymentRepository.findByGymIdAndMembershipId(gymId, m.getId());
-                    LocalDateTime lastPaymentAt = memPayments.stream()
-                            .map(Payment::getPaidAt)
-                            .filter(Objects::nonNull)
-                            .max(LocalDateTime::compareTo)
-                            .orElse(null);
+            List<Membership> mems = entry.getValue();
+            // Sort member's memberships: earliest expiry date first, then oldest createdAt
+            mems.sort(Comparator.comparing(Membership::getExpiryDate, Comparator.nullsLast(Comparator.naturalOrder()))
+                    .thenComparing(Membership::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())));
 
-                    LocalDate promisedDate = m.getPromisedDate();
-                    Boolean promiseBroken = (promisedDate != null && promisedDate.isBefore(today) && m.getDuePaise() > 0);
+            Membership primaryMem = mems.get(0);
+            long memberTotalDue = mems.stream().mapToLong(Membership::getDuePaise).sum();
+            grandTotalDuePaise += memberTotalDue;
 
-                    return DueItemResponse.builder()
-                            .memberId(member.getId())
-                            .name(member.getName())
-                            .memberName(member.getName())
-                            .memberCode(member.getMemberCode())
-                            .phone(phone)
-                            .membershipId(m.getId())
-                            .planName(m.getPlanName())
-                            .duePaise(m.getDuePaise())
-                            .totalDuePaise(m.getDuePaise())
-                            .totalPaise(m.getTotalPaise())
-                            .paidPaise(m.getPaidPaise())
-                            .expiryDate(expDate)
-                            .daysOverdue(daysOverdue)
-                            .daysToExpiry(daysToExpiry)
-                            .lastPaymentAt(lastPaymentAt)
-                            .promisedDate(promisedDate)
-                            .promiseBroken(promiseBroken)
-                            .build();
-                })
-                .toList();
+            String phone = isStaff ? PhoneMasker.mask(member.getPhone()) : member.getPhone();
 
-        int totalPages = pageable.getPageSize() > 0 ? (int) Math.ceil((double) totalElements / pageable.getPageSize()) : 0;
+            LocalDate primaryExp = primaryMem.getExpiryDate();
+            Long daysOverdue = null;
+            Long daysToExpiry = null;
+            if (primaryExp != null) {
+                if (primaryExp.isBefore(today)) {
+                    daysOverdue = ChronoUnit.DAYS.between(primaryExp, today);
+                } else {
+                    daysToExpiry = ChronoUnit.DAYS.between(today, primaryExp);
+                }
+            }
+
+            LocalDate promisedDate = mems.stream()
+                    .map(Membership::getPromisedDate)
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .orElse(null);
+            Boolean promiseBroken = (promisedDate != null && promisedDate.isBefore(today) && memberTotalDue > 0);
+
+            // Fetch last payment across all memberships of member
+            List<Payment> allMemPayments = paymentRepository.findByGymIdAndMemberId(gymId, member.getId());
+            LocalDateTime lastPaymentAt = allMemPayments.stream()
+                    .map(Payment::getPaidAt)
+                    .filter(Objects::nonNull)
+                    .max(LocalDateTime::compareTo)
+                    .orElse(null);
+
+            List<MembershipDueItem> memDueItems = mems.stream().map(m -> MembershipDueItem.builder()
+                    .membershipId(m.getId())
+                    .planName(m.getPlanName())
+                    .totalPaise(m.getTotalPaise())
+                    .paidPaise(m.getPaidPaise())
+                    .duePaise(m.getDuePaise())
+                    .startDate(m.getStartDate())
+                    .expiryDate(m.getExpiryDate())
+                    .promisedDate(m.getPromisedDate())
+                    .promiseBroken(m.getPromisedDate() != null && m.getPromisedDate().isBefore(today) && m.getDuePaise() > 0)
+                    .build()).toList();
+
+            allMemberDueResponses.add(DueItemResponse.builder()
+                    .memberId(member.getId())
+                    .name(member.getName())
+                    .memberName(member.getName())
+                    .memberCode(member.getMemberCode())
+                    .phone(phone)
+                    .membershipId(primaryMem.getId())
+                    .planName(primaryMem.getPlanName())
+                    .duePaise(memberTotalDue)
+                    .totalDuePaise(memberTotalDue)
+                    .totalPaise(primaryMem.getTotalPaise())
+                    .paidPaise(primaryMem.getPaidPaise())
+                    .expiryDate(primaryExp)
+                    .daysOverdue(daysOverdue)
+                    .daysToExpiry(daysToExpiry)
+                    .lastPaymentAt(lastPaymentAt)
+                    .promisedDate(promisedDate)
+                    .promiseBroken(promiseBroken)
+                    .memberships(memDueItems)
+                    .build());
+        }
+
+        // Sort items: due descending, then earliest expiryDate ascending
+        allMemberDueResponses.sort(Comparator.comparing(DueItemResponse::getDuePaise, Comparator.reverseOrder())
+                .thenComparing(DueItemResponse::getExpiryDate, Comparator.nullsLast(Comparator.naturalOrder())));
+
+        long totalElements = allMemberDueResponses.size();
+        int pageSize = pageable.getPageSize() > 0 ? pageable.getPageSize() : 20;
+        int pageNumber = pageable.getPageNumber();
+        int fromIndex = pageNumber * pageSize;
+        List<DueItemResponse> pageItems;
+        if (fromIndex >= allMemberDueResponses.size()) {
+            pageItems = List.of();
+        } else {
+            int toIndex = Math.min(fromIndex + pageSize, allMemberDueResponses.size());
+            pageItems = allMemberDueResponses.subList(fromIndex, toIndex);
+        }
+
+        int totalPages = pageSize > 0 ? (int) Math.ceil((double) totalElements / pageSize) : 0;
 
         return DuesListResponse.builder()
-                .items(items)
-                .content(items)
-                .totalDuePaise(totalDuePaise)
+                .items(pageItems)
+                .content(pageItems)
+                .totalDuePaise(grandTotalDuePaise)
                 .count(totalElements)
-                .page(pageable.getPageNumber())
-                .size(pageable.getPageSize())
+                .page(pageNumber)
+                .size(pageSize)
                 .totalElements(totalElements)
                 .totalPages(totalPages)
-                .last(pageable.getPageNumber() >= totalPages - 1)
+                .last(pageNumber >= totalPages - 1)
+                .build();
+    }
+
+    public MemberPaymentContextResponse getPaymentContext(String memberId) {
+        if (SecurityUtils.isTrainer()) {
+            throw new AppException(ErrorCode.ACCESS_DENIED, "Trainers cannot access payment context");
+        }
+        if (!StringUtils.hasText(memberId)) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Member ID is required");
+        }
+
+        String gymId = TenantContext.getGymId();
+        Member member = memberRepository.findByIdAndGymId(memberId, gymId)
+                .orElseThrow(() -> new AppException(ErrorCode.MEMBER_NOT_FOUND));
+
+        List<Membership> memberships = membershipRepository.findByGymIdAndMemberId(gymId, member.getId());
+        memberships.sort(Comparator.comparing(Membership::getStartDate, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(Membership::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())));
+
+        LocalDate today = LocalDate.now(KOLKATA_ZONE);
+        List<MembershipDueItem> dueItems = memberships.stream()
+                .filter(m -> m.getDuePaise() > 0)
+                .map(m -> MembershipDueItem.builder()
+                        .membershipId(m.getId())
+                        .planName(m.getPlanName())
+                        .totalPaise(m.getTotalPaise())
+                        .paidPaise(m.getPaidPaise())
+                        .duePaise(m.getDuePaise())
+                        .startDate(m.getStartDate())
+                        .expiryDate(m.getExpiryDate())
+                        .promisedDate(m.getPromisedDate())
+                        .promiseBroken(m.getPromisedDate() != null && m.getPromisedDate().isBefore(today) && m.getDuePaise() > 0)
+                        .build())
+                .toList();
+
+        long totalDue = dueItems.stream().mapToLong(MembershipDueItem::getDuePaise).sum();
+        boolean isStaff = SecurityUtils.isStaff();
+        String phone = isStaff ? PhoneMasker.mask(member.getPhone()) : member.getPhone();
+
+        return MemberPaymentContextResponse.builder()
+                .memberId(member.getId())
+                .memberName(member.getName())
+                .memberCode(member.getMemberCode())
+                .phone(phone)
+                .totalDuePaise(totalDue)
+                .memberships(dueItems)
                 .build();
     }
 
@@ -716,9 +817,22 @@ public class PaymentService {
         Member member = memberRepository.findByIdAndGymId(request.getMemberId(), gymId)
                 .orElseThrow(() -> new AppException(ErrorCode.MEMBER_NOT_FOUND));
 
-        Membership membership = membershipRepository.findByIdAndGymId(request.getMembershipId(), gymId)
-                .filter(m -> m.getMemberId().equals(member.getId()))
-                .orElseThrow(() -> new AppException(ErrorCode.MEMBERSHIP_NOT_FOUND));
+        Membership membership;
+        if (StringUtils.hasText(request.getMembershipId())) {
+            membership = membershipRepository.findByIdAndGymId(request.getMembershipId(), gymId)
+                    .orElseThrow(() -> new AppException(ErrorCode.MEMBERSHIP_NOT_FOUND));
+            if (!member.getId().equals(membership.getMemberId())) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, "Membership does not belong to specified member");
+            }
+        } else {
+            List<Membership> memberMemberships = membershipRepository.findByGymIdAndMemberId(gymId, member.getId());
+            membership = memberMemberships.stream()
+                    .filter(m -> m.getDuePaise() > 0)
+                    .sorted(Comparator.comparing(Membership::getStartDate, Comparator.nullsLast(Comparator.naturalOrder()))
+                            .thenComparing(Membership::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())))
+                    .findFirst()
+                    .orElseThrow(() -> new AppException(ErrorCode.VALIDATION_ERROR, "Member has no membership with outstanding due"));
+        }
 
         if (request.getAmountPaise() > membership.getDuePaise()) {
             throw new AppException(ErrorCode.VALIDATION_ERROR, "Payment amount exceeds due amount");
@@ -784,26 +898,9 @@ public class PaymentService {
             auditLogService.log("PAYMENT_BACKDATED", payment.getId(), "{\"amountPaise\":" + payment.getAmountPaise() + ",\"receivedAt\":\"" + businessDate + "\"}");
         }
 
-        Update update = new Update()
-                .inc("paidPaise", request.getAmountPaise())
-                .inc("duePaise", -request.getAmountPaise());
-
-        mongoTemplate.updateFirst(
-                new Query(Criteria.where("_id").is(membership.getId()).and("gymId").is(gymId)),
-                update,
-                Membership.class
-        );
-
-        mongoTemplate.updateFirst(
-                new Query(Criteria.where("_id").is(member.getId()).and("gymId").is(gymId)),
-                new Update().inc("currentDuePaise", -request.getAmountPaise()),
-                Member.class
-        );
-
-        evictSummaryCache(gymId);
-        if (dashboardService != null) {
-            dashboardService.evictCache(gymId);
-        }
+        membershipLedgerService.recalculate(gymId, membership.getId());
+        membership = membershipRepository.findByIdAndGymId(membership.getId(), gymId).orElse(membership);
+        member = memberRepository.findByIdAndGymId(member.getId(), gymId).orElse(member);
 
         return mapToResponse(payment, member.getName(), member.getMemberCode(), membership.getPlanName());
     }
@@ -858,32 +955,15 @@ public class PaymentService {
 
         reversal = paymentRepository.save(reversal);
 
-        Membership membership = membershipRepository.findByIdAndGymId(originalPayment.getMembershipId(), gymId)
-                .orElseThrow(() -> new AppException(ErrorCode.MEMBERSHIP_NOT_FOUND));
-
-        membership.setPaidPaise(membership.getPaidPaise() - originalPayment.getAmountPaise());
-        long restoredDue = Math.max(0, membership.getTotalPaise() - membership.getDiscountPaise() - membership.getPaidPaise());
-        membership.setDuePaise(restoredDue);
-        membershipRepository.save(membership);
-
-        Member member = memberRepository.findByIdAndGymId(originalPayment.getMemberId(), gymId).orElse(null);
-        if (member != null) {
-            List<Membership> memberMemberships = membershipRepository.findByGymIdAndMemberId(gymId, member.getId());
-            long totalMemberDue = memberMemberships.stream().mapToLong(Membership::getDuePaise).sum();
-            member.setCurrentDuePaise(Math.max(0, totalMemberDue));
-            memberRepository.save(member);
-        }
+        membershipLedgerService.recalculate(gymId, originalPayment.getMembershipId());
+        Membership membership = membershipRepository.findByIdAndGymId(originalPayment.getMembershipId(), gymId).orElse(null);
+        Member member = originalPayment.getMemberId() != null ? memberRepository.findByIdAndGymId(originalPayment.getMemberId(), gymId).orElse(null) : null;
 
         // Audit entry: PAYMENT_REVERSED (amount and reason code only, no personal data)
         auditLogService.log("PAYMENT_REVERSED", originalPayment.getId(),
                 "{\"amountPaise\":" + originalPayment.getAmountPaise() + ",\"reasonCode\":\"" + request.getReasonCode().name() + "\"}");
 
-        evictSummaryCache(gymId);
-        if (dashboardService != null) {
-            dashboardService.evictCache(gymId);
-        }
-
-        return mapToResponse(reversal, member != null ? member.getName() : null, member != null ? member.getMemberCode() : null, membership.getPlanName());
+        return mapToResponse(reversal, member != null ? member.getName() : null, member != null ? member.getMemberCode() : null, membership != null ? membership.getPlanName() : null);
     }
 
     @Transactional

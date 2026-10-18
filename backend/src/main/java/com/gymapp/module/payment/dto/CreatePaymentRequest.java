@@ -16,7 +16,6 @@ public class CreatePaymentRequest {
     @NotBlank(message = "Member ID is required")
     private String memberId;
 
-    @NotBlank(message = "Membership ID is required")
     private String membershipId;
 
     @NotNull(message = "Amount is required")

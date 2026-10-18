@@ -32,4 +32,5 @@ public class DueItemResponse {
     private LocalDateTime lastPaymentAt;
     private LocalDate promisedDate;
     private Boolean promiseBroken;
+    private java.util.List<MembershipDueItem> memberships;
 }

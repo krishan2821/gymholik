@@ -96,6 +96,17 @@ public class PaymentController {
         return ResponseEntity.ok(ApiResponse.success("Dues fetched successfully", dues));
     }
 
+    @GetMapping({"/members/{id}/payment-context", "/payments/context"})
+    @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
+    @Operation(summary = "Get payment context for member including pending membership dues")
+    public ResponseEntity<ApiResponse<MemberPaymentContextResponse>> getPaymentContext(
+            @PathVariable(value = "id", required = false) String pathMemberId,
+            @RequestParam(value = "memberId", required = false) String queryMemberId) {
+        String memberId = StringUtils.hasText(pathMemberId) ? pathMemberId : queryMemberId;
+        MemberPaymentContextResponse response = paymentService.getPaymentContext(memberId);
+        return ResponseEntity.ok(ApiResponse.success("Payment context fetched successfully", response));
+    }
+
     @PostMapping("/payments/{id}/reverse")
     @PreAuthorize("hasRole('OWNER')")
     @Operation(summary = "Reverse a payment (OWNER only)")

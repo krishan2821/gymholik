@@ -70,6 +70,9 @@ class MemberServiceTest {
     @Mock
     private com.gymapp.module.audit.service.AuditLogService auditLogService;
 
+    @Mock
+    private MembershipLedgerService membershipLedgerService;
+
     @InjectMocks
     private MemberService memberService;
 

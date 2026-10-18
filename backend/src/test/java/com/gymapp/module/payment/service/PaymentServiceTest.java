@@ -41,6 +41,7 @@ class PaymentServiceTest {
     @Mock private com.gymapp.module.auth.repository.UserRepository userRepository;
     @Mock private com.gymapp.module.audit.service.AuditLogService auditLogService;
     @Mock private com.gymapp.module.payment.repository.DayCloseRepository dayCloseRepository;
+    @Mock private com.gymapp.module.member.service.MembershipLedgerService membershipLedgerService;
 
     @InjectMocks
     private PaymentService paymentService;
@@ -51,7 +52,7 @@ class PaymentServiceTest {
     }
 
     @Test
-    void testCreatePaymentUsesAtomicUpdateToPreventRaceCondition() {
+    void testCreatePaymentUsesMembershipLedgerRecalculate() {
         // Arrange
         CreatePaymentRequest request = new CreatePaymentRequest();
         request.setMemberId("M1");
@@ -77,17 +78,7 @@ class PaymentServiceTest {
         // Act
         paymentService.createPayment(request);
 
-        // Assert
-        ArgumentCaptor<Update> updateCaptor = ArgumentCaptor.forClass(Update.class);
-        verify(mongoTemplate).updateFirst(any(Query.class), updateCaptor.capture(), eq(Membership.class));
-
-        Update update = updateCaptor.getValue();
-        // Since getUpdateObject() is protected or internal, we can just verify the method was called correctly
-        // The mock will have captured the Update object which should have "$inc"
-        assertEquals(true, update.getUpdateObject().containsKey("$inc"), "Update must use atomic $inc");
-        
-        org.bson.Document incDocument = (org.bson.Document) update.getUpdateObject().get("$inc");
-        assertEquals(5000L, incDocument.get("paidPaise"));
-        assertEquals(-5000L, incDocument.get("duePaise"));
+        // Assert: verify membership ledger recalculate is invoked for single-source-of-truth consistency
+        verify(membershipLedgerService).recalculate("GYM123", "MEM1");
     }
 }
