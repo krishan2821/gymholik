@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,8 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  CheckCircle,
+  Send,
   User,
   CreditCard,
   CalendarDays,
@@ -35,8 +37,11 @@ import { PhotoPicker } from '../../../src/components/PhotoPicker';
 import { PlanPicker } from '../../../src/components/PlanPicker';
 import { useAddMember, uploadMemberPhoto } from '../../../src/api/members';
 import { usePlans } from '../../../src/api/plans';
+import { useGymProfile } from '../../../src/api/more';
+import { useAuthStore } from '../../../src/store/useAuthStore';
 import { MEMBERS, FIELDS } from '../../../src/constants/strings';
-import { formatMoney } from '../../../src/utils/formatters';
+import { formatMoney, isPhoneMasked } from '../../../src/utils/formatters';
+import { safeOpenURL } from '../../../src/utils/safeLinking';
 import { useBreakpoint } from '../../../src/hooks/useBreakpoint';
 
 const memberSchema = z.object({
@@ -137,6 +142,64 @@ export default function AddMemberScreen() {
     }
   };
 
+  const user = useAuthStore((state) => state.user);
+  const role = user?.role || useAuthStore((state) => state.role);
+  const isOwner = role === 'OWNER';
+  const isStaff = role === 'STAFF';
+  const { data: gymProfile } = useGymProfile({ enabled: isOwner || isStaff });
+
+  const [successResult, setSuccessResult] = useState<{
+    memberId: string;
+    memberName: string;
+    memberPhone?: string;
+    paidAmountPaise: number;
+    remainingDuePaise: number;
+    planName?: string;
+  } | null>(null);
+
+  const successCheckScale = useRef(new Animated.Value(0.5)).current;
+  const successCheckOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (successResult) {
+      Animated.parallel([
+        Animated.spring(successCheckScale, {
+          toValue: 1,
+          friction: 4,
+          tension: 50,
+          useNativeDriver: true,
+        }),
+        Animated.timing(successCheckOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [successResult]);
+
+  const canSendWhatsApp = useMemo(() => {
+    if (!successResult?.memberPhone) return false;
+    if (isPhoneMasked(successResult.memberPhone)) return false;
+    if (isOwner) return true;
+    if (isStaff && gymProfile?.staffCanSeeFullPhone) return true;
+    return false;
+  }, [successResult, isOwner, isStaff, gymProfile]);
+
+  const handleSendWhatsApp = () => {
+    if (!successResult?.memberPhone) return;
+    const phone = successResult.memberPhone;
+    const amtStr = formatMoney(successResult.paidAmountPaise);
+    const gymName = gymProfile?.name || 'our gym';
+    const planName = successResult.planName || 'membership';
+    const balStr =
+      successResult.remainingDuePaise === 0
+        ? 'All fees paid in full'
+        : `Balance due: ${formatMoney(successResult.remainingDuePaise)}`;
+    const msg = `Hello ${successResult.memberName}, welcome to ${gymName}! Your ${planName} membership has been activated. Fee paid: ${amtStr}. ${balStr}.`;
+    safeOpenURL(`https://wa.me/91${phone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`);
+  };
+
   const onSubmit = async (data: MemberFormData) => {
     if (paidAmount > totalAmount) {
       setError('paidAmount', { message: 'Cannot pay more than total plan fee' });
@@ -166,7 +229,17 @@ export default function AddMemberScreen() {
         }
       }
 
-      safeBack('/(tabs)/members');
+      const created = res.data;
+      const memDue = created?.currentMembership?.duePaise ?? created?.currentDuePaise ?? dueAmount;
+
+      setSuccessResult({
+        memberId: created?.id || '',
+        memberName: created?.name || data.name,
+        memberPhone: created?.phone || data.phone,
+        paidAmountPaise: paidAmount,
+        remainingDuePaise: memDue,
+        planName: selectedPlan?.name,
+      });
     } catch (error: any) {
       if (
         error.response?.data?.message?.includes('duplicate key') ||
@@ -194,6 +267,79 @@ export default function AddMemberScreen() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  if (successResult) {
+    return (
+      <Screen style={styles.centerContainer}>
+        <View style={styles.successCard}>
+          <Animated.View
+            style={[
+              styles.successIconCircle,
+              {
+                transform: [{ scale: successCheckScale }],
+                opacity: successCheckOpacity,
+              },
+            ]}
+          >
+            <CheckCircle color={theme.colors.primary} size={64} strokeWidth={2.4} />
+          </Animated.View>
+
+          <Text style={styles.successTitle}>Member Added Successfully</Text>
+          <Text style={styles.successAmount}>{formatMoney(successResult.paidAmountPaise)}</Text>
+          <Text style={styles.successSub}>
+            {successResult.paidAmountPaise > 0
+              ? `First payment received via ${selectedPaymentMode || 'CASH'}`
+              : 'No initial payment recorded'}
+          </Text>
+
+          <View style={styles.successBalanceBadge}>
+            <Text
+              style={[
+                styles.successBalanceText,
+                successResult.remainingDuePaise === 0 && { color: theme.colors.primary },
+              ]}
+            >
+              {successResult.remainingDuePaise === 0
+                ? 'All fees paid in full'
+                : `Balance due: ${formatMoney(successResult.remainingDuePaise)}`}
+            </Text>
+          </View>
+
+          <View style={styles.successActionsColumn}>
+            {canSendWhatsApp && (
+              <Button
+                title="Send on WhatsApp"
+                icon={<Send size={18} color={theme.colors.text} />}
+                onPress={handleSendWhatsApp}
+                variant="secondary"
+                size="md"
+                style={styles.actionBtn}
+              />
+            )}
+
+            <View style={styles.successBottomRow}>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Button
+                  title="View Member"
+                  variant="primary"
+                  size="md"
+                  onPress={() => router.replace(`/(tabs)/members/${successResult.memberId}`)}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button
+                  title="Done"
+                  variant="secondary"
+                  size="md"
+                  onPress={() => safeBack('/(tabs)/members')}
+                />
+              </View>
+            </View>
+          </View>
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen safeTop={false} scrollable keyboardAvoiding contentContainerStyle={[styles.scroll, isDesktop && styles.desktopScroll]}>
@@ -795,5 +941,73 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     marginTop: theme.spacing.md,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  successCard: {
+    backgroundColor: '#072728',
+    borderWidth: 1,
+    borderColor: 'rgba(218, 241, 222, 0.18)',
+    borderRadius: theme.radius.lg,
+    padding: 24,
+    alignItems: 'center',
+    maxWidth: 480,
+    width: '100%',
+  },
+  successIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(142, 182, 155, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  successTitle: {
+    fontFamily: theme.fonts.headingBold,
+    fontSize: 20,
+    color: theme.colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  successAmount: {
+    fontFamily: theme.fonts.headingBold,
+    fontSize: 32,
+    color: theme.colors.primary,
+    marginBottom: 6,
+  },
+  successSub: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  successBalanceBadge: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(218, 241, 222, 0.08)',
+    borderRadius: theme.radius.full,
+    marginBottom: 24,
+  },
+  successBalanceText: {
+    fontFamily: theme.fonts.bodySemiBold,
+    fontSize: 13,
+    color: theme.colors.coral,
+  },
+  successActionsColumn: {
+    width: '100%',
+    gap: 12,
+  },
+  actionBtn: {
+    width: '100%',
+  },
+  successBottomRow: {
+    flexDirection: 'row',
+    width: '100%',
   },
 });

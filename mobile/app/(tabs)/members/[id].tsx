@@ -508,21 +508,23 @@ export default function MemberDetailScreen() {
             {!isTrainer && (
               <>
                 <View style={styles.buttonRow}>
-                  {currentMembership.duePaise > 0 && (
-                    <View style={{ flex: 1, marginRight: 8 }}>
-                      <Button
-                        title={MEMBER_PROFILE.COLLECT}
-                        icon={<Wallet color={theme.colors.textOnPrimary} size={18} />}
-                        onPress={() =>
-                          router.push({
-                            pathname: '/(tabs)/payments/collect',
-                            params: { memberId: id },
-                          })
-                        }
-                        size="sm"
-                      />
-                    </View>
-                  )}
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <Button
+                      title={MEMBER_PROFILE.COLLECT}
+                      icon={<Wallet color={theme.colors.textOnPrimary} size={18} />}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/(tabs)/payments/collect',
+                          params: {
+                            memberId: id,
+                            membershipId: currentMembership.id,
+                          },
+                        })
+                      }
+                      size="sm"
+                      variant={currentMembership.duePaise > 0 ? 'primary' : 'secondary'}
+                    />
+                  </View>
                   <View style={{ flex: 1 }}>
                     <Button
                       title={MEMBER_PROFILE.RENEW}

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { theme } from '../../../src/theme/theme';
+import { formatMoney } from '../../../src/utils/formatters';
 import { useMembers, Member } from '../../../src/api/members';
 import { useTodayAttendance, useCheckIn, AttendanceRecord } from '../../../src/api/attendance';
 import { Screen } from '../../../src/components/Screen';
@@ -79,7 +80,11 @@ export default function AttendanceScreen() {
     : [];
 
   const handleCheckIn = async (member: Member, force: boolean = false) => {
-    if (member.currentMembership?.status === 'EXPIRED' && !force) {
+    const isExpired = member.currentMembership?.status === 'EXPIRED';
+    const duePaise = member.currentMembership?.duePaise ?? member.currentDuePaise ?? 0;
+    const hasDue = !isTrainer && duePaise > 0;
+
+    if ((isExpired || hasDue) && !force) {
       safeNotificationAsync(NotificationFeedbackType.Warning).catch(() => {});
       setExpiredWarning({ visible: true, member });
       return;
@@ -114,22 +119,30 @@ export default function AttendanceScreen() {
     }
   };
 
-  const renderSearchResult = ({ item }: { item: Member }) => (
-    <TouchableOpacity
-      style={styles.searchResultItem}
-      onPress={() => handleCheckIn(item)}
-      activeOpacity={0.8}
-    >
-      <Avatar photoUrl={item.photoUrl} name={item.name} size="sm" />
-      <View style={styles.resultInfo}>
-        <Text style={styles.resultName}>{item.name}</Text>
-        <MaskedPhone phone={item.phone} textStyle={styles.resultPhone} />
-      </View>
-      {item.currentMembership?.status === 'EXPIRED' && (
-        <Badge label="EXPIRED" variant="error" size="sm" />
-      )}
-    </TouchableOpacity>
-  );
+  const renderSearchResult = ({ item }: { item: Member }) => {
+    const due = item.currentMembership?.duePaise ?? item.currentDuePaise ?? 0;
+    return (
+      <TouchableOpacity
+        style={styles.searchResultItem}
+        onPress={() => handleCheckIn(item)}
+        activeOpacity={0.8}
+      >
+        <Avatar photoUrl={item.photoUrl} name={item.name} size="sm" />
+        <View style={styles.resultInfo}>
+          <Text style={styles.resultName}>{item.name}</Text>
+          <MaskedPhone phone={item.phone} textStyle={styles.resultPhone} />
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {item.currentMembership?.status === 'EXPIRED' && (
+            <Badge label="EXPIRED" variant="error" size="sm" />
+          )}
+          {!isTrainer && due > 0 && (
+            <Badge label={`Due ${formatMoney(due)}`} variant="error" size="sm" />
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const renderTodayItem = ({ item }: { item: AttendanceRecord }) => (
     <GlassCard style={styles.todayCard} contentStyle={styles.todayCardContent}>
@@ -228,10 +241,91 @@ export default function AttendanceScreen() {
             <View style={styles.warningIconCircle}>
               <AlertCircle color={theme.colors.error} size={36} />
             </View>
-            <Text style={styles.warningTitle}>{ATTENDANCE.WARNING_TITLE}</Text>
-            <Text style={styles.warningDesc}>
-              {ATTENDANCE.WARNING_DESC(expiredWarning.member?.name || '')}
+            <Text style={styles.warningTitle}>
+              {(() => {
+                const member = expiredWarning.member;
+                const isExp = member?.currentMembership?.status === 'EXPIRED';
+                const due = member?.currentMembership?.duePaise ?? member?.currentDuePaise ?? 0;
+                if (isExp && due > 0 && !isTrainer) return 'Expired & Outstanding Due';
+                if (due > 0 && !isTrainer) return 'Outstanding Due';
+                return ATTENDANCE.WARNING_TITLE;
+              })()}
             </Text>
+            <Text style={styles.warningDesc}>
+              {(() => {
+                const member = expiredWarning.member;
+                const isExp = member?.currentMembership?.status === 'EXPIRED';
+                const due = member?.currentMembership?.duePaise ?? member?.currentDuePaise ?? 0;
+                if (isExp && due > 0 && !isTrainer) {
+                  return `${member?.name}'s membership has expired and fees are pending.`;
+                }
+                if (due > 0 && !isTrainer) {
+                  return `${member?.name} has unpaid membership fees.`;
+                }
+                return ATTENDANCE.WARNING_DESC(member?.name || '');
+              })()}
+            </Text>
+
+            {!isTrainer &&
+              (expiredWarning.member?.currentMembership?.duePaise ??
+                expiredWarning.member?.currentDuePaise ??
+                0) > 0 && (
+                <View style={styles.warningDueBox}>
+                  <Text style={styles.warningDueLabel}>Pending Due</Text>
+                  <Text style={styles.warningDueAmount}>
+                    {formatMoney(
+                      expiredWarning.member?.currentMembership?.duePaise ??
+                        expiredWarning.member?.currentDuePaise ??
+                        0
+                    )}
+                  </Text>
+                </View>
+              )}
+
+            <View style={styles.warningActionGroup}>
+              {!isTrainer &&
+                (expiredWarning.member?.currentMembership?.duePaise ??
+                  expiredWarning.member?.currentDuePaise ??
+                  0) > 0 && (
+                  <View style={{ marginBottom: 10, width: '100%' }}>
+                    <Button
+                      title="Collect fee"
+                      onPress={() => {
+                        const m = expiredWarning.member;
+                        setExpiredWarning({ visible: false });
+                        if (m) {
+                          router.push(
+                            `/(tabs)/payments/collect?memberId=${m.id}&membershipId=${m.currentMembership?.id || ''}`
+                          );
+                        }
+                      }}
+                      size="md"
+                    />
+                  </View>
+                )}
+
+              <View style={{ marginBottom: 10, width: '100%' }}>
+                <Button
+                  title={ATTENDANCE.RENEW_NOW}
+                  variant={
+                    !isTrainer &&
+                    (expiredWarning.member?.currentMembership?.duePaise ??
+                      expiredWarning.member?.currentDuePaise ??
+                      0) > 0
+                      ? 'secondary'
+                      : 'primary'
+                  }
+                  onPress={() => {
+                    const m = expiredWarning.member;
+                    setExpiredWarning({ visible: false });
+                    if (m) {
+                      router.push(`/(tabs)/members/${m.id}/renew`);
+                    }
+                  }}
+                  size="md"
+                />
+              </View>
+            </View>
 
             <View style={styles.warningButtons}>
               <View style={{ flex: 1, marginRight: 8 }}>
@@ -254,17 +348,6 @@ export default function AttendanceScreen() {
                   size="sm"
                 />
               </View>
-            </View>
-
-            <View style={{ marginTop: 12, width: '100%' }}>
-              <Button
-                title={ATTENDANCE.RENEW_NOW}
-                onPress={() => {
-                  setExpiredWarning({ visible: false });
-                  router.push(`/(tabs)/members/${expiredWarning.member?.id}/renew`);
-                }}
-                size="md"
-              />
             </View>
           </GlassCard>
         </View>
@@ -463,6 +546,36 @@ const styles = StyleSheet.create({
   warningButtons: {
     flexDirection: 'row',
     width: '100%',
+  },
+  warningDueBox: {
+    width: '100%',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    backgroundColor: 'rgba(255, 107, 107, 0.12)',
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 107, 0.3)',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  warningDueLabel: {
+    ...theme.typography.caption,
+    color: theme.colors.textMuted,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  warningDueAmount: {
+    ...theme.typography.body,
+    fontSize: 18,
+    fontFamily: theme.fonts.headingBold,
+    color: theme.colors.coral,
+    fontWeight: '700',
+  },
+  warningActionGroup: {
+    width: '100%',
+    marginBottom: 4,
   },
   listHeader: {
     flexDirection: 'row',

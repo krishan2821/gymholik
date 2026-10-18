@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Platform,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 

@@ -635,14 +635,14 @@ export default function DashboardScreen() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.desktopActionBtn}
-                    onPress={() => setShowCollectPaymentModal(true)}
+                    onPress={() => router.push('/(tabs)/payments/collect')}
                   >
                     <CreditCard size={18} color={theme.colors.primary} />
                     <Text style={styles.desktopActionBtnText}>Collect Fee</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.desktopActionBtn}
-                    onPress={() => router.push('/(tabs)/payments/dues')}
+                    onPress={() => router.push({ pathname: '/(tabs)/payments', params: { tab: 'DUES' } })}
                   >
                     <AlertTriangle size={18} color={theme.colors.primary} />
                     <Text style={styles.desktopActionBtnText}>View Dues</Text>

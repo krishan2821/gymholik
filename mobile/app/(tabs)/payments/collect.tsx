@@ -76,6 +76,13 @@ export default function CollectPaymentScreen() {
     enabled: isOwner || isStaff,
   });
 
+  // Guard: OWNER or STAFF only
+  useEffect(() => {
+    if (role === 'TRAINER') {
+      router.replace('/(tabs)/members');
+    }
+  }, [role, router]);
+
   // State
   const [selectedMemberId, setSelectedMemberId] = useState<string | undefined>(params.memberId);
   const [selectedMembershipId, setSelectedMembershipId] = useState<string | undefined>(

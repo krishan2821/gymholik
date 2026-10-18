@@ -1,11 +1,20 @@
-import React from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Animated,
+} from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { safeBack } from '../../../../src/utils/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { CheckCircle, Send } from 'lucide-react-native';
 import { theme } from '../../../../src/theme/theme';
 import { Screen } from '../../../../src/components/Screen';
 import { GlassCard } from '../../../../src/components/GlassCard';
@@ -13,8 +22,12 @@ import { Button } from '../../../../src/components/Button';
 import { PlanPicker } from '../../../../src/components/PlanPicker';
 import { useRenewMember, useMember } from '../../../../src/api/members';
 import { usePlans } from '../../../../src/api/plans';
+import { useGymProfile } from '../../../../src/api/more';
+import { useAuthStore } from '../../../../src/store/useAuthStore';
 import { addDays, format, isBefore, parseISO } from 'date-fns';
 import { RENEW, FIELDS, MEMBERS } from '../../../../src/constants/strings';
+import { formatMoney, isPhoneMasked } from '../../../../src/utils/formatters';
+import { safeOpenURL } from '../../../../src/utils/safeLinking';
 
 const renewSchema = z.object({
   planId: z.string().min(1, 'Please select a plan'),
@@ -28,9 +41,45 @@ export default function RenewMemberScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
+  const user = useAuthStore((state) => state.user);
+  const role = user?.role || useAuthStore((state) => state.role);
+  const isOwner = role === 'OWNER';
+  const isStaff = role === 'STAFF';
+  const { data: gymProfile } = useGymProfile({ enabled: isOwner || isStaff });
+
   const { data: member, isLoading: isLoadingMember } = useMember(id as string);
   const { data: plans } = usePlans();
   const renewMutation = useRenewMember();
+
+  const [successResult, setSuccessResult] = useState<{
+    memberId: string;
+    memberName: string;
+    memberPhone?: string;
+    paidAmountPaise: number;
+    remainingDuePaise: number;
+    planName?: string;
+  } | null>(null);
+
+  const successCheckScale = useRef(new Animated.Value(0.5)).current;
+  const successCheckOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (successResult) {
+      Animated.parallel([
+        Animated.spring(successCheckScale, {
+          toValue: 1,
+          friction: 4,
+          tension: 50,
+          useNativeDriver: true,
+        }),
+        Animated.timing(successCheckOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [successResult]);
 
   const {
     control,
@@ -47,6 +96,33 @@ export default function RenewMemberScreen() {
     },
   });
 
+  const selectedPlanId = watch('planId');
+  const paidAmountStr = watch('paidAmount');
+  const selectedPaymentMode = watch('paymentMode');
+  const selectedPlan = plans?.find((p) => p.id === selectedPlanId);
+
+  const canSendWhatsApp = useMemo(() => {
+    if (!successResult?.memberPhone) return false;
+    if (isPhoneMasked(successResult.memberPhone)) return false;
+    if (isOwner) return true;
+    if (isStaff && gymProfile?.staffCanSeeFullPhone) return true;
+    return false;
+  }, [successResult, isOwner, isStaff, gymProfile]);
+
+  const handleSendWhatsApp = () => {
+    if (!successResult?.memberPhone) return;
+    const phone = successResult.memberPhone;
+    const amtStr = formatMoney(successResult.paidAmountPaise);
+    const gymName = gymProfile?.name || 'our gym';
+    const planName = successResult.planName || 'membership';
+    const balStr =
+      successResult.remainingDuePaise === 0
+        ? 'All fees paid in full'
+        : `Balance due: ${formatMoney(successResult.remainingDuePaise)}`;
+    const msg = `Hello ${successResult.memberName}, your ${planName} membership at ${gymName} has been renewed! Fee paid: ${amtStr}. ${balStr}.`;
+    safeOpenURL(`https://wa.me/91${phone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`);
+  };
+
   if (isLoadingMember || !member) {
     return (
       <Screen style={styles.centered}>
@@ -54,10 +130,6 @@ export default function RenewMemberScreen() {
       </Screen>
     );
   }
-
-  const selectedPlanId = watch('planId');
-  const paidAmountStr = watch('paidAmount');
-  const selectedPlan = plans?.find((p) => p.id === selectedPlanId);
 
   // Calculate Start Date
   let startDate = new Date();
@@ -79,8 +151,8 @@ export default function RenewMemberScreen() {
   }
 
   const totalAmount = selectedPlan?.pricePaise || 0;
-  const paidAmount = paidAmountStr ? parseInt(paidAmountStr) * 100 : 0;
-  const dueAmount = totalAmount - paidAmount;
+  const paidAmount = paidAmountStr ? parseInt(paidAmountStr, 10) * 100 : 0;
+  const dueAmount = Math.max(0, totalAmount - paidAmount);
 
   const onSubmit = async (data: RenewFormData) => {
     if (paidAmount > totalAmount) {
@@ -95,8 +167,18 @@ export default function RenewMemberScreen() {
         paymentMode: data.paymentMode,
       };
 
-      await renewMutation.mutateAsync({ id: id as string, payload });
-      safeBack('/(tabs)/members');
+      const res = await renewMutation.mutateAsync({ id: id as string, payload });
+      const membership = res?.data;
+      const memDue = membership?.duePaise ?? dueAmount;
+
+      setSuccessResult({
+        memberId: id as string,
+        memberName: member.name,
+        memberPhone: member.phone,
+        paidAmountPaise: paidAmount,
+        remainingDuePaise: memDue,
+        planName: selectedPlan?.name,
+      });
     } catch (error: any) {
       Toast.show({
         type: 'error',
@@ -105,6 +187,79 @@ export default function RenewMemberScreen() {
       });
     }
   };
+
+  if (successResult) {
+    return (
+      <Screen style={styles.centerContainer}>
+        <View style={styles.successCard}>
+          <Animated.View
+            style={[
+              styles.successIconCircle,
+              {
+                transform: [{ scale: successCheckScale }],
+                opacity: successCheckOpacity,
+              },
+            ]}
+          >
+            <CheckCircle color={theme.colors.primary} size={64} strokeWidth={2.4} />
+          </Animated.View>
+
+          <Text style={styles.successTitle}>Membership Renewed Successfully</Text>
+          <Text style={styles.successAmount}>{formatMoney(successResult.paidAmountPaise)}</Text>
+          <Text style={styles.successSub}>
+            {successResult.paidAmountPaise > 0
+              ? `Renewal payment received via ${selectedPaymentMode || 'CASH'}`
+              : 'No renewal payment recorded'}
+          </Text>
+
+          <View style={styles.successBalanceBadge}>
+            <Text
+              style={[
+                styles.successBalanceText,
+                successResult.remainingDuePaise === 0 && { color: theme.colors.primary },
+              ]}
+            >
+              {successResult.remainingDuePaise === 0
+                ? 'All fees paid in full'
+                : `Balance due: ${formatMoney(successResult.remainingDuePaise)}`}
+            </Text>
+          </View>
+
+          <View style={styles.successActionsColumn}>
+            {canSendWhatsApp && (
+              <Button
+                title="Send on WhatsApp"
+                icon={<Send size={18} color={theme.colors.text} />}
+                onPress={handleSendWhatsApp}
+                variant="secondary"
+                size="md"
+                style={styles.actionBtn}
+              />
+            )}
+
+            <View style={styles.successBottomRow}>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Button
+                  title="View Member"
+                  variant="primary"
+                  size="md"
+                  onPress={() => router.replace(`/(tabs)/members/${successResult.memberId}`)}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button
+                  title="Done"
+                  variant="secondary"
+                  size="md"
+                  onPress={() => safeBack('/(tabs)/members')}
+                />
+              </View>
+            </View>
+          </View>
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen scrollable keyboardAvoiding contentContainerStyle={styles.scroll}>
@@ -302,5 +457,73 @@ const styles = StyleSheet.create({
   },
   submitContainer: {
     marginTop: theme.spacing.md,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  successCard: {
+    backgroundColor: '#072728',
+    borderWidth: 1,
+    borderColor: 'rgba(218, 241, 222, 0.18)',
+    borderRadius: theme.radius.lg,
+    padding: 24,
+    alignItems: 'center',
+    maxWidth: 480,
+    width: '100%',
+  },
+  successIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(142, 182, 155, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  successTitle: {
+    fontFamily: theme.fonts.headingBold,
+    fontSize: 20,
+    color: theme.colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  successAmount: {
+    fontFamily: theme.fonts.headingBold,
+    fontSize: 32,
+    color: theme.colors.primary,
+    marginBottom: 6,
+  },
+  successSub: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  successBalanceBadge: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(218, 241, 222, 0.08)',
+    borderRadius: theme.radius.full,
+    marginBottom: 24,
+  },
+  successBalanceText: {
+    fontFamily: theme.fonts.bodySemiBold,
+    fontSize: 13,
+    color: theme.colors.coral,
+  },
+  successActionsColumn: {
+    width: '100%',
+    gap: 12,
+  },
+  actionBtn: {
+    width: '100%',
+  },
+  successBottomRow: {
+    flexDirection: 'row',
+    width: '100%',
   },
 });

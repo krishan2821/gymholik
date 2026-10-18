@@ -69,12 +69,13 @@ export const DuesTab: React.FC<DuesTabProps> = ({
 
   const handleRemindWhatsApp = (item: DueItem) => {
     if (!item.phone) return;
-    const cleanPhone = item.phone.replace(/\D/g, '');
+    const digits = item.phone.replace(/\D/g, '');
+    const cleanPhone = digits.length === 10 ? `91${digits}` : digits;
     const memberName = item.name || item.memberName || 'Member';
-    const dueFormatted = formatMoney(item.duePaise);
+    const dueFormatted = (item.duePaise / 100).toLocaleString('en-IN');
     const gymName = gymProfile?.name || 'our gym';
-    const msg = `Hi ${memberName}, your fees of Rs ${dueFormatted.replace('₹', '')} are pending at ${gymName}. Please pay at the gym. Thank you.`;
-    safeOpenURL(`https://wa.me/91${cleanPhone}?text=${encodeURIComponent(msg)}`);
+    const msg = `Hi ${memberName}, your fees of Rs ${dueFormatted} are pending at ${gymName}. Please pay at the gym. Thank you.`;
+    safeOpenURL(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`);
   };
 
   const renderDueRow = ({ item }: { item: DueItem }) => {
@@ -116,9 +117,7 @@ export const DuesTab: React.FC<DuesTabProps> = ({
             {isBroken ? (
               <View style={styles.brokenBadge}>
                 <AlertCircle size={13} color="#FF6B6B" />
-                <Text style={styles.brokenBadgeText}>
-                  Promise broken ({item.promisedDate})
-                </Text>
+                <Text style={styles.brokenBadgeText}>Promise broken</Text>
               </View>
             ) : item.promisedDate ? (
               <View style={styles.promisedBadge}>
