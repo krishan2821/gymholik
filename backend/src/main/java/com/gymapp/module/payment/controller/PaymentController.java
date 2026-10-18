@@ -19,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.util.StringUtils;
 import java.time.LocalDate;
 
 @RestController
@@ -35,7 +36,11 @@ public class PaymentController {
     @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
     @Operation(summary = "Record a payment")
     public ResponseEntity<ApiResponse<PaymentResponse>> createPayment(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyHeader,
             @Valid @RequestBody CreatePaymentRequest request) {
+        if (StringUtils.hasText(idempotencyHeader) && !StringUtils.hasText(request.getIdempotencyKey())) {
+            request.setIdempotencyKey(idempotencyHeader.trim());
+        }
         PaymentResponse response = paymentService.createPayment(request);
         return ResponseEntity.ok(ApiResponse.success("Payment recorded successfully", response));
     }

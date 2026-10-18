@@ -767,7 +767,17 @@ public class PaymentService {
                 .build();
 
         payment.setIdempotencyKey(request.getIdempotencyKey());
-        payment = paymentRepository.save(payment);
+        try {
+            payment = paymentRepository.save(payment);
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            if (StringUtils.hasText(request.getIdempotencyKey())) {
+                Optional<Payment> existing = paymentRepository.findByGymIdAndIdempotencyKey(gymId, request.getIdempotencyKey());
+                if (existing.isPresent()) {
+                    return mapToResponse(existing.get(), member.getName(), member.getMemberCode(), membership.getPlanName());
+                }
+            }
+            throw e;
+        }
 
         if (isBackdated) {
             // Audit entry: PAYMENT_BACKDATED (amount and date only, no personal data)
