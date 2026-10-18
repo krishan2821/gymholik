@@ -58,6 +58,7 @@ export default function MembersLayout() {
         name="[id]"
         options={{
           title: MEMBER_PROFILE.SCREEN_TITLE,
+          headerShown: false,
         }}
       />
       <Stack.Screen

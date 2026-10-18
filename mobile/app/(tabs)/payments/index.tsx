@@ -334,7 +334,11 @@ export default function PaymentsScreen() {
     const amountSign = isReversal ? '-' : '+';
     const formattedAmount = formatMoney(item.amountPaise);
 
-    const timeStr = formatTime(item.paidAt || item.createdAt);
+    const isMidnight = Boolean(
+      item.paidAt &&
+      (item.paidAt.endsWith('T00:00:00') || item.paidAt.endsWith('T00:00') || !item.paidAt.includes('T'))
+    );
+    const timeStr = formatTime(isMidnight && item.createdAt ? item.createdAt : (item.paidAt || item.createdAt));
 
     return (
       <TouchableOpacity

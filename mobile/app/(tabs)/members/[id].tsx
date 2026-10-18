@@ -373,7 +373,7 @@ export default function MemberDetailScreen() {
   };
 
   return (
-    <Screen safeTop={false} scrollable contentContainerStyle={styles.scroll}>
+    <Screen safeTop={true} scrollable contentContainerStyle={styles.scroll}>
       <PageHeader
         title="Member Details"
         showBack

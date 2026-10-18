@@ -53,32 +53,23 @@ export const PaymentDetailSheet: React.FC<PaymentDetailSheetProps> = ({
     setReverseNote('');
   };
 
-  const handleConfirmReverse = () => {
+  const handleConfirmReverse = async () => {
     if (reverseNote.trim().length < 5) {
       Toast.show({ type: 'error', text1: 'Note must be at least 5 characters' });
       return;
     }
 
-    showConfirmDialog({
-      title: 'Confirm Payment Reversal',
-      message: `Are you sure you want to reverse this payment of ${formatMoney(detail?.amountPaise)}? This action cannot be undone and will restore the member's balance due.`,
-      confirmText: 'Reverse Payment',
-      cancelText: 'Cancel',
-      isDestructive: true,
-      onConfirm: async () => {
-        try {
-          await reverseMutation.mutateAsync({
-            id: paymentId,
-            reasonCode: selectedReason,
-            note: reverseNote.trim(),
-          });
-          setShowReverseSheet(false);
-          onClose();
-        } catch (e) {
-          // Handled by onError in hook
-        }
-      },
-    });
+    try {
+      await reverseMutation.mutateAsync({
+        id: paymentId,
+        reasonCode: selectedReason,
+        note: reverseNote.trim(),
+      });
+      setShowReverseSheet(false);
+      onClose();
+    } catch (e) {
+      // Handled by onError in hook
+    }
   };
 
   const isReversal = detail?.type === 'REVERSAL';

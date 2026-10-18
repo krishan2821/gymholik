@@ -865,14 +865,17 @@ public class PaymentService {
         String receiptNo = sequenceService.generateNextReceiptNo(gymId);
         String currentUserId = SecurityUtils.getCurrentUserId();
 
+        LocalDateTime nowKolkata = LocalDateTime.now(KOLKATA_ZONE);
+        LocalDateTime effectivePaymentTime = isBackdated ? businessDate.atStartOfDay() : nowKolkata;
+
         Payment payment = Payment.builder()
                 .gymId(gymId)
                 .memberId(member.getId())
                 .membershipId(membership.getId())
                 .amountPaise(request.getAmountPaise())
                 .mode(request.getMode())
-                .paidAt(businessDate.atStartOfDay())
-                .receivedAt(businessDate.atStartOfDay())
+                .paidAt(effectivePaymentTime)
+                .receivedAt(effectivePaymentTime)
                 .receiptNo(receiptNo)
                 .type("PAYMENT")
                 .reason(request.getReason())
@@ -935,14 +938,16 @@ public class PaymentService {
         String receiptNo = sequenceService.generateNextReceiptNo(gymId);
         String currentUserId = SecurityUtils.getCurrentUserId();
 
+        LocalDateTime nowKolkata = LocalDateTime.now(KOLKATA_ZONE);
+
         Payment reversal = Payment.builder()
                 .gymId(gymId)
                 .memberId(originalPayment.getMemberId())
                 .membershipId(originalPayment.getMembershipId())
                 .amountPaise(originalPayment.getAmountPaise())
                 .mode(originalPayment.getMode())
-                .paidAt(LocalDate.now(KOLKATA_ZONE).atStartOfDay())
-                .receivedAt(LocalDate.now(KOLKATA_ZONE).atStartOfDay())
+                .paidAt(nowKolkata)
+                .receivedAt(nowKolkata)
                 .receiptNo(receiptNo)
                 .type("REVERSAL")
                 .reversalOfId(originalPayment.getId())
