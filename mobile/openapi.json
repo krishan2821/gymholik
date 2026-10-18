@@ -1,1 +1,6216 @@
-{"openapi":"3.0.1","info":{"title":"Gym Management API","description":"Multi-tenant SaaS Gym Management System — all protected endpoints require a Bearer JWT.","contact":{"name":"GymHolik Team","email":"dev@gymholik.com"},"version":"1.0.0"},"servers":[{"url":"http://localhost:8080","description":"Generated server url"}],"security":[{"Bearer Auth":[]}],"tags":[{"name":"Attendance","description":"Member check-in and attendance tracking"},{"name":"Staff","description":"Staff account management — OWNER only"},{"name":"Payments","description":"Payment and Dues management"},{"name":"Super Admin","description":"Endpoints for managing gyms across the system"},{"name":"Members","description":"Member management endpoints"},{"name":"Dashboard","description":"Gym statistics and metrics"},{"name":"Auth","description":"Registration, login, and token management — all endpoints are public"},{"name":"Plans","description":"Subscription plan management"}],"paths":{"/api/plans/{id}":{"get":{"tags":["Plans"],"summary":"Get a plan by ID","operationId":"getById","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponsePlanResponse"}}}}},"security":[{"Bearer Auth":[]}]},"put":{"tags":["Plans"],"summary":"Update a plan (OWNER only)","operationId":"update","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string"}}],"requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/PlanRequest"}}},"required":true},"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponsePlanResponse"}}}}},"security":[{"Bearer Auth":[]}]},"delete":{"tags":["Plans"],"summary":"Soft-delete a plan (OWNER only). Existing memberships are unaffected.","operationId":"delete","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponseVoid"}}}}},"security":[{"Bearer Auth":[]}]}},"/api/staff":{"post":{"tags":["Staff"],"summary":"Create a staff account","description":"Creates a new STAFF user scoped to the caller's gym. gymId is taken from the JWT — never from the request body. Requires OWNER role.","operationId":"createStaff","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/CreateStaffRequest"}}},"required":true},"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponseVoid"}}}}},"security":[{"Bearer Auth":[]}]}},"/api/plans":{"get":{"tags":["Plans"],"summary":"List all active plans for this gym","operationId":"getAll","responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponseListPlanResponse"}}}}},"security":[{"Bearer Auth":[]}]},"post":{"tags":["Plans"],"summary":"Create a new subscription plan (OWNER only)","operationId":"create","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/PlanRequest"}}},"required":true},"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponsePlanResponse"}}}}},"security":[{"Bearer Auth":[]}]}},"/api/payments":{"get":{"tags":["Payments"],"summary":"Get paginated payments with optional date and mode filters","operationId":"getPayments","parameters":[{"name":"startDate","in":"query","required":false,"schema":{"type":"string","format":"date"}},{"name":"endDate","in":"query","required":false,"schema":{"type":"string","format":"date"}},{"name":"mode","in":"query","required":false,"schema":{"type":"string"}},{"name":"page","in":"query","required":false,"schema":{"type":"integer","format":"int32","default":0}},{"name":"size","in":"query","required":false,"schema":{"type":"integer","format":"int32","default":20}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponsePagedResponsePaymentResponse"}}}}},"security":[{"bearerAuth":[]}]},"post":{"tags":["Payments"],"summary":"Record a payment","operationId":"createPayment","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/CreatePaymentRequest"}}},"required":true},"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponsePaymentResponse"}}}}},"security":[{"bearerAuth":[]}]}},"/api/payments/{id}/reverse":{"post":{"tags":["Payments"],"summary":"Reverse a payment (OWNER only)","operationId":"reversePayment","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string"}},{"name":"notes","in":"query","required":false,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponsePaymentResponse"}}}}},"security":[{"bearerAuth":[]}]}},"/api/members":{"get":{"tags":["Members"],"summary":"Get members","description":"Get paginated list of active members, optionally search by name/phone","operationId":"getMembers","parameters":[{"name":"search","in":"query","required":false,"schema":{"type":"string"}},{"name":"page","in":"query","required":false,"schema":{"type":"integer","format":"int32","default":0}},{"name":"size","in":"query","required":false,"schema":{"type":"integer","format":"int32","default":20}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponsePagedResponseMemberResponse"}}}}},"security":[{"bearerAuth":[]}]},"post":{"tags":["Members"],"summary":"Create a new member","description":"Creates a member and their first membership","operationId":"createMember","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/CreateMemberRequest"}}},"required":true},"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponseMemberResponse"}}}}},"security":[{"bearerAuth":[]}]}},"/api/members/{id}/renew":{"post":{"tags":["Members"],"summary":"Renew a membership","operationId":"renewMembership","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string"}}],"requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/RenewMembershipRequest"}}},"required":true},"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponseMembershipResponse"}}}}},"security":[{"bearerAuth":[]}]}},"/api/members/{id}/photo":{"get":{"tags":["Members"],"summary":"Get member photo","description":"Serves the actual image file securely","operationId":"getPhoto","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"string","format":"binary"}}}}},"security":[{"bearerAuth":[]}]},"post":{"tags":["Members"],"summary":"Upload member photo","operationId":"uploadPhoto","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string"}}],"requestBody":{"content":{"multipart/form-data":{"schema":{"required":["file"],"type":"object","properties":{"file":{"type":"string","format":"binary"}}}}}},"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponseString"}}}}},"security":[{"bearerAuth":[]}]}},"/api/auth/register-gym":{"post":{"tags":["Auth"],"summary":"Register a new gym","description":"Creates a gym tenant + owner account. Starts a 14-day trial. Returns the gymCode that staff will use to log in.","operationId":"registerGym","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/RegisterGymRequest"}}},"required":true},"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponseGymResponse"}}}}}}},"/api/auth/refresh":{"post":{"tags":["Auth"],"summary":"Refresh access token","description":"Exchanges a valid refresh token for a new access + refresh pair (rotation).","operationId":"refresh","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/RefreshTokenRequest"}}},"required":true},"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponseTokenResponse"}}}}}}},"/api/auth/login":{"post":{"tags":["Auth"],"summary":"Login","description":"Provide phone + password + gymCode for OWNER/STAFF. Leave gymCode blank for SUPER_ADMIN login.","operationId":"login","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/LoginRequest"}}},"required":true},"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponseTokenResponse"}}}}}}},"/api/attendance/checkin":{"post":{"tags":["Attendance"],"summary":"Check in a member (supports QR code)","operationId":"checkIn","requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/CheckInRequest"}}},"required":true},"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponseCheckInResponse"}}}}},"security":[{"bearerAuth":[]}]}},"/api/admin/gyms/{id}/extend":{"post":{"tags":["Super Admin"],"summary":"Extend gym subscription","operationId":"extendSubscription","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string"}}],"requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/ExtendSubscriptionRequest"}}},"required":true},"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponseGym"}}}}},"security":[{"bearerAuth":[]}]}},"/api/payments/{id}/receipt":{"get":{"tags":["Payments"],"summary":"Download payment receipt as PDF","operationId":"getReceiptPdf","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"type":"array","items":{"type":"string","format":"byte"}}}}}},"security":[{"bearerAuth":[]}]}},"/api/members/{id}":{"get":{"tags":["Members"],"summary":"Get member details","operationId":"getMember","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponseMemberResponse"}}}}},"security":[{"bearerAuth":[]}]},"delete":{"tags":["Members"],"summary":"Soft delete a member","operationId":"deleteMember","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponseVoid"}}}}},"security":[{"bearerAuth":[]}]}},"/api/dues":{"get":{"tags":["Payments"],"summary":"Get list of members with pending dues","operationId":"getDues","parameters":[{"name":"page","in":"query","required":false,"schema":{"type":"integer","format":"int32","default":0}},{"name":"size","in":"query","required":false,"schema":{"type":"integer","format":"int32","default":20}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponsePagedResponseMemberDueResponse"}}}}},"security":[{"bearerAuth":[]}]}},"/api/dashboard":{"get":{"tags":["Dashboard"],"summary":"Get dashboard metrics","operationId":"getDashboard","responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponseDashboardResponse"}}}}},"security":[{"bearerAuth":[]}]}},"/api/attendance":{"get":{"tags":["Attendance"],"summary":"Get attendance for a specific date","operationId":"getAttendance","parameters":[{"name":"date","in":"query","required":false,"schema":{"type":"string","format":"date"}},{"name":"page","in":"query","required":false,"schema":{"type":"integer","format":"int32","default":0}},{"name":"size","in":"query","required":false,"schema":{"type":"integer","format":"int32","default":20}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponsePagedResponseAttendanceRecordResponse"}}}}},"security":[{"bearerAuth":[]}]}},"/api/attendance/absent":{"get":{"tags":["Attendance"],"summary":"Get members absent for N or more days","operationId":"getAbsentMembers","parameters":[{"name":"days","in":"query","required":false,"schema":{"type":"integer","format":"int32","default":7}},{"name":"page","in":"query","required":false,"schema":{"type":"integer","format":"int32","default":0}},{"name":"size","in":"query","required":false,"schema":{"type":"integer","format":"int32","default":20}}],"responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponsePagedResponseAbsentMemberResponse"}}}}},"security":[{"bearerAuth":[]}]}},"/api/admin/gyms":{"get":{"tags":["Super Admin"],"summary":"List all registered gyms","operationId":"listGyms","responses":{"200":{"description":"OK","content":{"*/*":{"schema":{"$ref":"#/components/schemas/ApiResponseListGym"}}}}},"security":[{"bearerAuth":[]}]}}},"components":{"schemas":{"PlanRequest":{"required":["name"],"type":"object","properties":{"name":{"maxLength":100,"minLength":2,"type":"string"},"durationDays":{"maximum":3650,"minimum":1,"type":"integer","format":"int32"},"pricePaise":{"minimum":0,"type":"integer","format":"int64"}}},"ApiResponsePlanResponse":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"$ref":"#/components/schemas/PlanResponse"},"error":{"type":"object"}}},"PlanResponse":{"type":"object","properties":{"id":{"type":"string"},"gymId":{"type":"string"},"name":{"type":"string"},"durationDays":{"type":"integer","format":"int32"},"pricePaise":{"type":"integer","format":"int64"},"priceFormatted":{"type":"string"},"createdAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"}}},"CreateStaffRequest":{"required":["name","password","phone"],"type":"object","properties":{"name":{"maxLength":100,"minLength":2,"type":"string"},"phone":{"pattern":"^[6-9]\\d{9}$","type":"string"},"password":{"maxLength":72,"minLength":8,"type":"string"}}},"ApiResponseVoid":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"type":"object"},"error":{"type":"object"}}},"CreatePaymentRequest":{"required":["amountPaise","memberId","membershipId","mode"],"type":"object","properties":{"memberId":{"type":"string"},"membershipId":{"type":"string"},"amountPaise":{"type":"integer","format":"int64"},"mode":{"type":"string"},"paymentDate":{"type":"string","format":"date"},"reason":{"type":"string"}}},"ApiResponsePaymentResponse":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"$ref":"#/components/schemas/PaymentResponse"},"error":{"type":"object"}}},"PaymentResponse":{"type":"object","properties":{"id":{"type":"string"},"gymId":{"type":"string"},"memberId":{"type":"string"},"membershipId":{"type":"string"},"amountPaise":{"type":"integer","format":"int64"},"mode":{"type":"string"},"paidAt":{"type":"string","format":"date-time"},"receiptNo":{"type":"string"},"type":{"type":"string"},"reversalOfId":{"type":"string"},"reason":{"type":"string"},"createdAt":{"type":"string","format":"date-time"}}},"CreateMemberRequest":{"required":["name","phone","planId"],"type":"object","properties":{"name":{"type":"string"},"phone":{"pattern":"^\\d{10,15}$","type":"string"},"gender":{"type":"string"},"dob":{"type":"string","format":"date"},"address":{"type":"string"},"planId":{"type":"string"},"startDate":{"type":"string","format":"date"}}},"ApiResponseMemberResponse":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"$ref":"#/components/schemas/MemberResponse"},"error":{"type":"object"}}},"MemberResponse":{"type":"object","properties":{"id":{"type":"string"},"gymId":{"type":"string"},"memberCode":{"type":"string"},"name":{"type":"string"},"phone":{"type":"string"},"gender":{"type":"string"},"dob":{"type":"string","format":"date"},"address":{"type":"string"},"photoUrl":{"type":"string"},"status":{"type":"string"},"currentExpiry":{"type":"string","format":"date"},"currentDuePaise":{"type":"integer","format":"int64"},"lastAttendanceDate":{"type":"string","format":"date"},"currentMembership":{"$ref":"#/components/schemas/MembershipResponse"},"createdAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"}}},"MembershipResponse":{"type":"object","properties":{"id":{"type":"string"},"gymId":{"type":"string"},"memberId":{"type":"string"},"planId":{"type":"string"},"planName":{"type":"string"},"totalPaise":{"type":"integer","format":"int64"},"paidPaise":{"type":"integer","format":"int64"},"duePaise":{"type":"integer","format":"int64"},"startDate":{"type":"string","format":"date"},"expiryDate":{"type":"string","format":"date"},"status":{"type":"string"},"createdAt":{"type":"string","format":"date-time"}}},"RenewMembershipRequest":{"required":["planId"],"type":"object","properties":{"planId":{"type":"string"},"startDate":{"type":"string","format":"date"}}},"ApiResponseMembershipResponse":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"$ref":"#/components/schemas/MembershipResponse"},"error":{"type":"object"}}},"ApiResponseString":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"type":"string"},"error":{"type":"object"}}},"RegisterGymRequest":{"required":["gymName","gymPhone","ownerName","ownerPhone","password"],"type":"object","properties":{"gymName":{"maxLength":100,"minLength":2,"type":"string"},"gymPhone":{"pattern":"^[6-9]\\d{9}$","type":"string"},"gymEmail":{"type":"string"},"gymAddress":{"maxLength":255,"minLength":0,"type":"string"},"ownerName":{"maxLength":100,"minLength":2,"type":"string"},"ownerPhone":{"pattern":"^[6-9]\\d{9}$","type":"string"},"password":{"maxLength":72,"minLength":8,"type":"string"}}},"ApiResponseGymResponse":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"$ref":"#/components/schemas/GymResponse"},"error":{"type":"object"}}},"GymResponse":{"type":"object","properties":{"gymId":{"type":"string"},"gymName":{"type":"string"},"gymCode":{"type":"string"},"ownerName":{"type":"string"},"ownerPhone":{"type":"string"},"trialEndsAt":{"type":"string","format":"date-time"}}},"RefreshTokenRequest":{"required":["refreshToken"],"type":"object","properties":{"refreshToken":{"type":"string"}}},"ApiResponseTokenResponse":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"$ref":"#/components/schemas/TokenResponse"},"error":{"type":"object"}}},"TokenResponse":{"type":"object","properties":{"accessToken":{"type":"string"},"refreshToken":{"type":"string"},"tokenType":{"type":"string"},"expiresIn":{"type":"integer","format":"int64"},"userId":{"type":"string"},"gymId":{"type":"string"},"role":{"type":"string"}}},"LoginRequest":{"required":["password","phone"],"type":"object","properties":{"phone":{"pattern":"^[6-9]\\d{9}$","type":"string"},"password":{"type":"string"},"gymCode":{"type":"string"}}},"CheckInRequest":{"type":"object","properties":{"memberId":{"type":"string"},"memberCode":{"type":"string"}}},"ApiResponseCheckInResponse":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"$ref":"#/components/schemas/CheckInResponse"},"error":{"type":"object"}}},"CheckInResponse":{"type":"object","properties":{"id":{"type":"string"},"memberId":{"type":"string"},"memberName":{"type":"string"},"date":{"type":"string","format":"date"},"checkInTime":{"$ref":"#/components/schemas/LocalTime"},"membershipExpiredWarning":{"type":"boolean"}}},"LocalTime":{"type":"object","properties":{"hour":{"type":"integer","format":"int32"},"minute":{"type":"integer","format":"int32"},"second":{"type":"integer","format":"int32"},"nano":{"type":"integer","format":"int32"}}},"ExtendSubscriptionRequest":{"type":"object","properties":{"daysToAdd":{"minimum":1,"type":"integer","format":"int32"}}},"ApiResponseGym":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"$ref":"#/components/schemas/Gym"},"error":{"type":"object"}}},"Gym":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"ownerName":{"type":"string"},"phone":{"type":"string"},"address":{"type":"string"},"logoUrl":{"type":"string"},"gymCode":{"type":"string"},"status":{"type":"string"},"subscriptionPlan":{"type":"string"},"subscriptionValidTill":{"type":"string","format":"date"},"allowExpiredCheckin":{"type":"boolean"},"reminderDaysBefore":{"type":"integer","format":"int32"},"createdAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"version":{"type":"integer","format":"int64"}}},"ApiResponseListPlanResponse":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"type":"array","items":{"$ref":"#/components/schemas/PlanResponse"}},"error":{"type":"object"}}},"ApiResponsePagedResponsePaymentResponse":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"$ref":"#/components/schemas/PagedResponsePaymentResponse"},"error":{"type":"object"}}},"PagedResponsePaymentResponse":{"type":"object","properties":{"content":{"type":"array","items":{"$ref":"#/components/schemas/PaymentResponse"}},"page":{"type":"integer","format":"int32"},"size":{"type":"integer","format":"int32"},"totalElements":{"type":"integer","format":"int64"},"totalPages":{"type":"integer","format":"int32"},"last":{"type":"boolean"}}},"ApiResponsePagedResponseMemberResponse":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"$ref":"#/components/schemas/PagedResponseMemberResponse"},"error":{"type":"object"}}},"PagedResponseMemberResponse":{"type":"object","properties":{"content":{"type":"array","items":{"$ref":"#/components/schemas/MemberResponse"}},"page":{"type":"integer","format":"int32"},"size":{"type":"integer","format":"int32"},"totalElements":{"type":"integer","format":"int64"},"totalPages":{"type":"integer","format":"int32"},"last":{"type":"boolean"}}},"ApiResponsePagedResponseMemberDueResponse":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"$ref":"#/components/schemas/PagedResponseMemberDueResponse"},"error":{"type":"object"}}},"MemberDueResponse":{"type":"object","properties":{"memberId":{"type":"string"},"memberCode":{"type":"string"},"memberName":{"type":"string"},"phone":{"type":"string"},"membershipId":{"type":"string"},"totalDuePaise":{"type":"integer","format":"int64"}}},"PagedResponseMemberDueResponse":{"type":"object","properties":{"content":{"type":"array","items":{"$ref":"#/components/schemas/MemberDueResponse"}},"page":{"type":"integer","format":"int32"},"size":{"type":"integer","format":"int32"},"totalElements":{"type":"integer","format":"int64"},"totalPages":{"type":"integer","format":"int32"},"last":{"type":"boolean"}}},"ApiResponseDashboardResponse":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"$ref":"#/components/schemas/DashboardResponse"},"error":{"type":"object"}}},"DashboardResponse":{"type":"object","properties":{"activeMembers":{"type":"integer","format":"int64"},"todayCollection":{"type":"integer","format":"int64"},"monthCollection":{"type":"integer","format":"int64"},"expiringSoon":{"type":"integer","format":"int64"},"newJoinings":{"type":"integer","format":"int64"},"todayAttendance":{"type":"integer","format":"int64"},"totalDue":{"type":"integer","format":"int64"}}},"ApiResponsePagedResponseAttendanceRecordResponse":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"$ref":"#/components/schemas/PagedResponseAttendanceRecordResponse"},"error":{"type":"object"}}},"AttendanceRecordResponse":{"type":"object","properties":{"id":{"type":"string"},"memberId":{"type":"string"},"memberName":{"type":"string"},"memberCode":{"type":"string"},"date":{"type":"string","format":"date"},"checkInTime":{"$ref":"#/components/schemas/LocalTime"}}},"PagedResponseAttendanceRecordResponse":{"type":"object","properties":{"content":{"type":"array","items":{"$ref":"#/components/schemas/AttendanceRecordResponse"}},"page":{"type":"integer","format":"int32"},"size":{"type":"integer","format":"int32"},"totalElements":{"type":"integer","format":"int64"},"totalPages":{"type":"integer","format":"int32"},"last":{"type":"boolean"}}},"AbsentMemberResponse":{"type":"object","properties":{"memberId":{"type":"string"},"memberCode":{"type":"string"},"memberName":{"type":"string"},"phone":{"type":"string"},"lastAttendanceDate":{"type":"string","format":"date"},"daysAbsent":{"type":"integer","format":"int64"}}},"ApiResponsePagedResponseAbsentMemberResponse":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"$ref":"#/components/schemas/PagedResponseAbsentMemberResponse"},"error":{"type":"object"}}},"PagedResponseAbsentMemberResponse":{"type":"object","properties":{"content":{"type":"array","items":{"$ref":"#/components/schemas/AbsentMemberResponse"}},"page":{"type":"integer","format":"int32"},"size":{"type":"integer","format":"int32"},"totalElements":{"type":"integer","format":"int64"},"totalPages":{"type":"integer","format":"int32"},"last":{"type":"boolean"}}},"ApiResponseListGym":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"type":"array","items":{"$ref":"#/components/schemas/Gym"}},"error":{"type":"object"}}}},"securitySchemes":{"Bearer Auth":{"type":"http","scheme":"bearer","bearerFormat":"JWT"}}}}
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Gym Management API",
+    "description": "Multi-tenant SaaS Gym Management System — OTP authentication (/api/auth/send-otp, /api/auth/verify-otp) and gym-owner registration (/api/auth/complete-registration). Protected endpoints require a Bearer JWT.",
+    "contact": {
+      "name": "GymHolik Team",
+      "email": "dev@gymholik.com"
+    },
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Generated server url"
+    }
+  ],
+  "security": [
+    {
+      "Bearer Auth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Attendance",
+      "description": "Member check-in and attendance tracking"
+    },
+    {
+      "name": "Staff",
+      "description": "Staff account management — OWNER only"
+    },
+    {
+      "name": "Trainer Assignments",
+      "description": "Member to Trainer assignments — OWNER only"
+    },
+    {
+      "name": "Audit Logs",
+      "description": "Audit trail for gym operations — OWNER only"
+    },
+    {
+      "name": "Memberships",
+      "description": "Membership management endpoints"
+    },
+    {
+      "name": "Super Admin",
+      "description": "Endpoints for managing gyms across the system"
+    },
+    {
+      "name": "Trainers",
+      "description": "Trainer management — OWNER only"
+    },
+    {
+      "name": "Dashboard",
+      "description": "Gym statistics and metrics"
+    },
+    {
+      "name": "Plans",
+      "description": "Subscription plan management"
+    },
+    {
+      "name": "Trainer Types",
+      "description": "Owner-managed trainer types and categories"
+    },
+    {
+      "name": "Auth",
+      "description": "OTP authentication, gym-owner registration, and token management"
+    },
+    {
+      "name": "Payments",
+      "description": "Payment and Dues management"
+    },
+    {
+      "name": "Gym Settings",
+      "description": "Gym settings and profile for Owner"
+    },
+    {
+      "name": "Members",
+      "description": "Member management endpoints"
+    },
+    {
+      "name": "Member Notes",
+      "description": "Workout, diet, and progress notes by trainers and owners"
+    }
+  ],
+  "paths": {
+    "/api/trainers/{id}/types": {
+      "put": {
+        "tags": [
+          "Trainers"
+        ],
+        "summary": "Update trainer types",
+        "description": "Change the assigned trainer types for a trainer",
+        "operationId": "updateTrainerTypes",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveTrainerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTrainerResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      }
+    },
+    "/api/trainers/{id}/deactivate": {
+      "put": {
+        "tags": [
+          "Trainers"
+        ],
+        "summary": "Deactivate trainer",
+        "description": "Deactivates trainer, invalidates tokens, and auto-ends all active assignments",
+        "operationId": "deactivateTrainer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTrainerResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      }
+    },
+    "/api/trainer-types/{id}": {
+      "get": {
+        "tags": [
+          "Trainer Types"
+        ],
+        "summary": "Get trainer type by ID",
+        "description": "OWNER only",
+        "operationId": "getById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTrainerTypeResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Trainer Types"
+        ],
+        "summary": "Update a trainer type",
+        "description": "OWNER only",
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrainerTypeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTrainerTypeResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Trainer Types"
+        ],
+        "summary": "Deactivate/delete a trainer type",
+        "description": "OWNER only",
+        "operationId": "delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/plans/{id}": {
+      "get": {
+        "tags": [
+          "Plans"
+        ],
+        "summary": "Get a plan by ID",
+        "operationId": "getById_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePlanResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Plans"
+        ],
+        "summary": "Update a plan (OWNER only)",
+        "operationId": "update_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePlanResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Plans"
+        ],
+        "summary": "Soft-delete a plan (OWNER only). Existing memberships are unaffected.",
+        "operationId": "delete_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      }
+    },
+    "/api/members/{memberId}/notes/{noteId}": {
+      "put": {
+        "tags": [
+          "Member Notes"
+        ],
+        "summary": "Update an existing note",
+        "description": "TRAINER (can edit own notes for assigned member) or OWNER",
+        "operationId": "updateNote",
+        "parameters": [
+          {
+            "name": "memberId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberNoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMemberNoteResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/members/{id}": {
+      "get": {
+        "tags": [
+          "Members"
+        ],
+        "summary": "Get member details",
+        "operationId": "getMember",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMemberResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Members"
+        ],
+        "summary": "Update member details",
+        "operationId": "updateMember",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMemberRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMemberResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Members"
+        ],
+        "summary": "Soft delete a member",
+        "operationId": "deleteMember",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/gym": {
+      "get": {
+        "tags": [
+          "Gym Settings"
+        ],
+        "summary": "Get current gym details & subscription info",
+        "operationId": "getGymSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseGym"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Gym Settings"
+        ],
+        "summary": "Update gym settings",
+        "operationId": "updateGymSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GymSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseGym"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      }
+    },
+    "/api/gym/profile": {
+      "get": {
+        "tags": [
+          "Gym Settings"
+        ],
+        "summary": "Get gym profile (OWNER only)",
+        "operationId": "getGymProfile",
+        "parameters": [
+          {
+            "name": "reveal",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseGymProfileResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Gym Settings"
+        ],
+        "summary": "Update gym profile (OWNER only)",
+        "operationId": "updateGymProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGymProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseGymProfileResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      }
+    },
+    "/api/gym/collection-info": {
+      "get": {
+        "tags": [
+          "Gym Settings"
+        ],
+        "summary": "Get gym UPI collection info (OWNER and STAFF only)",
+        "operationId": "getCollectionInfo",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseCollectionInfoResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Gym Settings"
+        ],
+        "summary": "Update gym UPI collection info (OWNER only)",
+        "operationId": "updateCollectionInfo",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCollectionInfoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseCollectionInfoResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Get current logged-in user profile",
+        "description": "Returns current user name, phone, email, role, gym details, and trainer types",
+        "operationId": "getMe",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMeResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Update current user profile",
+        "description": "Updates user's own name and phone number",
+        "operationId": "updateMe",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMeResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      }
+    },
+    "/api/trainers": {
+      "get": {
+        "tags": [
+          "Trainers"
+        ],
+        "summary": "List trainers",
+        "description": "List all trainers for this gym, optionally filter by status (ACTIVE or INACTIVE)",
+        "operationId": "listTrainers",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListTrainerResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Trainers"
+        ],
+        "summary": "Create a trainer",
+        "description": "Creates an ACTIVE TRAINER user in the owner's gym (gymId from JWT only) with required trainerTypeIds and optional immediate member assignments.",
+        "operationId": "createTrainer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTrainerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTrainerResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      }
+    },
+    "/api/trainer-types": {
+      "get": {
+        "tags": [
+          "Trainer Types"
+        ],
+        "summary": "List all trainer types",
+        "description": "OWNER only",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "activeOnly",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListTrainerTypeResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Trainer Types"
+        ],
+        "summary": "Create a trainer type",
+        "description": "OWNER only",
+        "operationId": "create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrainerTypeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTrainerTypeResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/trainer-assignments": {
+      "get": {
+        "tags": [
+          "Trainer Assignments"
+        ],
+        "summary": "List assignments",
+        "description": "OWNER only. Filter by trainerId, memberId, status.",
+        "operationId": "getAssignments",
+        "parameters": [
+          {
+            "name": "trainerId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "memberId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePagedResponseAssignmentResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Trainer Assignments"
+        ],
+        "summary": "Assign member(s) to trainer (bulk)",
+        "description": "OWNER only",
+        "operationId": "assignMembers",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignMembersRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListAssignmentResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/trainer-assignments/{id}/end": {
+      "post": {
+        "tags": [
+          "Trainer Assignments"
+        ],
+        "summary": "End an assignment",
+        "description": "OWNER only",
+        "operationId": "endAssignment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseAssignmentResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/trainer-assignments/reassign": {
+      "post": {
+        "tags": [
+          "Trainer Assignments"
+        ],
+        "summary": "Reassign all members from one trainer to another",
+        "description": "OWNER only",
+        "operationId": "reassignAll",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReassignTrainerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/staff": {
+      "get": {
+        "tags": [
+          "Staff"
+        ],
+        "summary": "List staff accounts",
+        "description": "OWNER only",
+        "operationId": "listStaff",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListStaffResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Staff"
+        ],
+        "summary": "Create a staff account",
+        "description": "Creates a new ACTIVE STAFF user scoped to the caller's gym (gymId from JWT only). Requires OWNER role.",
+        "operationId": "createStaff",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateStaffRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseStaffResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      }
+    },
+    "/api/plans": {
+      "get": {
+        "tags": [
+          "Plans"
+        ],
+        "summary": "List all active plans for this gym",
+        "operationId": "getAll",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListPlanResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Plans"
+        ],
+        "summary": "Create a new subscription plan (OWNER only)",
+        "operationId": "create_1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePlanResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      }
+    },
+    "/api/payments": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Get paginated payments with optional period, date, mode, member, and search filters",
+        "operationId": "getPayments",
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "memberId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePaymentListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Record a payment",
+        "operationId": "createPayment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePaymentResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/payments/{id}/reverse": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Reverse a payment (OWNER only)",
+        "operationId": "reversePayment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "reasonCode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "WRONG_ENTRY",
+                "DUPLICATE",
+                "REFUND",
+                "OTHER"
+              ]
+            }
+          },
+          {
+            "name": "note",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "notes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReversePaymentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePaymentResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/payments/day-close": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Get day-close summary report",
+        "operationId": "getDayCloseReport",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseDayCloseReportResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Submit and save day-close for cash drawer reconciliation",
+        "operationId": "submitDayClose",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitDayCloseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseDayClose"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/memberships/{id}/discount": {
+      "post": {
+        "tags": [
+          "Memberships"
+        ],
+        "summary": "Apply discount to a membership (OWNER only)",
+        "operationId": "applyDiscount",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyDiscountRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMembershipResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/members": {
+      "get": {
+        "tags": [
+          "Members"
+        ],
+        "summary": "Get members",
+        "description": "Get paginated list of active members, optionally search by name/phone",
+        "operationId": "getMembers",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "All"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePagedResponseMemberResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Members"
+        ],
+        "summary": "Create a new member",
+        "description": "Creates a member and their first membership",
+        "operationId": "createMember",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMemberRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMemberResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/members/{memberId}/notes": {
+      "get": {
+        "tags": [
+          "Member Notes"
+        ],
+        "summary": "List notes for a member",
+        "description": "TRAINER (only for assigned members) or OWNER",
+        "operationId": "getNotes",
+        "parameters": [
+          {
+            "name": "memberId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListMemberNoteResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Member Notes"
+        ],
+        "summary": "Create a note for a member",
+        "description": "TRAINER (only for assigned members) or OWNER",
+        "operationId": "createNote",
+        "parameters": [
+          {
+            "name": "memberId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberNoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMemberNoteResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/members/{id}/renew": {
+      "post": {
+        "tags": [
+          "Members"
+        ],
+        "summary": "Renew a membership",
+        "operationId": "renewMembership",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenewMembershipRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMembershipResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/members/{id}/photo": {
+      "get": {
+        "tags": [
+          "Members"
+        ],
+        "summary": "Get member photo",
+        "description": "Serves the actual image file securely",
+        "operationId": "getPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Members"
+        ],
+        "summary": "Upload member photo",
+        "operationId": "uploadPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "required": [
+                  "file"
+                ],
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseString"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/auth/verify-otp": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Verify OTP",
+        "description": "Verifies the 6-digit OTP. Issues access + refresh tokens for existing active users, or a short-lived REGISTER-scoped token for new users.",
+        "operationId": "verifyOtp",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyOtpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVerifyOtpResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/send-otp": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Send OTP to mobile number",
+        "description": "Sends a 6-digit OTP to an Indian mobile number. Always returns the same response regardless of whether the phone is registered.",
+        "operationId": "sendOtp",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendOtpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseSendOtpResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Refresh access token",
+        "description": "Exchanges a valid refresh token for a new access + refresh pair (rotation).",
+        "operationId": "refresh",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTokenResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/complete-registration": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Complete gym-owner registration",
+        "description": "Requires a single-use registrationToken (scope REGISTER). Phone comes strictly from the token. Creates the Gym (14-day TRIAL, default plans, default trainer types) and the OWNER user (ACTIVE) in one transaction, then returns accessToken, refreshToken, and user.",
+        "operationId": "completeRegistration",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteRegistrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVerifyOtpResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      }
+    },
+    "/api/attendance/checkin": {
+      "post": {
+        "tags": [
+          "Attendance"
+        ],
+        "summary": "Check in a member (supports QR code)",
+        "operationId": "checkIn",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseCheckInResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/admin/gyms/{id}/suspend": {
+      "post": {
+        "tags": [
+          "Super Admin"
+        ],
+        "summary": "Suspend a gym",
+        "operationId": "suspendGym",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseGym"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/admin/gyms/{id}/reactivate": {
+      "post": {
+        "tags": [
+          "Super Admin"
+        ],
+        "summary": "Reactivate a suspended gym",
+        "operationId": "reactivateGym",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseGym"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/admin/gyms/{id}/extend": {
+      "post": {
+        "tags": [
+          "Super Admin"
+        ],
+        "summary": "Extend gym subscription",
+        "operationId": "extendSubscription",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtendSubscriptionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseGym"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/trainers/{id}": {
+      "get": {
+        "tags": [
+          "Trainers"
+        ],
+        "summary": "Get trainer details by ID",
+        "description": "OWNER only",
+        "operationId": "getTrainerById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTrainerResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Trainers"
+        ],
+        "summary": "Update trainer (name, types, phone, deactivate/reactivate)",
+        "description": "Updates trainer details. Changing phone or deactivating bumps tokenVersion and invalidates sessions; deactivating also ends all active assignments.",
+        "operationId": "patchTrainer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTrainerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTrainerResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      }
+    },
+    "/api/staff/{id}": {
+      "patch": {
+        "tags": [
+          "Staff"
+        ],
+        "summary": "Update staff account (deactivate/reactivate, name, phone)",
+        "description": "Deactivates or reactivates a staff account in the owner's gym. Deactivating bumps tokenVersion and invalidates sessions.",
+        "operationId": "patchStaff",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStaffRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseStaffResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Auth": []
+          }
+        ]
+      }
+    },
+    "/api/memberships/{id}/promised-date": {
+      "patch": {
+        "tags": [
+          "Memberships"
+        ],
+        "summary": "Update promised date for paying balance due (OWNER, STAFF)",
+        "operationId": "updatePromisedDate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePromisedDateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMembershipResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/payments/{id}": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Get payment detail by ID",
+        "operationId": "getPaymentDetail",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePaymentDetailResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/payments/{id}/receipt": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Download payment receipt as PDF",
+        "operationId": "getReceiptPdf",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "byte"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/payments/summary": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Get payment summary by period (OWNER only)",
+        "operationId": "getPaymentSummary",
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "MONTH"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePaymentSummaryResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/payments/dues": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Get list of members with pending dues (ALL, OVERDUE, EXPIRING, PARTIAL)",
+        "operationId": "getDues",
+        "parameters": [
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "ALL"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseDuesListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/dues": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "summary": "Get list of members with pending dues (ALL, OVERDUE, EXPIRING, PARTIAL)",
+        "operationId": "getDues_1",
+        "parameters": [
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "ALL"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseDuesListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/dashboard": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Get dashboard metrics",
+        "operationId": "getDashboard",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseDashboardResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/audit-logs": {
+      "get": {
+        "tags": [
+          "Audit Logs"
+        ],
+        "summary": "List audit logs",
+        "description": "Paginated audit logs for OWNER",
+        "operationId": "getAuditLogs",
+        "parameters": [
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "actorId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePagedResponseAuditLog"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/attendance": {
+      "get": {
+        "tags": [
+          "Attendance"
+        ],
+        "summary": "Get attendance for a specific date",
+        "operationId": "getAttendance",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePagedResponseAttendanceRecordResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/attendance/members/{memberId}": {
+      "get": {
+        "tags": [
+          "Attendance"
+        ],
+        "summary": "Get a member's attendance history",
+        "operationId": "getMemberAttendanceHistory",
+        "parameters": [
+          {
+            "name": "memberId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePagedResponseAttendanceRecordResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/attendance/absent": {
+      "get": {
+        "tags": [
+          "Attendance"
+        ],
+        "summary": "Get members absent for N or more days",
+        "operationId": "getAbsentMembers",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 7
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePagedResponseAbsentMemberResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/admin/gyms": {
+      "get": {
+        "tags": [
+          "Super Admin"
+        ],
+        "summary": "List all registered gyms",
+        "operationId": "listGyms",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListGym"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApproveTrainerRequest": {
+        "required": [
+          "trainerTypeIds"
+        ],
+        "type": "object",
+        "properties": {
+          "trainerTypeIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ApiResponseTrainerResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TrainerResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "TrainerResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "gymId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "trainerTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrainerTypeResponse"
+            }
+          },
+          "activeAssignmentsCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "TrainerTypeResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TrainerTypeRequest": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponseTrainerTypeResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TrainerTypeResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "PlanRequest": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "maxLength": 100,
+            "minLength": 2,
+            "type": "string"
+          },
+          "durationDays": {
+            "maximum": 3650,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32"
+          },
+          "pricePaise": {
+            "minimum": 0,
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ApiResponsePlanResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PlanResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "PlanResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "gymId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "durationDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pricePaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "priceFormatted": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MemberNoteRequest": {
+        "required": [
+          "text",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "weightKg": {
+            "type": "number",
+            "format": "double"
+          },
+          "bodyMeasurements": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "ApiResponseMemberNoteResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/MemberNoteResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "MemberNoteResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "memberId": {
+            "type": "string"
+          },
+          "trainerId": {
+            "type": "string"
+          },
+          "trainerName": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "weightKg": {
+            "type": "number",
+            "format": "double"
+          },
+          "bodyMeasurements": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "UpdateMemberRequest": {
+        "required": [
+          "name",
+          "phone"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "gender": {
+            "type": "string"
+          },
+          "dob": {
+            "type": "string",
+            "format": "date"
+          },
+          "address": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseMemberResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/MemberResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "MemberResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "gymId": {
+            "type": "string"
+          },
+          "memberCode": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "gender": {
+            "type": "string"
+          },
+          "dob": {
+            "type": "string",
+            "format": "date"
+          },
+          "address": {
+            "type": "string"
+          },
+          "photoUrl": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "currentExpiry": {
+            "type": "string",
+            "format": "date"
+          },
+          "currentDuePaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lastAttendanceDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "currentMembership": {
+            "$ref": "#/components/schemas/MembershipResponse"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MembershipResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "gymId": {
+            "type": "string"
+          },
+          "memberId": {
+            "type": "string"
+          },
+          "planId": {
+            "type": "string"
+          },
+          "planName": {
+            "type": "string"
+          },
+          "totalPaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "discountPaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "discountReason": {
+            "type": "string"
+          },
+          "promisedDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "paidPaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "duePaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "expiryDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "status": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "GymAddress": {
+        "type": "object",
+        "properties": {
+          "line1": {
+            "type": "string"
+          },
+          "line2": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "district": {
+            "type": "string"
+          },
+          "pincode": {
+            "type": "string"
+          }
+        }
+      },
+      "GymSettingsRequest": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "address": {
+            "$ref": "#/components/schemas/GymAddress"
+          },
+          "logoUrl": {
+            "type": "string"
+          },
+          "allowExpiredCheckin": {
+            "type": "boolean"
+          },
+          "reminderDaysBefore": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "staffCanSeeFullPhone": {
+            "type": "boolean"
+          },
+          "upiId": {
+            "type": "string"
+          },
+          "upiName": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseGym": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Gym"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "Gym": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "ownerName": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "address": {
+            "$ref": "#/components/schemas/GymAddress"
+          },
+          "logoUrl": {
+            "type": "string"
+          },
+          "upiId": {
+            "type": "string"
+          },
+          "upiName": {
+            "type": "string"
+          },
+          "gymCode": {
+            "type": "string"
+          },
+          "gymType": {
+            "type": "string",
+            "enum": [
+              "COMMERCIAL",
+              "BOUTIQUE_STUDIO",
+              "CROSSFIT_BOX",
+              "BODYBUILDING_POWERLIFTING",
+              "PREMIUM_LUXURY",
+              "WOMEN_ONLY",
+              "HOME_GYM"
+            ]
+          },
+          "legalIdType": {
+            "type": "string",
+            "enum": [
+              "UDYAM",
+              "GSTIN",
+              "NIC"
+            ]
+          },
+          "legalIdNumber": {
+            "type": "string"
+          },
+          "legalIdVerified": {
+            "type": "boolean"
+          },
+          "termsAcceptedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "termsVersion": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "subscriptionPlan": {
+            "type": "string"
+          },
+          "subscriptionValidTill": {
+            "type": "string",
+            "format": "date"
+          },
+          "allowExpiredCheckin": {
+            "type": "boolean"
+          },
+          "reminderDaysBefore": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "staffCanSeeFullPhone": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "AddressDto": {
+        "required": [
+          "district",
+          "line1",
+          "state"
+        ],
+        "type": "object",
+        "properties": {
+          "line1": {
+            "maxLength": 120,
+            "minLength": 5,
+            "type": "string"
+          },
+          "line2": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "district": {
+            "maxLength": 80,
+            "minLength": 0,
+            "type": "string"
+          },
+          "pincode": {
+            "pattern": "^[1-9][0-9]{5}$",
+            "type": "string"
+          }
+        }
+      },
+      "UpdateGymProfileRequest": {
+        "required": [
+          "address",
+          "gymType",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "maxLength": 80,
+            "minLength": 2,
+            "type": "string"
+          },
+          "gymType": {
+            "type": "string",
+            "enum": [
+              "COMMERCIAL",
+              "BOUTIQUE_STUDIO",
+              "CROSSFIT_BOX",
+              "BODYBUILDING_POWERLIFTING",
+              "PREMIUM_LUXURY",
+              "WOMEN_ONLY",
+              "HOME_GYM"
+            ]
+          },
+          "legalIdType": {
+            "type": "string",
+            "enum": [
+              "UDYAM",
+              "GSTIN",
+              "NIC"
+            ]
+          },
+          "legalIdNumber": {
+            "type": "string"
+          },
+          "address": {
+            "$ref": "#/components/schemas/AddressDto"
+          }
+        }
+      },
+      "ApiResponseGymProfileResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/GymProfileResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "GymProfileResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "gymCode": {
+            "type": "string"
+          },
+          "gymType": {
+            "type": "string",
+            "enum": [
+              "COMMERCIAL",
+              "BOUTIQUE_STUDIO",
+              "CROSSFIT_BOX",
+              "BODYBUILDING_POWERLIFTING",
+              "PREMIUM_LUXURY",
+              "WOMEN_ONLY",
+              "HOME_GYM"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "subscriptionValidTill": {
+            "type": "string",
+            "format": "date"
+          },
+          "daysRemaining": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "legalIdVerified": {
+            "type": "boolean"
+          },
+          "legalIdType": {
+            "type": "string",
+            "enum": [
+              "UDYAM",
+              "GSTIN",
+              "NIC"
+            ]
+          },
+          "legalIdNumber": {
+            "type": "string"
+          },
+          "address": {
+            "$ref": "#/components/schemas/GymAddress"
+          },
+          "logoUrl": {
+            "type": "string"
+          },
+          "allowExpiredCheckin": {
+            "type": "boolean"
+          },
+          "reminderDaysBefore": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "staffCanSeeFullPhone": {
+            "type": "boolean"
+          }
+        }
+      },
+      "UpdateCollectionInfoRequest": {
+        "required": [
+          "upiId"
+        ],
+        "type": "object",
+        "properties": {
+          "upiId": {
+            "pattern": "^[a-zA-Z0-9.\\-_]{2,256}@[a-zA-Z]{2,64}$",
+            "type": "string"
+          },
+          "upiName": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseCollectionInfoResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/CollectionInfoResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "CollectionInfoResponse": {
+        "type": "object",
+        "properties": {
+          "upiId": {
+            "type": "string"
+          },
+          "upiName": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateMeRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseMeResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/MeResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "GymSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "gymType": {
+            "type": "string"
+          },
+          "gymCode": {
+            "type": "string"
+          }
+        }
+      },
+      "MeResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "gymId": {
+            "type": "string"
+          },
+          "gymName": {
+            "type": "string"
+          },
+          "gymType": {
+            "type": "string"
+          },
+          "gymCode": {
+            "type": "string"
+          },
+          "gym": {
+            "$ref": "#/components/schemas/GymSummary"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "trainerTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrainerTypeResponse"
+            }
+          }
+        }
+      },
+      "CreateTrainerRequest": {
+        "required": [
+          "name",
+          "phone",
+          "trainerTypeIds"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "maxLength": 100,
+            "minLength": 2,
+            "type": "string"
+          },
+          "phone": {
+            "pattern": "^(\\+91[-\\s]?)?[6-9]\\d{9}$",
+            "type": "string"
+          },
+          "trainerTypeIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "memberIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AssignMembersRequest": {
+        "required": [
+          "memberIds",
+          "trainerId"
+        ],
+        "type": "object",
+        "properties": {
+          "trainerId": {
+            "type": "string"
+          },
+          "memberIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "ptFeePaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sessionsTotal": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseListAssignmentResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssignmentResponse"
+            }
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "AssignmentResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "gymId": {
+            "type": "string"
+          },
+          "trainerId": {
+            "type": "string"
+          },
+          "trainerName": {
+            "type": "string"
+          },
+          "memberId": {
+            "type": "string"
+          },
+          "memberName": {
+            "type": "string"
+          },
+          "memberCode": {
+            "type": "string"
+          },
+          "memberPhone": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "assignedBy": {
+            "type": "string"
+          },
+          "endedBy": {
+            "type": "string"
+          },
+          "ptFeePaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sessionsTotal": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ApiResponseAssignmentResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AssignmentResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "ReassignTrainerRequest": {
+        "required": [
+          "fromTrainerId",
+          "toTrainerId"
+        ],
+        "type": "object",
+        "properties": {
+          "fromTrainerId": {
+            "type": "string"
+          },
+          "toTrainerId": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseVoid": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "CreateStaffRequest": {
+        "required": [
+          "name",
+          "phone"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "maxLength": 100,
+            "minLength": 2,
+            "type": "string"
+          },
+          "phone": {
+            "pattern": "^(\\+91[-\\s]?)?[6-9]\\d{9}$",
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseStaffResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/StaffResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "StaffResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "gymId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreatePaymentRequest": {
+        "required": [
+          "amountPaise",
+          "memberId",
+          "membershipId",
+          "mode"
+        ],
+        "type": "object",
+        "properties": {
+          "memberId": {
+            "type": "string"
+          },
+          "membershipId": {
+            "type": "string"
+          },
+          "amountPaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "receivedAt": {
+            "type": "string",
+            "format": "date"
+          },
+          "paymentDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "referenceNo": {
+            "maxLength": 40,
+            "minLength": 0,
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponsePaymentResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PaymentResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "PaymentResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "gymId": {
+            "type": "string"
+          },
+          "memberId": {
+            "type": "string"
+          },
+          "memberName": {
+            "type": "string"
+          },
+          "memberCode": {
+            "type": "string"
+          },
+          "membershipId": {
+            "type": "string"
+          },
+          "planName": {
+            "type": "string"
+          },
+          "amountPaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "paidAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "receiptNo": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "reversalOfId": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "collectedByName": {
+            "type": "string"
+          },
+          "referenceNo": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ReversePaymentRequest": {
+        "required": [
+          "note",
+          "reasonCode"
+        ],
+        "type": "object",
+        "properties": {
+          "reasonCode": {
+            "type": "string",
+            "enum": [
+              "WRONG_ENTRY",
+              "DUPLICATE",
+              "REFUND",
+              "OTHER"
+            ]
+          },
+          "note": {
+            "maxLength": 300,
+            "minLength": 5,
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "writeOnly": true
+          }
+        }
+      },
+      "SubmitDayCloseRequest": {
+        "required": [
+          "countedCashPaise",
+          "date"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "countedCashPaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseDayClose": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DayClose"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "DayClose": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "gymId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "expectedCashPaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "countedCashPaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "differencePaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "closedBy": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      },
+      "ApplyDiscountRequest": {
+        "required": [
+          "discountPaise",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "discountPaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "reason": {
+            "maxLength": 300,
+            "minLength": 5,
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseMembershipResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/MembershipResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "CreateMemberRequest": {
+        "required": [
+          "name",
+          "phone",
+          "planId"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "pattern": "^\\d{10,15}$",
+            "type": "string"
+          },
+          "gender": {
+            "type": "string"
+          },
+          "dob": {
+            "type": "string",
+            "format": "date"
+          },
+          "address": {
+            "type": "string"
+          },
+          "planId": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "paidAmount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "paymentMode": {
+            "type": "string"
+          }
+        }
+      },
+      "RenewMembershipRequest": {
+        "required": [
+          "planId"
+        ],
+        "type": "object",
+        "properties": {
+          "planId": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "paidAmount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "paymentMode": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseString": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "string"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "VerifyOtpRequest": {
+        "required": [
+          "otp",
+          "phone"
+        ],
+        "type": "object",
+        "properties": {
+          "phone": {
+            "pattern": "^[6-9]\\d{9}$",
+            "type": "string"
+          },
+          "otp": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseVerifyOtpResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/VerifyOtpResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "UserSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "gymId": {
+            "type": "string"
+          },
+          "gymName": {
+            "type": "string"
+          }
+        }
+      },
+      "VerifyOtpResponse": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "refreshToken": {
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserSummary"
+          },
+          "gym": {
+            "$ref": "#/components/schemas/GymSummary"
+          },
+          "registrationToken": {
+            "type": "string"
+          },
+          "isNewUser": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SendOtpRequest": {
+        "required": [
+          "phone"
+        ],
+        "type": "object",
+        "properties": {
+          "phone": {
+            "pattern": "^[6-9]\\d{9}$",
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseSendOtpResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SendOtpResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "SendOtpResponse": {
+        "type": "object",
+        "properties": {
+          "resendAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "expiresInSeconds": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "RefreshTokenRequest": {
+        "required": [
+          "refreshToken"
+        ],
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseTokenResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TokenResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "TokenResponse": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "refreshToken": {
+            "type": "string"
+          },
+          "tokenType": {
+            "type": "string"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "gymId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          }
+        }
+      },
+      "CompleteRegistrationRequest": {
+        "required": [
+          "address",
+          "gymName",
+          "gymType",
+          "ownerName",
+          "termsVersion"
+        ],
+        "type": "object",
+        "properties": {
+          "gymName": {
+            "maxLength": 80,
+            "minLength": 2,
+            "type": "string"
+          },
+          "gymType": {
+            "type": "string",
+            "enum": [
+              "COMMERCIAL",
+              "BOUTIQUE_STUDIO",
+              "CROSSFIT_BOX",
+              "BODYBUILDING_POWERLIFTING",
+              "PREMIUM_LUXURY",
+              "WOMEN_ONLY",
+              "HOME_GYM"
+            ]
+          },
+          "ownerName": {
+            "maxLength": 80,
+            "minLength": 2,
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 150,
+            "minLength": 0,
+            "type": "string"
+          },
+          "legalIdType": {
+            "type": "string",
+            "enum": [
+              "UDYAM",
+              "GSTIN",
+              "NIC"
+            ]
+          },
+          "legalIdNumber": {
+            "type": "string"
+          },
+          "address": {
+            "$ref": "#/components/schemas/AddressDto"
+          },
+          "acceptedTerms": {
+            "type": "boolean"
+          },
+          "termsVersion": {
+            "type": "string"
+          }
+        }
+      },
+      "CheckInRequest": {
+        "type": "object",
+        "properties": {
+          "memberId": {
+            "type": "string"
+          },
+          "memberCode": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseCheckInResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/CheckInResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "CheckInResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "memberId": {
+            "type": "string"
+          },
+          "memberName": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "checkInTime": {
+            "$ref": "#/components/schemas/LocalTime"
+          },
+          "membershipExpiredWarning": {
+            "type": "boolean"
+          },
+          "duePaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "membershipId": {
+            "type": "string"
+          },
+          "hasDue": {
+            "type": "boolean"
+          }
+        }
+      },
+      "LocalTime": {
+        "type": "object",
+        "properties": {
+          "hour": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "minute": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "second": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "nano": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ExtendSubscriptionRequest": {
+        "required": [
+          "plan"
+        ],
+        "type": "object",
+        "properties": {
+          "plan": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateTrainerRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "trainerTypeIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateStaffRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdatePromisedDateRequest": {
+        "required": [
+          "promisedDate"
+        ],
+        "type": "object",
+        "properties": {
+          "promisedDate": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "ApiResponseListTrainerResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrainerResponse"
+            }
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "ApiResponseListTrainerTypeResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrainerTypeResponse"
+            }
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "ApiResponsePagedResponseAssignmentResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PagedResponseAssignmentResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "PagedResponseAssignmentResponse": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssignmentResponse"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "last": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponseListStaffResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffResponse"
+            }
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "ApiResponseListPlanResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanResponse"
+            }
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "ApiResponsePaymentListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PaymentListResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "DayTotalResponse": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "totalPaise": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "PagedResponsePaymentResponse": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PaymentResponse"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "last": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PaymentListResponse": {
+        "type": "object",
+        "properties": {
+          "payments": {
+            "$ref": "#/components/schemas/PagedResponsePaymentResponse"
+          },
+          "totalsByMode": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "dayTotals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DayTotalResponse"
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PaymentResponse"
+            }
+          }
+        }
+      },
+      "ApiResponsePaymentDetailResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PaymentDetailResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "MembershipSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "planName": {
+            "type": "string"
+          },
+          "totalPaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "discountPaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "paidPaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "duePaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "expiryDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "PaymentDetailResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "receiptNo": {
+            "type": "string"
+          },
+          "gymId": {
+            "type": "string"
+          },
+          "memberId": {
+            "type": "string"
+          },
+          "memberName": {
+            "type": "string"
+          },
+          "memberCode": {
+            "type": "string"
+          },
+          "membershipId": {
+            "type": "string"
+          },
+          "planName": {
+            "type": "string"
+          },
+          "amountPaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "paidAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "collectedByName": {
+            "type": "string"
+          },
+          "collectedByUserId": {
+            "type": "string"
+          },
+          "referenceNo": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "membershipSummary": {
+            "$ref": "#/components/schemas/MembershipSummary"
+          },
+          "reversalOfId": {
+            "type": "string"
+          },
+          "reversalOfReceiptNo": {
+            "type": "string"
+          },
+          "reversedByPaymentId": {
+            "type": "string"
+          },
+          "reversalReceiptNo": {
+            "type": "string"
+          },
+          "reversedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ApiResponsePaymentSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PaymentSummaryResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "ModeSummary": {
+        "type": "object",
+        "properties": {
+          "paise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "percent": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "PaymentSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "collectedPaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "byMode": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ModeSummary"
+            }
+          },
+          "previousPeriodPaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "percentChange": {
+            "type": "number",
+            "format": "double"
+          },
+          "pendingDuePaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "pendingMembersCount": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ApiResponseDuesListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DuesListResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "DueItemResponse": {
+        "type": "object",
+        "properties": {
+          "memberId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "memberName": {
+            "type": "string"
+          },
+          "memberCode": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "membershipId": {
+            "type": "string"
+          },
+          "planName": {
+            "type": "string"
+          },
+          "duePaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalDuePaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "paidPaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "expiryDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "daysOverdue": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "daysToExpiry": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lastPaymentAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "promisedDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "promiseBroken": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DuesListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DueItemResponse"
+            }
+          },
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DueItemResponse"
+            }
+          },
+          "totalDuePaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "last": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponseDayCloseReportResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DayCloseReportResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "DayCloseReportResponse": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "totalCollectedPaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "reversalsCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "reversalsPaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "byMode": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "expectedCashPaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "staffBreakdown": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffBreakdownResponse"
+            }
+          },
+          "dayClose": {
+            "$ref": "#/components/schemas/DayClose"
+          },
+          "closed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "StaffBreakdownResponse": {
+        "type": "object",
+        "properties": {
+          "staffId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "amountPaise": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ApiResponsePagedResponseMemberResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PagedResponseMemberResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "PagedResponseMemberResponse": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemberResponse"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "last": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponseListMemberNoteResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemberNoteResponse"
+            }
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "ApiResponseDashboardResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DashboardResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "DailyCollectionResponse": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "amountPaise": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "DashboardResponse": {
+        "type": "object",
+        "properties": {
+          "activeMembers": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "todayCollection": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "monthCollection": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "expiringSoon": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "newJoinings": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "todayAttendance": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalDue": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "expiringSoonList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpiringMemberResponse"
+            }
+          },
+          "last7DaysCollection": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DailyCollectionResponse"
+            }
+          },
+          "subscriptionDaysRemaining": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ExpiringMemberResponse": {
+        "type": "object",
+        "properties": {
+          "memberId": {
+            "type": "string"
+          },
+          "memberName": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "daysLeft": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ApiResponsePagedResponseAuditLog": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PagedResponseAuditLog"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "AuditLog": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "gymId": {
+            "type": "string"
+          },
+          "actorId": {
+            "type": "string"
+          },
+          "actorRole": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "targetId": {
+            "type": "string"
+          },
+          "details": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PagedResponseAuditLog": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditLog"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "last": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponsePagedResponseAttendanceRecordResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PagedResponseAttendanceRecordResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "AttendanceRecordResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "memberId": {
+            "type": "string"
+          },
+          "memberName": {
+            "type": "string"
+          },
+          "memberCode": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "checkInTime": {
+            "$ref": "#/components/schemas/LocalTime"
+          }
+        }
+      },
+      "PagedResponseAttendanceRecordResponse": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttendanceRecordResponse"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "last": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AbsentMemberResponse": {
+        "type": "object",
+        "properties": {
+          "memberId": {
+            "type": "string"
+          },
+          "memberCode": {
+            "type": "string"
+          },
+          "memberName": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "lastAttendanceDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "daysAbsent": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ApiResponsePagedResponseAbsentMemberResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PagedResponseAbsentMemberResponse"
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      },
+      "PagedResponseAbsentMemberResponse": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AbsentMemberResponse"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "last": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponseListGym": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Gym"
+            }
+          },
+          "error": {
+            "type": "object"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "code": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "Bearer Auth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}
