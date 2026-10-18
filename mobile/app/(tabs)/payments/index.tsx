@@ -55,6 +55,7 @@ const PERIOD_OPTIONS: FilterOption[] = [
   { label: 'This week', value: 'WEEK' },
   { label: 'This month', value: 'MONTH' },
   { label: 'All time', value: 'ALL' },
+  { label: 'Custom', value: 'CUSTOM' },
 ];
 
 // Mode Options
@@ -89,6 +90,11 @@ export default function PaymentsScreen() {
   // Filters
   const [periodFilter, setPeriodFilter] = useState<string>(params.period || 'MONTH');
   const [modeFilter, setModeFilter] = useState<string>('ALL');
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
+  const [showCustomDateModal, setShowCustomDateModal] = useState<boolean>(false);
+  const [tempStartDate, setTempStartDate] = useState<string>('');
+  const [tempEndDate, setTempEndDate] = useState<string>('');
 
   useEffect(() => {
     if (params.tab) {
@@ -144,7 +150,9 @@ export default function PaymentsScreen() {
     refetch: refetchPayments,
     isRefetching: isPaymentsRefetching,
   } = usePayments({
-    period: periodFilter,
+    period: periodFilter === 'CUSTOM' ? undefined : periodFilter,
+    startDate: periodFilter === 'CUSTOM' && customStartDate ? customStartDate : undefined,
+    endDate: periodFilter === 'CUSTOM' && customEndDate ? customEndDate : undefined,
     mode: modeFilter,
     search: debouncedSearch,
   });
@@ -238,14 +246,54 @@ export default function PaymentsScreen() {
       .reduce((sum, p) => sum + (p.type === 'REVERSAL' ? -p.amountPaise : p.amountPaise), 0);
   }, [allPayments, isOwner]);
 
-  const isDefaultFilters = periodFilter === 'MONTH' && modeFilter === 'ALL' && !debouncedSearch;
+  const isDefaultFilters =
+    periodFilter === 'MONTH' &&
+    modeFilter === 'ALL' &&
+    !debouncedSearch &&
+    !customStartDate &&
+    !customEndDate;
 
   const handleClearFilters = () => {
     setPeriodFilter('MONTH');
     setModeFilter('ALL');
+    setCustomStartDate('');
+    setCustomEndDate('');
     setRawSearchQuery('');
     setDebouncedSearch('');
     setShowSearch(false);
+  };
+
+  const periodChipLabel = useMemo(() => {
+    if (periodFilter === 'CUSTOM' && customStartDate && customEndDate) {
+      return `${customStartDate} – ${customEndDate}`;
+    }
+    return PERIOD_OPTIONS.find((p) => p.value === periodFilter)?.label || 'Period';
+  }, [periodFilter, customStartDate, customEndDate]);
+
+  const handleSelectPeriod = (val: string) => {
+    setShowPeriodSheet(false);
+    if (val === 'CUSTOM') {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const monthAgo = new Date();
+      monthAgo.setDate(monthAgo.getDate() - 30);
+      const monthAgoStr = monthAgo.toISOString().split('T')[0];
+      setTempStartDate(customStartDate || monthAgoStr);
+      setTempEndDate(customEndDate || todayStr);
+      setShowCustomDateModal(true);
+    } else {
+      setPeriodFilter(val);
+      setCustomStartDate('');
+      setCustomEndDate('');
+    }
+  };
+
+  const handleApplyCustomDates = (start: string, end: string) => {
+    if (start && end) {
+      setPeriodFilter('CUSTOM');
+      setCustomStartDate(start);
+      setCustomEndDate(end);
+      setShowCustomDateModal(false);
+    }
   };
 
   const handleRefreshAll = async () => {
@@ -448,7 +496,15 @@ export default function PaymentsScreen() {
         <DuesTab
           searchQuery={debouncedSearch}
           onSelectMember={(memberId) => router.push(`/(tabs)/members/${memberId}` as any)}
-          onCollectForMember={() => setShowCollectModal(true)}
+          onCollectForMember={(memberId, membershipId) => {
+            router.push({
+              pathname: '/(tabs)/payments/collect',
+              params: {
+                memberId,
+                membershipId,
+              },
+            } as any);
+          }}
         />
       ) : (
         <View style={styles.historyContainer}>
@@ -461,7 +517,7 @@ export default function PaymentsScreen() {
               {...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {})}
             >
               <Text style={styles.filterChipText}>
-                {PERIOD_OPTIONS.find((p) => p.value === periodFilter)?.label || 'Period'}
+                {periodChipLabel}
               </Text>
               <ChevronDown size={14} color={theme.colors.textMuted} style={{ marginLeft: 4 }} />
             </TouchableOpacity>
@@ -571,7 +627,7 @@ export default function PaymentsScreen() {
             bottom: getScreenBottomPadding(insets.bottom) - 16,
           },
         ]}
-        onPress={() => setShowCollectModal(true)}
+        onPress={() => router.push('/(tabs)/payments/collect' as any)}
         activeOpacity={0.88}
         accessibilityRole="button"
         accessibilityLabel="Collect fee"
@@ -595,7 +651,7 @@ export default function PaymentsScreen() {
         title="Select Period"
         options={PERIOD_OPTIONS}
         selectedValue={periodFilter}
-        onSelect={setPeriodFilter}
+        onSelect={handleSelectPeriod}
         onClose={() => setShowPeriodSheet(false)}
       />
 
@@ -608,7 +664,96 @@ export default function PaymentsScreen() {
         onClose={() => setShowModeSheet(false)}
       />
 
-      {/* Collect Payment Modal */}
+      {/* Custom Date Range Modal */}
+      {showCustomDateModal && (
+        <Modal
+          visible={showCustomDateModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowCustomDateModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.customDateCard}>
+              <View style={styles.customDateHeader}>
+                <Text style={styles.customDateTitle}>Custom Date Range</Text>
+                <TouchableOpacity onPress={() => setShowCustomDateModal(false)}>
+                  <X size={18} color={theme.colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.customDateSubtitle}>
+                Enter start and end dates (YYYY-MM-DD) or pick a preset:
+              </Text>
+
+              {/* Quick Presets */}
+              <View style={styles.presetsRow}>
+                {[
+                  { label: 'Last 7 days', days: 7 },
+                  { label: 'Last 30 days', days: 30 },
+                  { label: 'Last 90 days', days: 90 },
+                ].map((p) => (
+                  <TouchableOpacity
+                    key={p.label}
+                    style={styles.presetChip}
+                    onPress={() => {
+                      const today = new Date();
+                      const start = new Date();
+                      start.setDate(today.getDate() - p.days);
+                      const sStr = start.toISOString().split('T')[0];
+                      const eStr = today.toISOString().split('T')[0];
+                      setTempStartDate(sStr);
+                      setTempEndDate(eStr);
+                    }}
+                  >
+                    <Text style={styles.presetChipText}>{p.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={styles.dateInputsRow}>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={styles.dateInputLabel}>Start Date</Text>
+                  <TextInput
+                    style={styles.dateTextInput}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={theme.colors.textMuted}
+                    value={tempStartDate}
+                    onChangeText={setTempStartDate}
+                  />
+                </View>
+                <View style={{ flex: 1, marginLeft: 8 }}>
+                  <Text style={styles.dateInputLabel}>End Date</Text>
+                  <TextInput
+                    style={styles.dateTextInput}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={theme.colors.textMuted}
+                    value={tempEndDate}
+                    onChangeText={setTempEndDate}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.customDateActions}>
+                <TouchableOpacity
+                  style={styles.cancelCustomBtn}
+                  onPress={() => setShowCustomDateModal(false)}
+                >
+                  <Text style={styles.cancelCustomText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.applyCustomBtn}
+                  onPress={() => handleApplyCustomDates(tempStartDate.trim(), tempEndDate.trim())}
+                >
+                  <Text style={styles.applyCustomText}>Apply Filter</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Collect Payment Modal (Fallback modal) */}
       <CollectPaymentModal
         visible={showCollectModal}
         onClose={() => setShowCollectModal(false)}
@@ -838,6 +983,107 @@ const styles = StyleSheet.create({
     zIndex: 90,
   },
   fabText: {
+    fontFamily: theme.fonts.headingBold,
+    fontSize: 14,
+    color: '#051F20',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(5, 31, 32, 0.85)',
+    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
+    alignItems: 'center',
+    padding: Platform.OS === 'web' ? 16 : 0,
+  },
+  customDateCard: {
+    width: '100%',
+    maxWidth: Platform.OS === 'web' ? 420 : '100%',
+    backgroundColor: '#0B2B26',
+    borderTopLeftRadius: Platform.OS === 'web' ? theme.radius.lg : theme.radius.xl,
+    borderTopRightRadius: Platform.OS === 'web' ? theme.radius.lg : theme.radius.xl,
+    borderRadius: Platform.OS === 'web' ? theme.radius.lg : undefined,
+    borderWidth: 1,
+    borderColor: 'rgba(218, 241, 222, 0.16)',
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 20,
+  },
+  customDateHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  customDateTitle: {
+    fontFamily: theme.fonts.headingBold,
+    fontSize: 16,
+    color: theme.colors.text,
+  },
+  customDateSubtitle: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    marginBottom: 14,
+  },
+  presetsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  presetChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: theme.radius.full,
+    backgroundColor: 'rgba(218, 241, 222, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(218, 241, 222, 0.14)',
+  },
+  presetChipText: {
+    fontFamily: theme.fonts.bodyMedium,
+    fontSize: 12,
+    color: theme.colors.text,
+  },
+  dateInputsRow: {
+    flexDirection: 'row',
+    marginBottom: 20,
+  },
+  dateInputLabel: {
+    fontFamily: theme.fonts.bodyMedium,
+    fontSize: 12,
+    color: theme.colors.textMuted,
+    marginBottom: 6,
+  },
+  dateTextInput: {
+    backgroundColor: 'rgba(5, 31, 32, 0.7)',
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(218, 241, 222, 0.14)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 14,
+    color: theme.colors.text,
+  },
+  customDateActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  cancelCustomBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: theme.radius.sm,
+  },
+  cancelCustomText: {
+    fontFamily: theme.fonts.bodyMedium,
+    fontSize: 14,
+    color: theme.colors.textMuted,
+  },
+  applyCustomBtn: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: theme.radius.sm,
+  },
+  applyCustomText: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 14,
     color: '#051F20',
