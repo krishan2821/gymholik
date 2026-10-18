@@ -275,9 +275,9 @@ export const MEMBERS = {
   SECTION_PLAN: 'Membership plan',
   LABEL_SELECT_PLAN: 'Select plan',
   LABEL_AMOUNT_PAID: 'Amount paid now (₹)',
-  DUE_REMAINING: (amt: string) => `Outstanding balance: ₹${amt}`,
+  DUE_REMAINING: (amt: string) => `Outstanding balance: ${amt.startsWith('₹') ? amt : `₹${amt}`}`,
   PLAN_EXPIRES: (date: string) => `Expires on: ${date}`,
-  PLAN_TOTAL_FEE: (amt: string) => `Total fee: ₹${amt}`,
+  PLAN_TOTAL_FEE: (amt: string) => `Total fee: ${amt.startsWith('₹') ? amt : `₹${amt}`}`,
   SAVE_MEMBER: 'Save member',
   EMPTY: 'No members found.',
   LOAD_ERROR: 'Failed to load members.',
@@ -288,7 +288,7 @@ export const MEMBERS = {
   STATUS_ACTIVE: 'Active',
   STATUS_EXPIRED: 'Expired',
   STATUS_EXPIRING: 'Expiring soon',
-  DUE_BADGE: (amt: string) => `Owes ₹${amt}`,
+  DUE_BADGE: (amt: string) => `Owes ${amt.startsWith('₹') ? amt : `₹${amt}`}`,
 } as const;
 
 // ─── Member profile ───────────────────────────────────────────────────────────
@@ -319,8 +319,8 @@ export const RENEW = {
   SECTION_PLAN: 'New plan',
   PLAN_STARTS: (date: string) => `Starts on: ${date}`,
   PLAN_EXPIRES: (date: string) => `Expires on: ${date}`,
-  PLAN_FEE: (amt: string) => `Total fee: ₹${amt}`,
-  DUE_REMAINING: (amt: string) => `Outstanding balance: ₹${amt}`,
+  PLAN_FEE: (amt: string) => `Total fee: ${amt.startsWith('₹') ? amt : `₹${amt}`}`,
+  DUE_REMAINING: (amt: string) => `Outstanding balance: ${amt.startsWith('₹') ? amt : `₹${amt}`}`,
   SUBMIT: 'Renew membership',
   ERROR_TITLE: 'Could not renew',
 } as const;
@@ -392,7 +392,7 @@ export const COLLECT = {
   SELECT_MEMBER_PLACEHOLDER: 'Search by name, mobile, or code…',
   SEARCH_TITLE: 'Select Member',
   NO_MEMBERS_FOUND: 'No members found matching your search',
-  OUTSTANDING: (amt: string) => `Outstanding balance: ₹${amt}`,
+  OUTSTANDING: (amt: string) => `Outstanding balance: ${amt.startsWith('₹') ? amt : `₹${amt}`}`,
   MULTIPLE_MEMBERSHIPS_TITLE: 'Select Membership',
   SUMMARY_TITLE: 'Membership Summary',
   TOTAL_FEE: 'Total',
@@ -404,7 +404,7 @@ export const COLLECT = {
   DISCOUNT_AMOUNT_LABEL: 'Discount amount',
   DISCOUNT_REASON_LABEL: 'Reason (minimum 5 characters)',
   DISCOUNT_REASON_PLACEHOLDER: 'e.g. Special festive promo or student discount',
-  BALANCE_AFTER: (amt: string) => `Balance after this payment: ₹${amt}`,
+  BALANCE_AFTER: (amt: string) => `Balance after this payment: ${amt.startsWith('₹') ? amt : `₹${amt}`}`,
   AMOUNT_LABEL: 'Amount to collect',
   CHIP_FULL_DUE: 'Full due',
   CHIP_HALF: 'Half',
@@ -428,10 +428,10 @@ export const COLLECT = {
   NOTE_PLACEHOLDER: 'Add any note or comments…',
   PAYMENT_DATE_LABEL: 'Payment Date',
   PROMISE_DATE_LABEL: 'Promise date for the balance',
-  ACTION_COLLECT: (amt: string) => `Collect ₹${amt}`,
+  ACTION_COLLECT: (amt: string) => `Collect ${amt.startsWith('₹') ? amt : `₹${amt}`}`,
   SUCCESS_TITLE: 'Payment recorded',
   FULLY_PAID: 'Fully paid',
-  BALANCE_DUE: (amt: string) => `Balance due: ₹${amt}`,
+  BALANCE_DUE: (amt: string) => `Balance due: ${amt.startsWith('₹') ? amt : `₹${amt}`}`,
   RECEIPT_NO: (no: string) => `Receipt no: ${no}`,
   SHARE_RECEIPT: 'Share receipt',
   SEND_ON_WHATSAPP: 'Send on WhatsApp',
@@ -538,7 +538,7 @@ export const PLANS = {
   EMPTY: 'No plans yet. Add one to get started.',
   LOAD_ERROR: 'Failed to load plans.',
   SAVE_ERROR: 'Could not save the plan. Please try again.',
-  PLAN_DETAIL: (days: number, price: string) => `${days} days · ₹${price}`,
+  PLAN_DETAIL: (days: number, price: string) => `${days} days · ${price.startsWith('₹') ? price : `₹${price}`}`,
 } as const;
 
 // ─── Staff management ─────────────────────────────────────────────────────────

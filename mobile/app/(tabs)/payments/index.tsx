@@ -10,6 +10,7 @@ import {
   Platform,
   ActivityIndicator,
   Modal,
+  Keyboard,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
@@ -40,7 +41,7 @@ import { PaymentsSummaryCard, StaffSummaryCard } from '../../../src/components/P
 import { PaymentDetailSheet } from '../../../src/components/PaymentDetailSheet';
 import { FilterBottomSheet, FilterOption } from '../../../src/components/FilterBottomSheet';
 import { DuesTab } from '../../../src/components/DuesTab';
-import { formatMoney } from '../../../src/utils/formatters';
+import { formatMoney, formatDate, formatTime, truncateMiddle } from '../../../src/utils/formatters';
 import { useAuthStore } from '../../../src/store/useAuthStore';
 import {
   usePayments,
@@ -109,10 +110,28 @@ export default function PaymentsScreen() {
 
   const [showPeriodSheet, setShowPeriodSheet] = useState(false);
   const [showModeSheet, setShowModeSheet] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setIsKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Modals & Sheets
   const [showCollectModal, setShowCollectModal] = useState(false);
   const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
+
+  const shouldHideFab =
+    isKeyboardVisible ||
+    Boolean(selectedPaymentId) ||
+    showPeriodSheet ||
+    showModeSheet ||
+    showCollectModal ||
+    showCustomDateModal;
 
   // Debounce search query 400ms
   useEffect(() => {
@@ -192,11 +211,7 @@ export default function PaymentsScreen() {
       if (dStr === todayStr) return 'Today';
       if (dStr === yestStr) return 'Yesterday';
 
-      return d.toLocaleDateString('en-IN', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      });
+      return formatDate(isoStr);
     };
 
     // Group items by local date YYYY-MM-DD
@@ -319,13 +334,7 @@ export default function PaymentsScreen() {
     const amountSign = isReversal ? '-' : '+';
     const formattedAmount = formatMoney(item.amountPaise);
 
-    const timeStr = item.paidAt
-      ? new Date(item.paidAt).toLocaleTimeString('en-IN', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true,
-        })
-      : '';
+    const timeStr = formatTime(item.paidAt || item.createdAt);
 
     return (
       <TouchableOpacity
@@ -363,9 +372,14 @@ export default function PaymentsScreen() {
               {amountSign}{formattedAmount}
             </Text>
           </View>
-          <Text style={styles.rowReceiptTime}>
-            {timeStr} • #{item.receiptNo}
-          </Text>
+          {Boolean(timeStr) && (
+            <Text style={styles.rowTimeText}>{timeStr}</Text>
+          )}
+          {Boolean(item.receiptNo) && (
+            <Text style={styles.rowReceiptText} numberOfLines={1}>
+              #{truncateMiddle(item.receiptNo, 14)}
+            </Text>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -621,22 +635,24 @@ export default function PaymentsScreen() {
       )}
 
       {/* ── 8. Floating "Collect fee" Button (Bottom Right) ───────────── */}
-      <TouchableOpacity
-        style={[
-          styles.fabBtn,
-          {
-            bottom: getScreenBottomPadding(insets.bottom) - 16,
-          },
-        ]}
-        onPress={() => router.push('/(tabs)/payments/collect' as any)}
-        activeOpacity={0.88}
-        accessibilityRole="button"
-        accessibilityLabel="Collect fee"
-        {...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {})}
-      >
-        <Plus size={20} color="#051F20" strokeWidth={2.5} style={{ marginRight: 6 }} />
-        <Text style={styles.fabText}>Collect fee</Text>
-      </TouchableOpacity>
+      {!shouldHideFab && (
+        <TouchableOpacity
+          style={[
+            styles.fabBtn,
+            {
+              bottom: getScreenBottomPadding(insets.bottom) - 16,
+            },
+          ]}
+          onPress={() => router.push('/(tabs)/payments/collect' as any)}
+          activeOpacity={0.88}
+          accessibilityRole="button"
+          accessibilityLabel="Collect fee"
+          {...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {})}
+        >
+          <Plus size={20} color="#051F20" strokeWidth={2.5} style={{ marginRight: 6 }} />
+          <Text style={styles.fabText}>Collect fee</Text>
+        </TouchableOpacity>
+      )}
 
       {/* ── 6. Payment Detail Sheet ──────────────────────────────────── */}
       <PaymentDetailSheet
@@ -781,7 +797,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   searchBarWrap: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     marginBottom: 12,
   },
   searchBar: {
@@ -802,7 +818,7 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   segmentedControlWrap: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     marginBottom: 12,
   },
   segmentedControl: {
@@ -851,7 +867,7 @@ const styles = StyleSheet.create({
   filtersRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     marginBottom: 10,
     gap: 8,
   },
@@ -880,7 +896,7 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
   },
   skeletonList: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
   },
   skeletonRow: {
     flexDirection: 'row',
@@ -894,7 +910,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#051F20',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(218, 241, 222, 0.06)',
@@ -917,7 +933,7 @@ const styles = StyleSheet.create({
   paymentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 12,
     backgroundColor: 'transparent',
     borderBottomWidth: 1,
@@ -962,10 +978,17 @@ const styles = StyleSheet.create({
   amountCoral: {
     color: '#FF6B6B',
   },
-  rowReceiptTime: {
+  rowTimeText: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 11,
     color: theme.colors.textMuted,
+  },
+  rowReceiptText: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 10,
+    color: theme.colors.textMuted,
+    opacity: 0.85,
+    marginTop: 2,
   },
   fabBtn: {
     position: 'absolute',

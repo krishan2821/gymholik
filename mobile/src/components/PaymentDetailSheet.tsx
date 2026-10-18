@@ -15,7 +15,7 @@ import { theme } from '../theme/theme';
 import { GlassCard } from './GlassCard';
 import { Button } from './Button';
 import { Badge } from './Badge';
-import { formatMoney } from '../utils/formatters';
+import { formatMoney, formatDate, formatTime } from '../utils/formatters';
 import {
   usePaymentDetail,
   useReversePayment,
@@ -178,13 +178,7 @@ export const PaymentDetailSheet: React.FC<PaymentDetailSheetProps> = ({
                   <Text style={styles.infoLabel}>Date & Time</Text>
                   <Text style={styles.infoValue}>
                     {detail.paidAt
-                      ? new Date(detail.paidAt).toLocaleDateString('en-IN', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })
+                      ? `${formatDate(detail.paidAt)}, ${formatTime(detail.paidAt)}`
                       : '—'}
                   </Text>
                 </View>

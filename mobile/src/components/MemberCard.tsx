@@ -10,6 +10,7 @@ import { GlassCard } from './GlassCard';
 import { Avatar, AvatarStatus } from './Avatar';
 import { Badge, BadgeVariant } from './Badge';
 import { MaskedPhone, isPhoneMasked } from './MaskedPhone';
+import { formatMoney } from '../utils/formatters';
 
 interface MemberCardProps {
   member: Member;
@@ -52,8 +53,6 @@ export const MemberCard = React.memo(({ member, onPress }: MemberCardProps) => {
 
     return { badgeVariant: 'success', avatarStatus: 'active', text: 'Active' };
   };
-
-  const formatMoney = (paise: number) => `₹${paise / 100}`;
 
   const openWhatsApp = (e: any) => {
     e?.stopPropagation?.();

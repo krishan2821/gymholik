@@ -69,9 +69,13 @@ export const PaymentsSummaryCard: React.FC<SummaryCardProps> = ({
   }
 
   const collectedPaise = targetCollected;
+  const previousPeriodPaise = summary?.previousPeriodPaise;
   const percentChange = summary?.percentChange;
-  const hasChange = percentChange !== null && percentChange !== undefined;
-  const isUp = hasChange && percentChange >= 0;
+  const hasPreviousCollection =
+    previousPeriodPaise !== null && previousPeriodPaise !== undefined && previousPeriodPaise > 0;
+  const isUp = hasPreviousCollection && percentChange !== null && percentChange !== undefined && percentChange >= 0;
+  const previousIsZero =
+    previousPeriodPaise !== null && previousPeriodPaise !== undefined && previousPeriodPaise === 0;
 
   const cashPaise = summary?.byMode?.CASH?.paise ?? 0;
   const upiPaise = summary?.byMode?.UPI?.paise ?? 0;
@@ -90,18 +94,24 @@ export const PaymentsSummaryCard: React.FC<SummaryCardProps> = ({
       {/* Top Header Label */}
       <View style={styles.topRow}>
         <Text style={styles.label}>Collected this month</Text>
-        {hasChange && (
+        {hasPreviousCollection && percentChange !== null && percentChange !== undefined ? (
           <View style={[styles.chip, isUp ? styles.chipUp : styles.chipDown]}>
             {isUp ? (
-              <ArrowUpRight size={13} color={theme.colors.primary} />
+              <ArrowUpRight size={13} color="#8EB69B" />
             ) : (
-              <ArrowDownRight size={13} color={theme.colors.error} />
+              <ArrowDownRight size={13} color="#FF6B6B" />
             )}
             <Text style={[styles.chipText, isUp ? styles.chipTextUp : styles.chipTextDown]}>
-              {Math.abs(percentChange)}%
+              {percentChange >= 0
+                ? `+${Math.round(percentChange)}% vs last month`
+                : `-${Math.round(Math.abs(percentChange))}% vs last month`}
             </Text>
           </View>
-        )}
+        ) : previousIsZero ? (
+          <View style={[styles.chip, styles.chipNew]}>
+            <Text style={[styles.chipText, styles.chipTextNew]}>New</Text>
+          </View>
+        ) : null}
       </View>
 
       {/* Main Count-Up Amount */}
@@ -212,7 +222,7 @@ export const StaffSummaryCard: React.FC<StaffSummaryCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    marginHorizontal: 16,
+    marginHorizontal: 20,
     marginBottom: 16,
     borderRadius: theme.radius.lg,
   },
@@ -243,16 +253,27 @@ const styles = StyleSheet.create({
   chipDown: {
     backgroundColor: 'rgba(255, 107, 107, 0.16)',
   },
+  chipNew: {
+    backgroundColor: 'rgba(142, 182, 155, 0.16)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: theme.radius.full,
+  },
   chipText: {
     fontFamily: theme.fonts.bodyBold,
     fontSize: 11,
     marginLeft: 2,
   },
   chipTextUp: {
-    color: theme.colors.primary,
+    color: '#8EB69B',
   },
   chipTextDown: {
-    color: theme.colors.error,
+    color: '#FF6B6B',
+  },
+  chipTextNew: {
+    fontFamily: theme.fonts.bodyBold,
+    fontSize: 11,
+    color: '#8EB69B',
   },
   bigAmount: {
     fontFamily: theme.fonts.headingBold,

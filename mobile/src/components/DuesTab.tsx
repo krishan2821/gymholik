@@ -15,7 +15,7 @@ import { Avatar } from './Avatar';
 import { Skeleton } from './Skeleton';
 import { EmptyState } from './EmptyState';
 import { ErrorState } from './ErrorState';
-import { formatMoney, isPhoneMasked } from '../utils/formatters';
+import { formatMoney, formatDate, isPhoneMasked } from '../utils/formatters';
 import { useDues, DueItem } from '../api/payments';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGymProfile } from '../api/more';
@@ -123,7 +123,7 @@ export const DuesTab: React.FC<DuesTabProps> = ({
               <View style={styles.promisedBadge}>
                 <Clock size={13} color={theme.colors.warning} />
                 <Text style={styles.promisedBadgeText}>
-                  Promised {item.promisedDate}
+                  Promised {formatDate(item.promisedDate)}
                 </Text>
               </View>
             ) : isOverdue ? (
@@ -139,7 +139,7 @@ export const DuesTab: React.FC<DuesTabProps> = ({
                 <Text style={styles.expiryBadgeText}>
                   {item.daysToExpiry !== undefined && item.daysToExpiry <= 7
                     ? `Expires in ${item.daysToExpiry} days`
-                    : `Exp: ${item.expiryDate}`}
+                    : `Exp: ${formatDate(item.expiryDate)}`}
                 </Text>
               </View>
             ) : null}
@@ -209,7 +209,7 @@ export const DuesTab: React.FC<DuesTabProps> = ({
 
       {/* ── List ─────────────────────────────────────────────────────── */}
       {isLoading ? (
-        <View style={{ paddingHorizontal: 16 }}>
+        <View style={{ paddingHorizontal: 20 }}>
           {[1, 2, 3, 4].map((k) => (
             <GlassCard key={k} style={styles.card} contentStyle={styles.cardInner}>
               <Skeleton width="50%" height={16} style={{ marginBottom: 8 }} />
@@ -237,7 +237,7 @@ export const DuesTab: React.FC<DuesTabProps> = ({
           data={duesList}
           keyExtractor={(item) => item.membershipId || item.memberId}
           renderItem={renderDueRow}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 110 }}
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerSummaryRow: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: 4,
     paddingBottom: 10,
   },
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   },
   chipsRow: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     marginBottom: 12,
     gap: 8,
   },

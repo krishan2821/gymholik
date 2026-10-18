@@ -103,6 +103,18 @@ export interface PaymentDetailResponse {
   reversedAt?: string;
 }
 
+export interface MembershipDueItem {
+  membershipId: string;
+  planName: string;
+  totalPaise: number;
+  discountPaise?: number;
+  paidPaise: number;
+  duePaise: number;
+  startDate?: string;
+  expiryDate?: string;
+  status?: string;
+}
+
 export interface DueItem {
   memberId: string;
   name?: string;
@@ -115,12 +127,14 @@ export interface DueItem {
   totalDuePaise?: number;
   totalPaise: number;
   paidPaise: number;
+  startDate?: string;
   expiryDate?: string;
   daysOverdue?: number;
   daysToExpiry?: number;
   lastPaymentAt?: string;
   promisedDate?: string;
   promiseBroken?: boolean;
+  memberships?: MembershipDueItem[];
 }
 
 export interface DuesListResponse {
@@ -451,3 +465,22 @@ export const useSubmitDayClose = () => {
   });
 };
 
+export interface MemberPaymentContextResponse {
+  memberId: string;
+  memberName: string;
+  totalDuePaise: number;
+  memberships: MembershipDueItem[];
+}
+
+export const fetchMemberPaymentContext = async (memberId: string): Promise<MemberPaymentContextResponse> => {
+  const { data } = await apiClient.get(`/api/members/${memberId}/payment-context`);
+  return data?.data;
+};
+
+export const useMemberPaymentContext = (memberId?: string) => {
+  return useQuery({
+    queryKey: ['member-payment-context', memberId],
+    queryFn: () => fetchMemberPaymentContext(memberId!),
+    enabled: Boolean(memberId),
+  });
+};

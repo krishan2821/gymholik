@@ -12,7 +12,9 @@ import {
   Platform,
   Alert,
   Animated,
+  KeyboardAvoidingView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -48,11 +50,12 @@ import {
   useCollectPayment,
   useDues,
   usePaymentDetail,
+  useMemberPaymentContext,
   downloadAndShareReceipt,
 } from '../../../src/api/payments';
 import { useCollectionInfo, useGymProfile } from '../../../src/api/more';
 import { COLLECT, ERRORS, COMMON, FIELDS } from '../../../src/constants/strings';
-import { formatMoney, isPhoneMasked } from '../../../src/utils/formatters';
+import { formatMoney, formatDate, isPhoneMasked } from '../../../src/utils/formatters';
 import { safeNotificationAsync, NotificationFeedbackType } from '../../../src/utils/safeHaptics';
 import { safeOpenURL } from '../../../src/utils/safeLinking';
 import { safeBack } from '../../../src/utils/navigation';
@@ -63,6 +66,8 @@ export default function CollectPaymentScreen() {
     memberId?: string;
     membershipId?: string;
   }>();
+  const rawInsets = useSafeAreaInsets();
+  const insets = Platform.OS === 'web' ? { top: 0, right: 0, bottom: 0, left: 0 } : (rawInsets ?? { top: 0, right: 0, bottom: 0, left: 0 });
 
   const user = useAuthStore((s) => s.user);
   const role = user?.role || useAuthStore((s) => s.role);
@@ -76,13 +81,6 @@ export default function CollectPaymentScreen() {
     enabled: isOwner || isStaff,
   });
 
-  // Guard: OWNER or STAFF only
-  useEffect(() => {
-    if (role === 'TRAINER') {
-      router.replace('/(tabs)/members');
-    }
-  }, [role, router]);
-
   // State
   const [selectedMemberId, setSelectedMemberId] = useState<string | undefined>(params.memberId);
   const [selectedMembershipId, setSelectedMembershipId] = useState<string | undefined>(
@@ -90,6 +88,9 @@ export default function CollectPaymentScreen() {
   );
   const [showMemberPicker, setShowMemberPicker] = useState<boolean>(!params.memberId);
   const [memberSearchTerm, setMemberSearchTerm] = useState('');
+
+  // Dedicated member payment context (all dues and individual memberships)
+  const { data: paymentContext } = useMemberPaymentContext(selectedMemberId);
 
   // Mode: CASH | UPI | CARD
   const [mode, setMode] = useState<'CASH' | 'UPI' | 'CARD'>('CASH');
@@ -193,24 +194,64 @@ export default function CollectPaymentScreen() {
     }
   }, [params.memberId, params.membershipId]);
 
-  // Determine active memberships with dues for the selected member
+  // Determine active memberships with dues for the selected member (sorted oldest first)
   const memberDuesList = useMemo(() => {
-    if (!selectedMemberId || !duesData?.items) return [];
-    return duesData.items.filter((item) => item.memberId === selectedMemberId && item.duePaise > 0);
-  }, [selectedMemberId, duesData]);
+    if (!selectedMemberId) return [];
 
-  // Automatically select membership if only 1 exists or defaults to current
+    // 1. From dedicated payment context if available
+    if (paymentContext?.memberships && paymentContext.memberships.length > 0) {
+      return [...paymentContext.memberships]
+        .filter((m) => m.duePaise > 0)
+        .sort((a, b) => {
+          const aDate = a.startDate ? new Date(a.startDate).getTime() : 0;
+          const bDate = b.startDate ? new Date(b.startDate).getTime() : 0;
+          return aDate - bDate;
+        });
+    }
+
+    // 2. From duesData grouped item
+    if (duesData?.items) {
+      const match = duesData.items.find((i) => i.memberId === selectedMemberId);
+      if (match?.memberships && match.memberships.length > 0) {
+        return [...match.memberships]
+          .filter((m) => m.duePaise > 0)
+          .sort((a, b) => {
+            const aDate = a.startDate ? new Date(a.startDate).getTime() : 0;
+            const bDate = b.startDate ? new Date(b.startDate).getTime() : 0;
+            return aDate - bDate;
+          });
+      }
+      return duesData.items
+        .filter((item) => item.memberId === selectedMemberId && item.duePaise > 0)
+        .map((item) => ({
+          membershipId: item.membershipId || '',
+          planName: item.planName || 'Membership',
+          totalPaise: item.totalPaise,
+          paidPaise: item.paidPaise,
+          duePaise: item.duePaise,
+          discountPaise: (item as any).discountPaise ?? 0,
+          startDate: item.startDate,
+          expiryDate: item.expiryDate,
+        }))
+        .sort((a, b) => {
+          const aDate = a.startDate ? new Date(a.startDate).getTime() : 0;
+          const bDate = b.startDate ? new Date(b.startDate).getTime() : 0;
+          return aDate - bDate;
+        });
+    }
+
+    return [];
+  }, [selectedMemberId, paymentContext, duesData]);
+
+  // Automatically select oldest membership by default if not explicitly selected
   useEffect(() => {
-    if (member) {
-      if (selectedMembershipId) {
-        // verify it exists or keep it
-        return;
-      }
-      if (memberDuesList.length === 1 && memberDuesList[0].membershipId) {
+    if (memberDuesList.length > 0) {
+      const currentExists = memberDuesList.some((m) => m.membershipId === selectedMembershipId);
+      if (!selectedMembershipId || !currentExists) {
         setSelectedMembershipId(memberDuesList[0].membershipId);
-      } else if (member.currentMembership?.id) {
-        setSelectedMembershipId(member.currentMembership.id);
       }
+    } else if (member?.currentMembership?.id && !selectedMembershipId) {
+      setSelectedMembershipId(member.currentMembership.id);
     }
   }, [member, memberDuesList, selectedMembershipId]);
 
@@ -220,13 +261,13 @@ export default function CollectPaymentScreen() {
     const dueMatch = memberDuesList.find((d) => d.membershipId === selectedMembershipId);
     if (dueMatch) {
       return {
-        id: dueMatch.membershipId || member.currentMembership?.id || '',
+        id: dueMatch.membershipId,
         planName: dueMatch.planName || member.currentMembership?.planName || 'Membership',
         totalPaise: dueMatch.totalPaise || member.currentMembership?.totalPaise || 0,
-        discountPaise: member.currentMembership?.discountPaise || 0,
+        discountPaise: (dueMatch as any).discountPaise ?? member.currentMembership?.discountPaise ?? 0,
         paidPaise: dueMatch.paidPaise || member.currentMembership?.paidPaise || 0,
         duePaise: dueMatch.duePaise,
-        startDate: member.currentMembership?.startDate,
+        startDate: dueMatch.startDate || member.currentMembership?.startDate,
         expiryDate: dueMatch.expiryDate || member.currentMembership?.expiryDate,
       };
     }
@@ -537,8 +578,8 @@ export default function CollectPaymentScreen() {
   const sortedMembers = useMemo(() => {
     const list = searchMembersData?.pages.flatMap((p) => p.content) || [];
     return [...list].sort((a, b) => {
-      const aDue = a.currentMembership?.duePaise || 0;
-      const bDue = b.currentMembership?.duePaise || 0;
+      const aDue = a.currentDuePaise ?? a.currentMembership?.duePaise ?? 0;
+      const bDue = b.currentDuePaise ?? b.currentMembership?.duePaise ?? 0;
       if (aDue > 0 && bDue <= 0) return -1;
       if (bDue > 0 && aDue <= 0) return 1;
       return (bDue || 0) - (aDue || 0);
@@ -652,8 +693,16 @@ export default function CollectPaymentScreen() {
         else safeBack('/(tabs)/payments');
       }}
     >
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingView
+        style={styles.modalOverlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={styles.modalContent}>
+          {/* Drag Handle */}
+          <View style={styles.dragHandleWrap}>
+            <View style={styles.dragHandle} />
+          </View>
+
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{COLLECT.SEARCH_TITLE}</Text>
             {selectedMemberId && (
@@ -677,6 +726,8 @@ export default function CollectPaymentScreen() {
               placeholderTextColor={theme.colors.textMuted}
               value={memberSearchTerm}
               onChangeText={setMemberSearchTerm}
+              cursorColor="#8EB69B"
+              selectionColor="rgba(142, 182, 155, 0.3)"
               autoFocus
             />
             {memberSearchTerm ? (
@@ -696,8 +747,9 @@ export default function CollectPaymentScreen() {
               data={sortedMembers}
               keyExtractor={(item) => item.id}
               contentContainerStyle={{ paddingVertical: 8 }}
+              keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => {
-                const itemDue = item.currentMembership?.duePaise || 0;
+                const itemDue = item.currentDuePaise ?? item.currentMembership?.duePaise ?? 0;
                 return (
                   <TouchableOpacity
                     style={styles.memberRow}
@@ -720,8 +772,8 @@ export default function CollectPaymentScreen() {
                     </View>
                     <View style={styles.memberRowDueCol}>
                       {itemDue > 0 ? (
-                        <View style={styles.dueBadge}>
-                          <Text style={styles.dueBadgeText}>{formatMoney(itemDue)} due</Text>
+                        <View style={styles.dueBadgeCoral}>
+                          <Text style={styles.dueBadgeCoralText}>{formatMoney(itemDue)} due</Text>
                         </View>
                       ) : (
                         <Text style={styles.noDueText}>No due</Text>
@@ -732,13 +784,13 @@ export default function CollectPaymentScreen() {
               }}
               ListEmptyComponent={
                 <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>{COLLECT.NO_MEMBERS_FOUND}</Text>
+                  <Text style={styles.emptyText}>No members found</Text>
                 </View>
               }
             />
           )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 
@@ -821,7 +873,7 @@ export default function CollectPaymentScreen() {
   // MAIN FLOW
   // ─────────────────────────────────────────────────────────────────────────────
   return (
-    <Screen style={styles.mainContainer}>
+    <Screen safeTop={true} safeBottom={false} contained={true}>
       <PageHeader
         title={COLLECT.SCREEN_TITLE}
         showBack
@@ -831,101 +883,115 @@ export default function CollectPaymentScreen() {
       {renderMemberPickerModal()}
       {renderDiscountModal()}
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Error Banner */}
-        {errorMessage && (
-          <View style={styles.errorBanner}>
-            <AlertTriangle color={theme.colors.error} size={20} style={{ marginRight: 10 }} />
-            <Text style={styles.errorBannerText}>{errorMessage}</Text>
-            <TouchableOpacity
-              onPress={handleRetrySubmit}
-              style={styles.retryBtn}
-              accessibilityRole="button"
-            >
-              <RefreshCw size={14} color={theme.colors.text} style={{ marginRight: 4 }} />
-              <Text style={styles.retryBtnText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* 1. Member Selector / Change Row */}
-        {member ? (
-          <GlassCard style={styles.card} contentStyle={styles.cardContent}>
-            <View style={styles.memberHeaderRow}>
-              <Avatar name={member.name} photoUrl={member.photoUrl} size="md" />
-              <View style={styles.memberHeaderDetails}>
-                <Text style={styles.memberName}>{member.name}</Text>
-                <Text style={styles.memberSub}>
-                  {member.memberCode ? `${member.memberCode} • ` : ''}
-                  {member.phone}
-                </Text>
-              </View>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: chosenMembership ? 88 + insets.bottom : 32 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Error Banner */}
+          {errorMessage && (
+            <View style={styles.errorBanner}>
+              <AlertTriangle color={theme.colors.error} size={20} style={{ marginRight: 10 }} />
+              <Text style={styles.errorBannerText}>{errorMessage}</Text>
               <TouchableOpacity
-                onPress={() => setShowMemberPicker(true)}
-                style={styles.changeMemberBtn}
+                onPress={handleRetrySubmit}
+                style={styles.retryBtn}
                 accessibilityRole="button"
               >
-                <Text style={styles.changeMemberText}>Change</Text>
+                <RefreshCw size={14} color={theme.colors.text} style={{ marginRight: 4 }} />
+                <Text style={styles.retryBtnText}>Retry</Text>
               </TouchableOpacity>
             </View>
-          </GlassCard>
-        ) : (
-          <GlassCard style={styles.card} contentStyle={styles.cardContent}>
-            <TouchableOpacity
-              style={styles.selectMemberPrompt}
-              onPress={() => setShowMemberPicker(true)}
-              accessibilityRole="button"
-            >
-              <Search color={theme.colors.primary} size={22} style={{ marginRight: 10 }} />
-              <Text style={styles.selectMemberPromptText}>Tap to search and select a member</Text>
-            </TouchableOpacity>
-          </GlassCard>
-        )}
+          )}
 
-        {/* 2. Multiple Memberships Chooser (if member has > 1 due) */}
-        {memberDuesList.length > 1 && (
-          <GlassCard style={styles.card} contentStyle={styles.cardContent}>
-            <Text style={styles.sectionTitle}>{COLLECT.MULTIPLE_MEMBERSHIPS_TITLE}</Text>
-            <View style={styles.chooserList}>
-              {memberDuesList.map((m) => {
-                const isSelected = m.membershipId === selectedMembershipId;
-                return (
-                  <TouchableOpacity
-                    key={m.membershipId}
-                    style={[styles.chooserItem, isSelected && styles.chooserItemActive]}
-                    onPress={() => setSelectedMembershipId(m.membershipId)}
-                    accessibilityRole="button"
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.chooserPlan}>{m.planName || 'Plan'}</Text>
-                      {m.expiryDate && (
-                        <Text style={styles.chooserExpiry}>Valid till {m.expiryDate}</Text>
-                      )}
-                    </View>
-                    <Text style={styles.chooserDue}>{formatMoney(m.duePaise)}</Text>
-                    {isSelected && (
-                      <Check size={18} color={theme.colors.primary} style={{ marginLeft: 8 }} />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </GlassCard>
-        )}
-
-        {/* 3. Summary Card with Live Balance */}
-        {chosenMembership && (
-          <GlassCard style={styles.card} contentStyle={styles.cardContent}>
-            <View style={styles.summaryHeaderRow}>
-              <View>
-                <Text style={styles.summaryPlanName}>{chosenMembership.planName}</Text>
-                {chosenMembership.expiryDate && (
-                  <Text style={styles.summaryExpiry}>Valid till {chosenMembership.expiryDate}</Text>
-                )}
+          {/* 1. Member Selector / Change Row */}
+          {member ? (
+            <GlassCard style={styles.card} contentStyle={styles.cardContent}>
+              <View style={styles.memberHeaderRow}>
+                <Avatar name={member.name} photoUrl={member.photoUrl} size="md" />
+                <View style={styles.memberHeaderDetails}>
+                  <Text style={styles.memberName}>{member.name}</Text>
+                  <Text style={styles.memberSub}>
+                    {member.memberCode ? `${member.memberCode} • ` : ''}
+                    {member.phone}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setShowMemberPicker(true)}
+                  style={styles.changeMemberBtn}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.changeMemberText}>Change</Text>
+                </TouchableOpacity>
               </View>
+            </GlassCard>
+          ) : (
+            <GlassCard style={styles.card} contentStyle={styles.cardContent}>
+              <TouchableOpacity
+                style={styles.selectMemberPrompt}
+                onPress={() => setShowMemberPicker(true)}
+                accessibilityRole="button"
+              >
+                <Search color={theme.colors.primary} size={22} style={{ marginRight: 10 }} />
+                <Text style={styles.selectMemberPromptText}>Tap to search and select a member</Text>
+              </TouchableOpacity>
+            </GlassCard>
+          )}
+
+          {/* 2. Multiple Memberships Chooser (if member has > 1 due) */}
+          {memberDuesList.length > 1 && (
+            <GlassCard style={styles.card} contentStyle={styles.cardContent}>
+              <Text style={styles.sectionTitle}>{COLLECT.MULTIPLE_MEMBERSHIPS_TITLE}</Text>
+              <View style={styles.chooserList}>
+                {memberDuesList.map((m) => {
+                  const isSelected = m.membershipId === selectedMembershipId;
+                  const periodText =
+                    m.startDate && m.expiryDate
+                      ? `${formatDate(m.startDate)} – ${formatDate(m.expiryDate)}`
+                      : m.expiryDate
+                      ? `Valid till ${formatDate(m.expiryDate)}`
+                      : 'Active plan';
+                  return (
+                    <TouchableOpacity
+                      key={m.membershipId}
+                      style={[styles.chooserItem, isSelected && styles.chooserItemActive]}
+                      onPress={() => setSelectedMembershipId(m.membershipId)}
+                      accessibilityRole="button"
+                      activeOpacity={0.8}
+                    >
+                      <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
+                        {isSelected && <View style={styles.radioInner} />}
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={styles.chooserPlan}>{m.planName || 'Plan'}</Text>
+                        <Text style={styles.chooserExpiry}>{periodText}</Text>
+                      </View>
+                      <Text style={styles.chooserDue}>{formatMoney(m.duePaise)}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </GlassCard>
+          )}
+
+          {/* 3. Summary Card with Live Balance */}
+          {chosenMembership && (
+            <GlassCard style={styles.card} contentStyle={styles.cardContent}>
+              <View style={styles.summaryHeaderRow}>
+                <View>
+                  <Text style={styles.summaryPlanName}>{chosenMembership.planName}</Text>
+                  {chosenMembership.expiryDate && (
+                    <Text style={styles.summaryExpiry}>Valid till {formatDate(chosenMembership.expiryDate)}</Text>
+                  )}
+                </View>
               {isOwner && duePaise > 0 && (
                 <TouchableOpacity
                   style={styles.discountActionBtn}
@@ -1366,9 +1432,16 @@ export default function CollectPaymentScreen() {
           </GlassCard>
         )}
 
-        {/* 7. Action Button */}
+        </ScrollView>
+
+        {/* 7. Sticky Bottom Bar outside scroll */}
         {chosenMembership && (
-          <View style={styles.submitContainer}>
+          <View
+            style={[
+              styles.stickyBottomBar,
+              { paddingBottom: Math.max(insets.bottom, 16) },
+            ]}
+          >
             <Button
               title={COLLECT.ACTION_COLLECT(formatMoney(inputAmountPaise))}
               variant="primary"
@@ -1384,7 +1457,7 @@ export default function CollectPaymentScreen() {
             />
           </View>
         )}
-      </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
@@ -1411,7 +1484,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingTop: 16,
     paddingBottom: 48,
   },
   centerContainer: {
@@ -2077,5 +2151,53 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     marginTop: 4,
     marginLeft: 2,
+  },
+  stickyBottomBar: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    backgroundColor: '#051F20',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(218, 241, 222, 0.1)',
+  },
+  radioCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: 'rgba(218, 241, 222, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioCircleActive: {
+    borderColor: theme.colors.primary,
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: theme.colors.primary,
+  },
+  dragHandleWrap: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  dragHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(218, 241, 222, 0.3)',
+  },
+  dueBadgeCoral: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(255, 107, 107, 0.15)',
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 107, 0.3)',
+  },
+  dueBadgeCoralText: {
+    fontFamily: theme.fonts.bodySemiBold,
+    fontSize: 12,
+    color: theme.colors.error,
   },
 });

@@ -17,6 +17,7 @@ import { ChevronDown, X, Check, Plus } from 'lucide-react-native';
 import { theme } from '../theme/theme';
 import { usePlans, useAddPlan } from '../api/plans';
 import { Button } from './Button';
+import { formatMoney } from '../utils/formatters';
 
 export interface PlanPickerProps {
   value: string;
@@ -100,7 +101,7 @@ export const PlanPicker: React.FC<PlanPickerProps> = ({
       >
         <Text style={[styles.text, !selectedPlan && styles.placeholder]}>
           {selectedPlan
-            ? `${selectedPlan.name} (₹${selectedPlan.pricePaise / 100})`
+            ? `${selectedPlan.name} (${formatMoney(selectedPlan.pricePaise)})`
             : 'Select a plan'}
         </Text>
         <ChevronDown color={theme.colors.primary} size={20} />
@@ -179,7 +180,7 @@ export const PlanPicker: React.FC<PlanPickerProps> = ({
                       <View style={styles.planInfo}>
                         <Text style={styles.planName}>{item.name}</Text>
                         <Text style={styles.planDetails}>
-                          Duration: {item.durationDays} days • ₹{item.pricePaise / 100}
+                          Duration: {item.durationDays} days • {formatMoney(item.pricePaise)}
                         </Text>
                       </View>
                       {isSelected && (

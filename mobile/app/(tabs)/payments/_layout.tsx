@@ -69,7 +69,7 @@ export default function PaymentsLayout() {
       <Stack.Screen
         name="collect"
         options={{
-          title: COLLECT.SCREEN_TITLE,
+          headerShown: false,
           presentation: 'card',
         }}
       />
