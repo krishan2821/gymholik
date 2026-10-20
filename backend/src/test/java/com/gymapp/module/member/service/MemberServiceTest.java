@@ -73,6 +73,9 @@ class MemberServiceTest {
     @Mock
     private MembershipLedgerService membershipLedgerService;
 
+    @org.mockito.Spy
+    private java.time.Clock clock = java.time.Clock.system(java.time.ZoneId.of("Asia/Kolkata"));
+
     @InjectMocks
     private MemberService memberService;
 

@@ -38,6 +38,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -65,6 +66,8 @@ public class PaymentService {
     private final AuditLogService auditLogService;
     private final DayCloseRepository dayCloseRepository;
     private final MembershipLedgerService membershipLedgerService;
+    private final Clock clock;
+    private final DuesCalculationService duesCalculationService;
 
     // Cache per gym for 30 seconds
     private final Map<String, CachedSummary> summaryCache = new ConcurrentHashMap<>();
@@ -92,7 +95,7 @@ public class PaymentService {
         String periodKey = StringUtils.hasText(period) ? period.trim().toUpperCase() : "MONTH";
         String cacheKey = gymId + ":" + periodKey + ":" + from + ":" + to;
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         CachedSummary cached = summaryCache.get(cacheKey);
         if (cached != null && now.isBefore(cached.expiresAt())) {
             return cached.data();
@@ -104,7 +107,7 @@ public class PaymentService {
     }
 
     private PaymentSummaryResponse computeSummary(String gymId, String period, LocalDate from, LocalDate to) {
-        LocalDate today = LocalDate.now(KOLKATA_ZONE);
+        LocalDate today = LocalDate.now(clock);
         LocalDateTime start = null;
         LocalDateTime end = null;
         LocalDateTime prevStart = null;
@@ -203,19 +206,10 @@ public class PaymentService {
             }
         }
 
-        // Pending dues of ACTIVE memberships
-        Query activeDuesQuery = new Query(Criteria.where("gymId").is(gymId)
-                .and("status").is("ACTIVE")
-                .and("duePaise").gt(0));
-        List<Membership> activeMemberships = mongoTemplate.find(activeDuesQuery, Membership.class);
-        long pendingDuePaise = activeMemberships.stream()
-                .mapToLong(Membership::getDuePaise)
-                .sum();
-        long pendingMembersCount = activeMemberships.stream()
-                .map(Membership::getMemberId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .count();
+        // Pending dues calculated via shared function
+        DuesCalculationService.PendingDuesSummary duesSummary = duesCalculationService.getPendingDuesSummary(gymId);
+        long pendingDuePaise = duesSummary.totalDuePaise();
+        long pendingMembersCount = duesSummary.membersCount();
 
         return PaymentSummaryResponse.builder()
                 .collectedPaise(collectedPaise)
@@ -285,13 +279,13 @@ public class PaymentService {
         // Staff sees only payments collected by that staff user, and only the last 7 days
         if (isStaff) {
             query.addCriteria(Criteria.where("receivedBy").is(currentUserId));
-            LocalDate sevenDaysAgo = LocalDate.now(KOLKATA_ZONE).minusDays(7);
+            LocalDate sevenDaysAgo = LocalDate.now(clock).minusDays(7);
             query.addCriteria(Criteria.where("paidAt").gte(sevenDaysAgo.atStartOfDay()));
         }
 
         // Period filter if provided
         if (StringUtils.hasText(period) && !"ALL".equalsIgnoreCase(period.trim())) {
-            LocalDate today = LocalDate.now(KOLKATA_ZONE);
+            LocalDate today = LocalDate.now(clock);
             LocalDateTime pStart = null;
             LocalDateTime pEnd = null;
 
@@ -314,7 +308,7 @@ public class PaymentService {
             }
             if (pStart != null && pEnd != null) {
                 if (isStaff) {
-                    LocalDateTime staffMin = LocalDate.now(KOLKATA_ZONE).minusDays(7).atStartOfDay();
+                    LocalDateTime staffMin = LocalDate.now(clock).minusDays(7).atStartOfDay();
                     LocalDateTime effectiveStart = pStart.isBefore(staffMin) ? staffMin : pStart;
                     query.addCriteria(Criteria.where("paidAt").gte(effectiveStart).lt(pEnd));
                 } else {
@@ -457,7 +451,7 @@ public class PaymentService {
         // Staff sees only payments collected by that staff user, and only the last 7 days
         if (SecurityUtils.isStaff()) {
             String staffId = SecurityUtils.getCurrentUserId();
-            LocalDate sevenDaysAgo = LocalDate.now(KOLKATA_ZONE).minusDays(7);
+            LocalDate sevenDaysAgo = LocalDate.now(clock).minusDays(7);
             if (!staffId.equals(payment.getReceivedBy()) ||
                     (payment.getPaidAt() != null && payment.getPaidAt().toLocalDate().isBefore(sevenDaysAgo))) {
                 throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, "Payment not found");
@@ -569,7 +563,7 @@ public class PaymentService {
         }
 
         String gymId = TenantContext.getGymId();
-        LocalDate today = LocalDate.now(KOLKATA_ZONE);
+        LocalDate today = LocalDate.now(clock);
 
         Query query = new Query();
         query.addCriteria(Criteria.where("gymId").is(gymId).and("duePaise").gt(0));
@@ -689,6 +683,7 @@ public class PaymentService {
                     .duePaise(m.getDuePaise())
                     .startDate(m.getStartDate())
                     .expiryDate(m.getExpiryDate())
+                    .status(m.getStatus() != null ? m.getStatus().name() : null)
                     .promisedDate(m.getPromisedDate())
                     .promiseBroken(m.getPromisedDate() != null && m.getPromisedDate().isBefore(today) && m.getDuePaise() > 0)
                     .build()).toList();
@@ -701,6 +696,8 @@ public class PaymentService {
                     .phone(phone)
                     .membershipId(primaryMem.getId())
                     .planName(primaryMem.getPlanName())
+                    .status(primaryMem.getStatus() != null ? primaryMem.getStatus().name() : null)
+                    .startDate(primaryMem.getStartDate())
                     .duePaise(memberTotalDue)
                     .totalDuePaise(memberTotalDue)
                     .totalPaise(primaryMem.getTotalPaise())
@@ -762,7 +759,7 @@ public class PaymentService {
         memberships.sort(Comparator.comparing(Membership::getStartDate, Comparator.nullsLast(Comparator.naturalOrder()))
                 .thenComparing(Membership::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())));
 
-        LocalDate today = LocalDate.now(KOLKATA_ZONE);
+        LocalDate today = LocalDate.now(clock);
         List<MembershipDueItem> dueItems = memberships.stream()
                 .filter(m -> m.getDuePaise() > 0)
                 .map(m -> MembershipDueItem.builder()
@@ -773,6 +770,7 @@ public class PaymentService {
                         .duePaise(m.getDuePaise())
                         .startDate(m.getStartDate())
                         .expiryDate(m.getExpiryDate())
+                        .status(m.getStatus() != null ? m.getStatus().name() : null)
                         .promisedDate(m.getPromisedDate())
                         .promiseBroken(m.getPromisedDate() != null && m.getPromisedDate().isBefore(today) && m.getDuePaise() > 0)
                         .build())
@@ -820,9 +818,9 @@ public class PaymentService {
         Membership membership;
         if (StringUtils.hasText(request.getMembershipId())) {
             membership = membershipRepository.findByIdAndGymId(request.getMembershipId(), gymId)
-                    .orElseThrow(() -> new AppException(ErrorCode.MEMBERSHIP_NOT_FOUND));
+                    .orElseThrow(() -> new AppException(ErrorCode.MEMBERSHIP_NOT_FOUND, "Membership not found"));
             if (!member.getId().equals(membership.getMemberId())) {
-                throw new AppException(ErrorCode.VALIDATION_ERROR, "Membership does not belong to specified member");
+                throw new AppException(ErrorCode.MEMBERSHIP_NOT_FOUND, "Membership does not belong to specified member");
             }
         } else {
             List<Membership> memberMemberships = membershipRepository.findByGymIdAndMemberId(gymId, member.getId());
@@ -842,31 +840,36 @@ public class PaymentService {
             throw new AppException(ErrorCode.VALIDATION_ERROR, "Reference number cannot exceed 40 characters");
         }
 
-        LocalDate todayKolkata = LocalDate.now(KOLKATA_ZONE);
-        LocalDate businessDate = request.getReceivedAt() != null ? request.getReceivedAt() : request.getPaymentDate();
+        LocalDate todayKolkata = LocalDate.now(clock);
+        LocalDate businessDate = request.getReceivedAt() != null ? request.getReceivedAt() : (request.getPaymentDate() != null ? request.getPaymentDate() : request.getPaidDate());
+
+        LocalDateTime effectivePaymentTime;
+        boolean isBackdated = false;
+
         if (businessDate == null) {
-            businessDate = todayKolkata;
-        }
-
-        if (businessDate.isAfter(todayKolkata)) {
-            throw new AppException(ErrorCode.VALIDATION_ERROR, "Payment date cannot be in the future");
-        }
-
-        boolean isBackdated = businessDate.isBefore(todayKolkata);
-        if (isBackdated) {
-            if (!SecurityUtils.isOwner()) {
-                throw new AppException(ErrorCode.ACCESS_DENIED, "Only owners can record backdated payments");
+            effectivePaymentTime = LocalDateTime.now(clock);
+        } else {
+            if (businessDate.isAfter(todayKolkata)) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, "Payment date cannot be in the future");
             }
-            if (businessDate.isBefore(todayKolkata.minusDays(31))) {
-                throw new AppException(ErrorCode.VALIDATION_ERROR, "Payment cannot be backdated more than 31 days");
+            if (businessDate.isEqual(todayKolkata)) {
+                // Do not trust client-sent today; compare with server Clock and record real time
+                effectivePaymentTime = LocalDateTime.now(clock);
+            } else {
+                if (!SecurityUtils.isOwner()) {
+                    throw new AppException(ErrorCode.ACCESS_DENIED, "Only owners can record backdated payments");
+                }
+                if (businessDate.isBefore(todayKolkata.minusDays(31))) {
+                    throw new AppException(ErrorCode.VALIDATION_ERROR, "Payment cannot be backdated more than 31 days");
+                }
+                isBackdated = true;
+                // Store paidAt = that date at 12:00 IST, never at midnight
+                effectivePaymentTime = businessDate.atTime(12, 0, 0);
             }
         }
 
         String receiptNo = sequenceService.generateNextReceiptNo(gymId);
         String currentUserId = SecurityUtils.getCurrentUserId();
-
-        LocalDateTime nowKolkata = LocalDateTime.now(KOLKATA_ZONE);
-        LocalDateTime effectivePaymentTime = isBackdated ? businessDate.atStartOfDay() : nowKolkata;
 
         Payment payment = Payment.builder()
                 .gymId(gymId)
@@ -901,7 +904,7 @@ public class PaymentService {
             auditLogService.log("PAYMENT_BACKDATED", payment.getId(), "{\"amountPaise\":" + payment.getAmountPaise() + ",\"receivedAt\":\"" + businessDate + "\"}");
         }
 
-        membershipLedgerService.recalculate(gymId, membership.getId());
+        membershipLedgerService.recalculate(gymId, member.getId());
         membership = membershipRepository.findByIdAndGymId(membership.getId(), gymId).orElse(membership);
         member = memberRepository.findByIdAndGymId(member.getId(), gymId).orElse(member);
 
@@ -938,7 +941,7 @@ public class PaymentService {
         String receiptNo = sequenceService.generateNextReceiptNo(gymId);
         String currentUserId = SecurityUtils.getCurrentUserId();
 
-        LocalDateTime nowKolkata = LocalDateTime.now(KOLKATA_ZONE);
+        LocalDateTime nowKolkata = LocalDateTime.now(clock);
 
         Payment reversal = Payment.builder()
                 .gymId(gymId)
@@ -960,7 +963,7 @@ public class PaymentService {
 
         reversal = paymentRepository.save(reversal);
 
-        membershipLedgerService.recalculate(gymId, originalPayment.getMembershipId());
+        membershipLedgerService.recalculate(gymId, originalPayment.getMemberId());
         Membership membership = membershipRepository.findByIdAndGymId(originalPayment.getMembershipId(), gymId).orElse(null);
         Member member = originalPayment.getMemberId() != null ? memberRepository.findByIdAndGymId(originalPayment.getMemberId(), gymId).orElse(null) : null;
 
@@ -1026,7 +1029,7 @@ public class PaymentService {
         }
 
         String gymId = TenantContext.getGymId();
-        LocalDate targetDate = date != null ? date : LocalDate.now(KOLKATA_ZONE);
+        LocalDate targetDate = date != null ? date : LocalDate.now(clock);
         LocalDateTime startOfDay = targetDate.atStartOfDay();
         LocalDateTime endOfDay = targetDate.plusDays(1).atStartOfDay();
         Query query = new Query(Criteria.where("gymId").is(gymId)

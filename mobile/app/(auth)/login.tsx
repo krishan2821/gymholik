@@ -11,15 +11,18 @@ import {
   Platform,
   Image,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import Toast from 'react-native-toast-message';
 import * as Haptics from '../../src/utils/safeHaptics';
 import {
   AlertCircle,
   Receipt,
   QrCode,
   ShieldCheck,
+  Pencil,
 } from 'lucide-react-native';
 
 import { sendOtp, verifyOtp, classifyError, ApiError } from '../../src/api';
@@ -33,6 +36,7 @@ import { Input } from '../../src/components/Input';
 import { Button } from '../../src/components/Button';
 import { useBreakpoint } from '../../src/hooks/useBreakpoint';
 import { LOGIN, VALIDATION } from '../../src/constants/strings';
+import { shouldRenderDevOtp } from '../../src/utils/devOtp';
 
 const bgGymAsset = require('../../assets/images/bg-gym.webp');
 
@@ -93,6 +97,9 @@ export default function OtpLoginScreen() {
   const setRegistrationSession = useAuthStore((s) => s.setRegistrationSession);
   const clearRegistrationSession = useAuthStore((s) => s.clearRegistrationSession);
   const { isPhone, isTablet, isDesktop } = useBreakpoint();
+  const { width: windowWidth } = useWindowDimensions();
+  const isNarrowPhone = windowWidth < 340;
+  const digitFontSize = isNarrowPhone ? 18 : 24;
 
   // ── State ─────────────────────────────────────────────────────────────────
   const [phone, setPhone] = useState('');
@@ -111,6 +118,7 @@ export default function OtpLoginScreen() {
   useEffect(() => {
     if (params.error) {
       setBannerError(String(params.error));
+      AccessibilityInfo.announceForAccessibility(String(params.error));
     }
   }, [params.error]);
 
@@ -124,6 +132,31 @@ export default function OtpLoginScreen() {
   const revealOpacity = useRef(new Animated.Value(0)).current;
   const revealTranslateY = useRef(new Animated.Value(12)).current;
   const shakeX = useRef(new Animated.Value(0)).current;
+  const caretOpacity = useRef(new Animated.Value(1)).current;
+
+  // Blinking caret inside active empty OTP box (static when reduce motion is enabled)
+  useEffect(() => {
+    if (reduceMotion) {
+      caretOpacity.setValue(1);
+      return;
+    }
+    const blinkAnim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(caretOpacity, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+        Animated.timing(caretOpacity, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+      ])
+    );
+    blinkAnim.start();
+    return () => blinkAnim.stop();
+  }, [reduceMotion, caretOpacity]);
 
   // Check system reduce-motion preference
   useEffect(() => {
@@ -201,13 +234,14 @@ export default function OtpLoginScreen() {
       return;
     }
     shakeX.setValue(0);
+    // 6 steps x 50ms = 300ms total shake duration
     Animated.sequence([
-      Animated.timing(shakeX, { toValue: -10, duration: 50, useNativeDriver: false }),
-      Animated.timing(shakeX, { toValue: 10, duration: 50, useNativeDriver: false }),
-      Animated.timing(shakeX, { toValue: -8, duration: 50, useNativeDriver: false }),
-      Animated.timing(shakeX, { toValue: 8, duration: 50, useNativeDriver: false }),
-      Animated.timing(shakeX, { toValue: -4, duration: 40, useNativeDriver: false }),
-      Animated.timing(shakeX, { toValue: 0, duration: 40, useNativeDriver: false }),
+      Animated.timing(shakeX, { toValue: -10, duration: 50, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(shakeX, { toValue: 10, duration: 50, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(shakeX, { toValue: -8, duration: 50, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(shakeX, { toValue: 8, duration: 50, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(shakeX, { toValue: -4, duration: 50, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(shakeX, { toValue: 0, duration: 50, useNativeDriver: Platform.OS !== 'web' }),
     ]).start();
   }, [reduceMotion, shakeX]);
 
@@ -290,7 +324,12 @@ export default function OtpLoginScreen() {
       const cooldown =
         response?.data?.resendAfterSeconds ?? DEFAULT_RESEND_SECONDS;
       setResendSeconds(cooldown);
+      Toast.show({
+        type: 'success',
+        text1: 'OTP sent',
+      });
       triggerSuccessHaptic();
+      setOtp('');
       setTimeout(() => {
         otpInputRef.current?.focus();
       }, 80);
@@ -299,7 +338,9 @@ export default function OtpLoginScreen() {
       if (apiErr.retryAfterSeconds && apiErr.retryAfterSeconds > 0) {
         setResendSeconds(apiErr.retryAfterSeconds);
       }
-      setBannerError(resolveBannerErrorMessage(apiErr));
+      const errorMsg = resolveBannerErrorMessage(apiErr);
+      setBannerError(errorMsg);
+      AccessibilityInfo.announceForAccessibility(errorMsg);
       triggerErrorHaptic();
     } finally {
       setIsSendingOtp(false);
@@ -311,17 +352,23 @@ export default function OtpLoginScreen() {
     setBannerError(null);
     const digits = raw.replace(/\D/g, '').slice(0, OTP_LENGTH);
     setOtp(digits);
+    if (digits.length === OTP_LENGTH) {
+      setTimeout(() => {
+        handleVerifyOtp(digits);
+      }, 60);
+    }
   };
 
-  const handleVerifyOtp = async () => {
-    if (otp.length !== OTP_LENGTH || verifyingLockRef.current) return;
+  const handleVerifyOtp = async (codeOverride?: string) => {
+    const code = typeof codeOverride === 'string' ? codeOverride : otp;
+    if (code.length !== OTP_LENGTH || verifyingLockRef.current) return;
 
     verifyingLockRef.current = true;
     setIsVerifyingOtp(true);
     setBannerError(null);
 
     try {
-      const response = await verifyOtp(phone, otp);
+      const response = await verifyOtp(phone, code);
       const data = response.data;
       triggerSuccessHaptic();
 
@@ -354,7 +401,9 @@ export default function OtpLoginScreen() {
       router.replace(destination as any);
     } catch (err: unknown) {
       const apiErr = classifyError(err);
-      setBannerError(resolveBannerErrorMessage(apiErr));
+      const errorMsg = resolveBannerErrorMessage(apiErr);
+      setBannerError(errorMsg);
+      AccessibilityInfo.announceForAccessibility(errorMsg);
       triggerErrorHaptic();
 
       if (apiErr.errorCode === 'INVALID_OTP' || apiErr.status === 401) {
@@ -371,8 +420,13 @@ export default function OtpLoginScreen() {
   };
 
   const activeBoxIndex = Math.min(otp.length, OTP_LENGTH - 1);
-  const otpBoxWidth = isPhone ? 52 : 54;
-  const otpBoxGap = isPhone ? 4 : 8;
+
+  const currentTitle = otpSent ? LOGIN.OTP_TITLE : LOGIN.TITLE;
+  const formattedDisplayPhone =
+    phone.length === 10 ? `${phone.slice(0, 5)} ${phone.slice(5)}` : phone;
+  const currentSubtitle = otpSent
+    ? LOGIN.OTP_SUBTITLE(formattedDisplayPhone)
+    : LOGIN.SUBTITLE;
 
   // ── Shared Footer Links Component ──────────────────────────────────────────
   const renderFooterLinks = () => (
@@ -435,7 +489,7 @@ export default function OtpLoginScreen() {
             : {}),
         },
       ]}
-      contentStyle={[styles.cardInner, isPhone && { padding: theme.spacing.lg }]}
+      contentStyle={styles.cardInner}
     >
       {/* Mobile Number Field */}
       <Input
@@ -449,7 +503,7 @@ export default function OtpLoginScreen() {
         maxLength={10}
         autoFocus={!otpSent}
         editable={!otpSent && !isSendingOtp}
-        value={phone}
+        value={otpSent && phone.length === 10 ? `${phone.slice(0, 5)} ${phone.slice(5)}` : phone}
         onChangeText={handlePhoneChange}
         onBlur={() => setPhoneTouched(true)}
         returnKeyType="done"
@@ -459,7 +513,7 @@ export default function OtpLoginScreen() {
           }
         }}
         error={phoneInlineError}
-        containerStyle={otpSent ? styles.phoneContainerReadOnly : undefined}
+        containerStyle={otpSent ? styles.phoneContainerReadOnly : styles.phoneContainer}
         rightIcon={
           otpSent ? (
             <TouchableOpacity
@@ -470,7 +524,10 @@ export default function OtpLoginScreen() {
               accessibilityRole="button"
               accessibilityLabel={LOGIN.CHANGE_NUMBER}
             >
-              <Text style={styles.changeNumberText}>{LOGIN.CHANGE_NUMBER}</Text>
+              <Pencil size={13} color={theme.colors.primary} />
+              <Text style={styles.changeNumberText}>
+                {isNarrowPhone ? 'Change' : LOGIN.CHANGE_NUMBER}
+              </Text>
             </TouchableOpacity>
           ) : undefined
         }
@@ -513,8 +570,19 @@ export default function OtpLoginScreen() {
         >
           <View style={styles.otpHeaderRow}>
             <Text style={styles.otpSectionLabel}>{LOGIN.OTP_SECTION_LABEL}</Text>
-            {__DEV__ && (
-              <Text style={styles.devOtpHint}>{LOGIN.DEV_OTP_HINT}</Text>
+            {shouldRenderDevOtp(__DEV__) && (
+              <TouchableOpacity
+                onPress={() => {
+                  handleOtpChange('123456');
+                  triggerSuccessHaptic();
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Autofill Dev OTP"
+                style={styles.devOtpBtn}
+              >
+                <Text style={styles.devOtpHint}>⚡ {LOGIN.DEV_OTP_HINT}</Text>
+              </TouchableOpacity>
             )}
           </View>
 
@@ -522,8 +590,9 @@ export default function OtpLoginScreen() {
           <Pressable
             onPress={() => otpInputRef.current?.focus()}
             style={styles.otpWrapper}
-            accessibilityRole="button"
-            accessibilityLabel={LOGIN.OTP_SECTION_LABEL}
+            accessible={true}
+            accessibilityRole="none"
+            accessibilityLabel="One-time password, 6 digits"
           >
             <TextInput
               ref={otpInputRef}
@@ -540,6 +609,8 @@ export default function OtpLoginScreen() {
               caretHidden
               contextMenuHidden={false}
               style={styles.hiddenOtpInput}
+              returnKeyType="done"
+              accessibilityLabel="One-time password, 6 digits"
               onSubmitEditing={() => {
                 if (otp.length === OTP_LENGTH) {
                   handleVerifyOtp();
@@ -552,28 +623,46 @@ export default function OtpLoginScreen() {
                 styles.otpBoxesRow,
                 {
                   transform: [{ translateX: shakeX }],
-                  gap: otpBoxGap,
-                  pointerEvents: 'none',
                 },
               ]}
+              pointerEvents="none"
+              accessible={false}
             >
               {Array.from({ length: OTP_LENGTH }).map((_, idx) => {
                 const digit = otp[idx] ?? '';
                 const isFilled = digit.length > 0;
                 const isActive = isOtpFocused && idx === activeBoxIndex;
+                const hasError = Boolean(bannerError);
 
                 return (
                   <View
                     key={idx}
                     style={[
                       styles.otpBox,
-                      { width: otpBoxWidth },
                       isFilled && styles.otpBoxFilled,
                       isActive && styles.otpBoxActive,
+                      hasError && styles.otpBoxError,
                     ]}
                   >
-                    <Text style={styles.otpDigitText}>{digit}</Text>
-                    {isActive && !isFilled && <View style={styles.otpCursor} />}
+                    {isFilled ? (
+                      <Text
+                        style={[
+                          styles.otpDigitText,
+                          { fontSize: digitFontSize },
+                        ]}
+                      >
+                        {digit}
+                      </Text>
+                    ) : (
+                      isActive && isOtpFocused && (
+                        <Animated.View
+                          style={[
+                            styles.otpCustomCaret,
+                            { opacity: caretOpacity },
+                          ]}
+                        />
+                      )
+                    )}
                   </View>
                 );
               })}
@@ -582,28 +671,22 @@ export default function OtpLoginScreen() {
 
           {/* Resend OTP Row with Countdown */}
           <View style={styles.resendRow}>
-            <TouchableOpacity
-              onPress={handleResendOtp}
-              disabled={resendSeconds > 0 || isSendingOtp || isVerifyingOtp}
-              style={styles.resendTouchTarget}
-              accessibilityRole="button"
-              accessibilityState={{
-                disabled: resendSeconds > 0 || isSendingOtp || isVerifyingOtp,
-              }}
-            >
-              <Text
-                style={[
-                  styles.resendText,
-                  resendSeconds > 0
-                    ? styles.resendTextDisabled
-                    : styles.resendTextActive,
-                ]}
-              >
-                {resendSeconds > 0
-                  ? LOGIN.RESEND_IN(formatCountdown(resendSeconds))
-                  : LOGIN.RESEND_OTP}
+            <Text style={styles.resendPrompt}>Didn't get the code?</Text>
+            {resendSeconds > 0 ? (
+              <Text style={styles.resendCountdown}>
+                Resend in {formatCountdown(resendSeconds)}
               </Text>
-            </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={handleResendOtp}
+                disabled={isSendingOtp || isVerifyingOtp}
+                style={styles.resendTouchTarget}
+                accessibilityRole="button"
+                accessibilityLabel="Resend OTP"
+              >
+                <Text style={styles.resendLinkActive}>Resend OTP</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Coral Error Banner above Verify & Proceed */}
@@ -624,8 +707,6 @@ export default function OtpLoginScreen() {
               size="lg"
             />
           </View>
-
-          <Text style={styles.staffHelperText}>{LOGIN.STAFF_HELPER}</Text>
         </Animated.View>
       )}
     </GlassCard>
@@ -724,8 +805,8 @@ export default function OtpLoginScreen() {
           >
             <View style={styles.desktopRightInner}>
               <GymholikLogo size={48} style={styles.desktopRightLogo} />
-              <Text style={styles.title}>{LOGIN.TITLE}</Text>
-              <Text style={styles.subtitle}>{LOGIN.SUBTITLE}</Text>
+              <Text style={styles.title}>{currentTitle}</Text>
+              <Text style={styles.subtitle}>{currentSubtitle}</Text>
 
               {renderLoginForm(420)}
               {renderFooterLinks()}
@@ -765,8 +846,8 @@ export default function OtpLoginScreen() {
           <View style={styles.tabletCardWrapper}>
             <View style={styles.headerSection}>
               <GymholikLogo size={56} style={styles.logo} />
-              <Text style={styles.title}>{LOGIN.TITLE}</Text>
-              <Text style={styles.subtitle}>{LOGIN.SUBTITLE}</Text>
+              <Text style={styles.title}>{currentTitle}</Text>
+              <Text style={styles.subtitle}>{currentSubtitle}</Text>
             </View>
 
             {renderLoginForm(440)}
@@ -790,10 +871,20 @@ export default function OtpLoginScreen() {
       contentContainerStyle={styles.scrollContent}
     >
       {/* Header: Mint Logo + Welcome Back + Subtitle */}
-      <View style={styles.headerSection}>
-        <GymholikLogo size={68} style={styles.logo} />
-        <Text style={styles.title}>{LOGIN.TITLE}</Text>
-        <Text style={styles.subtitle}>{LOGIN.SUBTITLE}</Text>
+      <View
+        style={[
+          styles.headerSection,
+          otpSent && { marginBottom: isNarrowPhone ? 12 : 16 },
+        ]}
+      >
+        <GymholikLogo
+          size={otpSent ? (isNarrowPhone ? 40 : 48) : isNarrowPhone ? 56 : 68}
+          style={[styles.logo, otpSent && { marginBottom: 8 }]}
+        />
+        <Text style={styles.title}>{currentTitle}</Text>
+        <Text style={[styles.subtitle, otpSent && { marginBottom: 12 }]}>
+          {currentSubtitle}
+        </Text>
       </View>
 
       {/* Main Glass Card */}
@@ -995,29 +1086,41 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   cardInner: {
-    padding: theme.spacing.xl,
+    padding: 24,
   },
   stateTransitionContainer: {
     width: '100%',
   },
+  phoneContainer: {
+    width: '100%',
+    marginBottom: 24,
+  },
   phoneContainerReadOnly: {
-    marginBottom: theme.spacing.sm,
+    width: '100%',
+    marginBottom: 16,
   },
   changeNumberBtn: {
     minHeight: 44,
-    minWidth: 44,
-    paddingHorizontal: 6,
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    flexShrink: 0,
+    borderRadius: theme.radius.full,
+    backgroundColor: 'rgba(142, 182, 155, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(142, 182, 155, 0.28)',
+    justifyContent: 'center',
   },
   changeNumberText: {
     fontFamily: theme.fonts.headingBold,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: theme.colors.primary,
   },
   primaryButtonWrapper: {
-    marginTop: theme.spacing.xs,
+    width: '100%',
+    marginTop: 0,
   },
   staffHelperText: {
     ...theme.typography.small,
@@ -1029,14 +1132,14 @@ const styles = StyleSheet.create({
 
   // ── OTP Section Styles ────────────────────────────────────────────────────
   otpSection: {
-    marginTop: theme.spacing.sm,
     width: '100%',
   },
   otpHeaderRow: {
+    width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.sm,
+    marginBottom: 12,
   },
   otpSectionLabel: {
     ...theme.typography.caption,
@@ -1044,12 +1147,19 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.headingMedium,
     fontWeight: '600',
   },
+  devOtpBtn: {
+    minHeight: 44,
+    justifyContent: 'center',
+    borderRadius: theme.radius.sm,
+  },
   devOtpHint: {
     ...theme.typography.small,
     fontFamily: theme.fonts.headingBold,
     fontWeight: '700',
     color: theme.colors.primary,
-    backgroundColor: 'rgba(142, 182, 155, 0.14)',
+    backgroundColor: 'rgba(142, 182, 155, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(142, 182, 155, 0.32)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: theme.radius.sm,
@@ -1057,84 +1167,114 @@ const styles = StyleSheet.create({
   },
   otpWrapper: {
     position: 'relative',
-    minHeight: 56,
-    justifyContent: 'center',
+    width: '100%',
     alignItems: 'center',
   },
   hiddenOtpInput: {
     position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     width: '100%',
     height: '100%',
     opacity: 0.01,
     fontSize: 1,
     zIndex: 2,
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
   },
   otpBoxesRow: {
+    width: '100%',
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 8,
   },
   otpBox: {
-    minHeight: 56,
+    flex: 1,
+    maxWidth: 56,
+    aspectRatio: 1,
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: 'rgba(11, 43, 38, 0.80)',
     borderWidth: 1.5,
-    borderColor: theme.colors.border,
+    borderColor: 'rgba(142, 182, 155, 0.35)',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
   otpBoxFilled: {
-    borderColor: 'rgba(142, 182, 155, 0.55)',
-    backgroundColor: theme.colors.raised,
+    borderColor: theme.colors.primary,
+    borderWidth: 1.5,
+    backgroundColor: 'rgba(142, 182, 155, 0.16)',
   },
   otpBoxActive: {
     borderColor: theme.colors.primary,
-    backgroundColor: 'rgba(142, 182, 155, 0.14)',
+    borderWidth: 2,
+    backgroundColor: 'rgba(142, 182, 155, 0.20)',
     ...Platform.select({
       ios: {
-        ...theme.shadows.glow,
+        shadowColor: theme.colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 5,
+        elevation: 4,
         shadowColor: theme.colors.primary,
       },
       web: {
-        boxShadow: '0 0 10px rgba(142, 182, 155, 0.25)',
+        boxShadow: '0 0 10px rgba(142, 182, 155, 0.40)',
       } as any,
     }),
   },
+  otpBoxError: {
+    borderColor: theme.colors.error,
+    borderWidth: 1.5,
+  },
   otpDigitText: {
     fontFamily: theme.fonts.headingBold,
-    fontSize: 20,
     fontWeight: '700',
     color: theme.colors.text,
+    textAlign: 'center',
+    includeFontPadding: false,
   },
-  otpCursor: {
+  otpCustomCaret: {
+    position: 'absolute',
     width: 2,
-    height: 22,
+    height: 24,
     borderRadius: 1,
     backgroundColor: theme.colors.primary,
   },
   resendRow: {
-    alignItems: 'flex-end',
-    marginTop: 6,
-    marginBottom: theme.spacing.xs,
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  resendPrompt: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 13,
+    color: theme.colors.textMuted,
+  },
+  resendCountdown: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 13,
+    color: theme.colors.textMuted,
+    fontVariant: ['tabular-nums'],
   },
   resendTouchTarget: {
     minHeight: 44,
     minWidth: 44,
     justifyContent: 'center',
+    alignItems: 'flex-end',
+    paddingVertical: 10,
     paddingHorizontal: 4,
   },
-  resendText: {
-    fontFamily: theme.fonts.headingMedium,
+  resendLinkActive: {
+    fontFamily: theme.fonts.headingBold,
     fontSize: 13,
-    fontWeight: '600',
-  },
-  resendTextDisabled: {
-    color: theme.colors.textMuted,
-  },
-  resendTextActive: {
+    fontWeight: '700',
     color: theme.colors.primary,
   },
   errorBanner: {
@@ -1146,8 +1286,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 107, 107, 0.40)',
     padding: 12,
-    marginTop: theme.spacing.xs,
-    marginBottom: theme.spacing.md,
+    marginTop: 16,
+    marginBottom: 0,
+    width: '100%',
   },
   errorBannerText: {
     color: theme.colors.error,
@@ -1157,7 +1298,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   verifyButtonWrapper: {
-    marginTop: theme.spacing.xs,
+    width: '100%',
+    marginTop: 24,
   },
 
   // ── Footer Links ──────────────────────────────────────────────────────────

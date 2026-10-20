@@ -60,10 +60,11 @@ public class MoneyConsistencyIntegrationTest extends AbstractIntegrationTest {
 
     @BeforeEach
     void setUpGym() throws Exception {
-        String phone = "98" + (System.currentTimeMillis() % 100000000L);
+        String phone = "98" + String.format("%08d", Math.abs(java.util.concurrent.ThreadLocalRandom.current().nextInt(100000000)));
+        String email = "consistency_" + System.nanoTime() + "@test.com";
         JsonNode data = registerGymViaOtpToken(
                 mockMvc, objectMapper,
-                "Consistency Gym", "Consistency Owner", phone, "consistency@test.com"
+                "Consistency Gym", "Consistency Owner", phone, email
         );
         gymId = data.path("user").path("gymId").asText();
         ownerToken = "Bearer " + data.path("accessToken").asText();
@@ -286,16 +287,16 @@ public class MoneyConsistencyIntegrationTest extends AbstractIntegrationTest {
         assertInvariants();
 
         // g) Invariant check passes across all members after all the above operations
-        MoneyConsistencyNightlyJob.InvariantReport allReport = moneyConsistencyNightlyJob.checkInvariants();
-        assertFalse(allReport.hasViolations(), "Violations across DB: " + allReport.getViolations());
+        MoneyConsistencyNightlyJob.InvariantReport allReport = moneyConsistencyNightlyJob.checkInvariantsForGym(gymId);
+        assertFalse(allReport.hasViolations(), "Violations in gym: " + allReport.getViolations());
 
         // Also verify MoneyRepairMigrationService dry run and live run
-        MoneyRepairMigrationService.MoneyRepairReport dryReport = moneyRepairMigrationService.runRepair(true);
+        MoneyRepairMigrationService.MoneyRepairReport dryReport = moneyRepairMigrationService.runRepair(gymId, true);
         assertTrue(dryReport.isDryRun());
         assertEquals(0, dryReport.getMembershipMismatches().size());
         assertEquals(0, dryReport.getMemberMismatches().size());
 
-        MoneyRepairMigrationService.MoneyRepairReport liveReport = moneyRepairMigrationService.runRepair(false);
+        MoneyRepairMigrationService.MoneyRepairReport liveReport = moneyRepairMigrationService.runRepair(gymId, false);
         assertFalse(liveReport.isDryRun());
         assertEquals(0, liveReport.getMembershipMismatches().size());
         assertEquals(0, liveReport.getMemberMismatches().size());

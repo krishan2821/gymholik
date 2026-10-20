@@ -15,8 +15,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.util.*;
 
 @Slf4j
 @Component
@@ -26,6 +27,7 @@ public class MoneyConsistencyNightlyJob {
     private final MembershipRepository membershipRepository;
     private final MemberRepository memberRepository;
     private final PaymentRepository paymentRepository;
+    private final Clock clock;
 
     @Data
     @Builder
@@ -36,8 +38,8 @@ public class MoneyConsistencyNightlyJob {
         private String entityId;
         private String gymId;
         private String description;
-        private long storedValue;
-        private long expectedValue;
+        private String storedValue;
+        private String expectedValue;
     }
 
     @Data
@@ -54,18 +56,18 @@ public class MoneyConsistencyNightlyJob {
         }
     }
 
-    @Scheduled(cron = "${app.jobs.nightly-invariant-check:0 0 2 * * ?}")
+    @Scheduled(cron = "${app.jobs.nightly-invariant-check:0 0 2 * * ?}", zone = "Asia/Kolkata")
     public InvariantReport runNightlyCheck() {
-        log.info("Running nightly money consistency invariant check...");
+        log.info("Running nightly money and status consistency invariant check...");
         InvariantReport report = checkInvariants();
         if (report.hasViolations()) {
-            log.warn("Nightly money consistency check completed with {} VIOLATIONS!", report.getViolations().size());
+            log.warn("Nightly invariant check completed with {} VIOLATIONS!", report.getViolations().size());
             for (InvariantViolation v : report.getViolations()) {
                 log.warn("Invariant violation [{} id={} gymId={}]: {} (stored={}, expected={})",
                         v.getEntityType(), v.getEntityId(), v.getGymId(), v.getDescription(), v.getStoredValue(), v.getExpectedValue());
             }
         } else {
-            log.info("Nightly money consistency check completed successfully. 0 violations across {} memberships and {} members.",
+            log.info("Nightly invariant check completed successfully. 0 violations across {} memberships and {} members.",
                     report.getTotalMembershipsChecked(), report.getTotalMembersChecked());
         }
         return report;
@@ -85,6 +87,7 @@ public class MoneyConsistencyNightlyJob {
 
     private InvariantReport evaluateInvariants(List<Membership> memberships, List<Member> members) {
         List<InvariantViolation> violations = new ArrayList<>();
+        LocalDate today = LocalDate.now(clock);
 
         for (Membership m : memberships) {
             String gymId = m.getGymId();
@@ -106,8 +109,8 @@ public class MoneyConsistencyNightlyJob {
                         .entityId(m.getId())
                         .gymId(gymId)
                         .description("Membership paidPaise does not match sum of payments")
-                        .storedValue(m.getPaidPaise())
-                        .expectedValue(netPaidPaise)
+                        .storedValue(String.valueOf(m.getPaidPaise()))
+                        .expectedValue(String.valueOf(netPaidPaise))
                         .build());
             }
 
@@ -118,8 +121,8 @@ public class MoneyConsistencyNightlyJob {
                         .entityId(m.getId())
                         .gymId(gymId)
                         .description("Membership duePaise != totalPaise - discountPaise - paidPaise")
-                        .storedValue(m.getDuePaise())
-                        .expectedValue(expectedDuePaise)
+                        .storedValue(String.valueOf(m.getDuePaise()))
+                        .expectedValue(String.valueOf(expectedDuePaise))
                         .build());
             }
 
@@ -129,8 +132,28 @@ public class MoneyConsistencyNightlyJob {
                         .entityId(m.getId())
                         .gymId(gymId)
                         .description("Membership duePaise cannot be negative")
-                        .storedValue(m.getDuePaise())
-                        .expectedValue(0L)
+                        .storedValue(String.valueOf(m.getDuePaise()))
+                        .expectedValue("0")
+                        .build());
+            }
+
+            Membership.MembershipStatus expectedStatus;
+            if (m.getStartDate() != null && m.getStartDate().isAfter(today)) {
+                expectedStatus = Membership.MembershipStatus.UPCOMING;
+            } else if (m.getExpiryDate() != null && m.getExpiryDate().isBefore(today)) {
+                expectedStatus = Membership.MembershipStatus.EXPIRED;
+            } else {
+                expectedStatus = Membership.MembershipStatus.ACTIVE;
+            }
+
+            if (m.getStatus() != expectedStatus) {
+                violations.add(InvariantViolation.builder()
+                        .entityType("MEMBERSHIP")
+                        .entityId(m.getId())
+                        .gymId(gymId)
+                        .description("Membership status does not match calendar dates")
+                        .storedValue(String.valueOf(m.getStatus()))
+                        .expectedValue(String.valueOf(expectedStatus))
                         .build());
             }
         }
@@ -146,8 +169,8 @@ public class MoneyConsistencyNightlyJob {
                         .entityId(member.getId())
                         .gymId(gymId)
                         .description("Member currentDuePaise != sum of memberships duePaise")
-                        .storedValue(member.getCurrentDuePaise())
-                        .expectedValue(expectedDue)
+                        .storedValue(String.valueOf(member.getCurrentDuePaise()))
+                        .expectedValue(String.valueOf(expectedDue))
                         .build());
             }
 
@@ -157,8 +180,57 @@ public class MoneyConsistencyNightlyJob {
                         .entityId(member.getId())
                         .gymId(gymId)
                         .description("Member currentDuePaise cannot be negative")
-                        .storedValue(member.getCurrentDuePaise())
-                        .expectedValue(0L)
+                        .storedValue(String.valueOf(member.getCurrentDuePaise()))
+                        .expectedValue("0")
+                        .build());
+            }
+
+            LocalDate expectedExpiry = memberMems.stream()
+                    .map(Membership::getExpiryDate)
+                    .filter(Objects::nonNull)
+                    .max(LocalDate::compareTo)
+                    .orElse(null);
+
+            if (!Objects.equals(member.getCurrentExpiry(), expectedExpiry)) {
+                violations.add(InvariantViolation.builder()
+                        .entityType("MEMBER")
+                        .entityId(member.getId())
+                        .gymId(gymId)
+                        .description("Member currentExpiry does not match max membership expiry")
+                        .storedValue(String.valueOf(member.getCurrentExpiry()))
+                        .expectedValue(String.valueOf(expectedExpiry))
+                        .build());
+            }
+
+            Membership current = memberMems.stream()
+                    .filter(m -> m.getStartDate() != null && m.getExpiryDate() != null
+                            && !m.getStartDate().isAfter(today) && !m.getExpiryDate().isBefore(today))
+                    .max(Comparator.comparing(Membership::getExpiryDate, Comparator.nullsLast(Comparator.naturalOrder())))
+                    .orElse(null);
+
+            if (current == null) {
+                current = memberMems.stream()
+                        .filter(m -> m.getStartDate() != null && m.getStartDate().isAfter(today))
+                        .min(Comparator.comparing(Membership::getStartDate, Comparator.nullsLast(Comparator.naturalOrder())))
+                        .orElse(null);
+            }
+
+            if (current == null) {
+                current = memberMems.stream()
+                        .filter(m -> m.getExpiryDate() != null && m.getExpiryDate().isBefore(today))
+                        .max(Comparator.comparing(Membership::getExpiryDate, Comparator.nullsLast(Comparator.naturalOrder())))
+                        .orElse(null);
+            }
+
+            String expectedMembershipId = current != null ? current.getId() : null;
+            if (!Objects.equals(member.getCurrentMembershipId(), expectedMembershipId)) {
+                violations.add(InvariantViolation.builder()
+                        .entityType("MEMBER")
+                        .entityId(member.getId())
+                        .gymId(gymId)
+                        .description("Member currentMembershipId does not match covering/upcoming/expired priority")
+                        .storedValue(String.valueOf(member.getCurrentMembershipId()))
+                        .expectedValue(String.valueOf(expectedMembershipId))
                         .build());
             }
         }

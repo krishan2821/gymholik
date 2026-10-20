@@ -123,6 +123,7 @@ export interface DueItem {
   phone?: string;
   membershipId?: string;
   planName?: string;
+  status?: string;
   duePaise: number;
   totalDuePaise?: number;
   totalPaise: number;

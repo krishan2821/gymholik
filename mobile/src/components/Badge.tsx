@@ -2,7 +2,24 @@ import React from 'react';
 import { StyleSheet, Text, View, StyleProp, ViewStyle, TextStyle } from 'react-native';
 import { theme } from '../theme/theme';
 
-export type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'neutral';
+export type BadgeVariant =
+  | 'success'
+  | 'warning'
+  | 'error'
+  | 'info'
+  | 'neutral'
+  | 'active'
+  | 'upcoming'
+  | 'expired';
+
+export function getStatusBadgeVariant(status?: string | null): BadgeVariant {
+  if (!status) return 'neutral';
+  const s = status.toUpperCase();
+  if (s === 'ACTIVE') return 'active';
+  if (s === 'UPCOMING') return 'upcoming';
+  if (s === 'EXPIRED') return 'expired';
+  return 'neutral';
+}
 
 export interface BadgeProps {
   label: string;
@@ -21,23 +38,31 @@ export const Badge: React.FC<BadgeProps> = ({
 }) => {
   const getColors = () => {
     switch (variant) {
+      case 'active':
       case 'success':
         return {
           bg: 'rgba(142, 182, 155, 0.18)',
           border: 'rgba(142, 182, 155, 0.40)',
-          text: theme.colors.primary,
+          text: theme.colors.primary, // Sage
+        };
+      case 'upcoming':
+        return {
+          bg: theme.colors.cyanBg || 'rgba(78, 205, 196, 0.15)',
+          border: theme.colors.cyanBorder || 'rgba(78, 205, 196, 0.40)',
+          text: theme.colors.cyan || '#4ECDC4', // Cyan
+        };
+      case 'expired':
+      case 'error':
+        return {
+          bg: 'rgba(255, 107, 107, 0.18)',
+          border: 'rgba(255, 107, 107, 0.40)',
+          text: theme.colors.coral, // Coral
         };
       case 'warning':
         return {
           bg: 'rgba(245, 181, 68, 0.18)',
           border: 'rgba(245, 181, 68, 0.40)',
           text: theme.colors.warning,
-        };
-      case 'error':
-        return {
-          bg: 'rgba(255, 107, 107, 0.18)',
-          border: 'rgba(255, 107, 107, 0.40)',
-          text: theme.colors.error,
         };
       case 'info':
         return {

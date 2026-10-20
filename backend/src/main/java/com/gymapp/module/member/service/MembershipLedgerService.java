@@ -13,8 +13,12 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -25,88 +29,133 @@ public class MembershipLedgerService {
     private final MemberRepository memberRepository;
     private final DashboardService dashboardService;
     private final PaymentService paymentService;
+    private final Clock clock;
 
     public MembershipLedgerService(
             PaymentRepository paymentRepository,
             MembershipRepository membershipRepository,
             MemberRepository memberRepository,
             DashboardService dashboardService,
-            @Lazy PaymentService paymentService) {
+            @Lazy PaymentService paymentService,
+            Clock clock) {
         this.paymentRepository = paymentRepository;
         this.membershipRepository = membershipRepository;
         this.memberRepository = memberRepository;
         this.dashboardService = dashboardService;
         this.paymentService = paymentService;
+        this.clock = clock;
     }
 
     /**
-     * Recalculates membership paidPaise and duePaise from the append-only Payment ledger,
-     * then cascades the recalculation to the member's currentDuePaise and latest expiry.
+     * Recalculates all memberships and member-level aggregates for a member in a gym.
+     * Payments are the single source of truth.
+     *
+     * @param gymId tenant gym ID
+     * @param memberId member ID (or membership ID fallback)
      */
     @Transactional
-    public void recalculate(String gymId, String membershipId) {
-        if (gymId == null || membershipId == null) {
-            return;
-        }
-
-        Membership membership = membershipRepository.findByIdAndGymId(membershipId, gymId).orElse(null);
-        if (membership == null) {
-            return;
-        }
-
-        List<Payment> payments = paymentRepository.findByGymIdAndMembershipId(gymId, membershipId);
-        long netPaidPaise = 0L;
-        for (Payment p : payments) {
-            if ("REVERSAL".equalsIgnoreCase(p.getType()) || p.getReversalOfId() != null) {
-                netPaidPaise -= p.getAmountPaise();
-            } else {
-                netPaidPaise += p.getAmountPaise();
-            }
-        }
-        netPaidPaise = Math.max(0L, netPaidPaise);
-
-        membership.setPaidPaise(netPaidPaise);
-        long expectedDue = Math.max(0L, membership.getTotalPaise() - membership.getDiscountPaise() - netPaidPaise);
-        membership.setDuePaise(expectedDue);
-        membershipRepository.save(membership);
-
-        recalculateMember(gymId, membership.getMemberId());
-    }
-
-    /**
-     * Recalculates member currentDuePaise as the sum of all their memberships' duePaise,
-     * and refreshes currentExpiry to the latest active/non-deleted membership expiry date.
-     */
-    @Transactional
-    public void recalculateMember(String gymId, String memberId) {
+    public void recalculate(String gymId, String memberId) {
         if (gymId == null || memberId == null) {
             return;
         }
 
-        Member member = memberRepository.findByIdAndGymId(memberId, gymId).orElse(null);
-        if (member == null) {
-            return;
-        }
-
-        List<Membership> memberships = membershipRepository.findByGymIdAndMemberId(gymId, memberId);
-        long totalDue = 0L;
-        LocalDate latestExpiry = null;
-        for (Membership m : memberships) {
-            totalDue += m.getDuePaise();
-            if (m.getExpiryDate() != null) {
-                if (latestExpiry == null || m.getExpiryDate().isAfter(latestExpiry)) {
-                    latestExpiry = m.getExpiryDate();
-                }
+        String resolvedMemberId = memberId;
+        Optional<Member> memberOpt = memberRepository.findByIdAndGymId(resolvedMemberId, gymId);
+        if (memberOpt.isEmpty()) {
+            // Check if memberId was actually a membershipId
+            Optional<Membership> memOpt = membershipRepository.findByIdAndGymId(memberId, gymId);
+            if (memOpt.isPresent()) {
+                resolvedMemberId = memOpt.get().getMemberId();
+                memberOpt = memberRepository.findByIdAndGymId(resolvedMemberId, gymId);
             }
         }
 
-        member.setCurrentDuePaise(Math.max(0L, totalDue));
-        if (latestExpiry != null) {
-            member.setCurrentExpiry(latestExpiry);
+        if (memberOpt.isEmpty()) {
+            return;
         }
+
+        Member member = memberOpt.get();
+        LocalDate today = LocalDate.now(clock);
+
+        List<Membership> memberships = membershipRepository.findByGymIdAndMemberId(gymId, resolvedMemberId);
+        for (Membership m : memberships) {
+            List<Payment> payments = paymentRepository.findByGymIdAndMembershipId(gymId, m.getId());
+            long netPaidPaise = 0L;
+            for (Payment p : payments) {
+                if ("REVERSAL".equalsIgnoreCase(p.getType()) || p.getReversalOfId() != null) {
+                    netPaidPaise -= p.getAmountPaise();
+                } else {
+                    netPaidPaise += p.getAmountPaise();
+                }
+            }
+            netPaidPaise = Math.max(0L, netPaidPaise);
+
+            long rawDue = m.getTotalPaise() - m.getDiscountPaise() - netPaidPaise;
+            long duePaise = rawDue;
+            if (rawDue < 0) {
+                log.warn("Computed negative due for membership {} in gym {}: total={}, discount={}, paid={}. Clamping to 0.",
+                        m.getId(), gymId, m.getTotalPaise(), m.getDiscountPaise(), netPaidPaise);
+                duePaise = 0L;
+            }
+
+            Membership.MembershipStatus status;
+            if (m.getStartDate() != null && m.getStartDate().isAfter(today)) {
+                status = Membership.MembershipStatus.UPCOMING;
+            } else if (m.getExpiryDate() != null && m.getExpiryDate().isBefore(today)) {
+                status = Membership.MembershipStatus.EXPIRED;
+            } else {
+                status = Membership.MembershipStatus.ACTIVE;
+            }
+
+            m.setPaidPaise(netPaidPaise);
+            m.setDuePaise(duePaise);
+            m.setStatus(status);
+            membershipRepository.save(m);
+        }
+
+        long totalDue = Math.max(0L, memberships.stream().mapToLong(Membership::getDuePaise).sum());
+        member.setCurrentDuePaise(totalDue);
+
+        LocalDate maxExpiry = memberships.stream()
+                .map(Membership::getExpiryDate)
+                .filter(Objects::nonNull)
+                .max(LocalDate::compareTo)
+                .orElse(null);
+        member.setCurrentExpiry(maxExpiry);
+
+        // Current membership determination:
+        // 1. Covering today (startDate <= today <= expiryDate)
+        Membership current = memberships.stream()
+                .filter(m -> m.getStartDate() != null && m.getExpiryDate() != null
+                        && !m.getStartDate().isAfter(today) && !m.getExpiryDate().isBefore(today))
+                .max(Comparator.comparing(Membership::getExpiryDate, Comparator.nullsLast(Comparator.naturalOrder())))
+                .orElse(null);
+
+        // 2. Next UPCOMING (earliest startDate after today)
+        if (current == null) {
+            current = memberships.stream()
+                    .filter(m -> m.getStartDate() != null && m.getStartDate().isAfter(today))
+                    .min(Comparator.comparing(Membership::getStartDate, Comparator.nullsLast(Comparator.naturalOrder())))
+                    .orElse(null);
+        }
+
+        // 3. Latest EXPIRED (latest expiryDate before today)
+        if (current == null) {
+            current = memberships.stream()
+                    .filter(m -> m.getExpiryDate() != null && m.getExpiryDate().isBefore(today))
+                    .max(Comparator.comparing(Membership::getExpiryDate, Comparator.nullsLast(Comparator.naturalOrder())))
+                    .orElse(null);
+        }
+
+        member.setCurrentMembershipId(current != null ? current.getId() : null);
         memberRepository.save(member);
 
         evictCaches(gymId);
+    }
+
+    @Transactional
+    public void recalculateMember(String gymId, String memberId) {
+        recalculate(gymId, memberId);
     }
 
     public void evictCaches(String gymId) {

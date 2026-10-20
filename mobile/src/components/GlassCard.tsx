@@ -36,7 +36,7 @@ export const GlassCard: React.FC<GlassCardProps> = ({
     ? {
         onPress,
         activeOpacity,
-        accessibilityRole: 'button' as const,
+        accessibilityRole: Platform.OS === 'web' ? undefined : ('button' as const),
         accessibilityLabel: undefined,
         dataSet: { interactive: 'card' },
         ...(Platform.OS === 'web' ? ({ tabIndex: 0 } as any) : {}),

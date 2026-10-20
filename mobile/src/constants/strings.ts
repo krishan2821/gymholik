@@ -104,6 +104,8 @@ export const TABS = {
 export const LOGIN = {
   TITLE: 'Welcome back',
   SUBTITLE: 'Enter your mobile number to continue',
+  OTP_TITLE: 'Verify mobile',
+  OTP_SUBTITLE: (phone: string) => `Enter the 6-digit code sent to +91 ${phone}`,
   PHONE_LABEL: 'Mobile number',
   PHONE_PREFIX: '+91',
   PHONE_PLACEHOLDER: '9876543210',

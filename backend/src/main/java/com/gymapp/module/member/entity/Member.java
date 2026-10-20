@@ -31,5 +31,6 @@ public class Member extends TenantDocument {
     private String status;
     private LocalDate currentExpiry;
     private long currentDuePaise;
+    private String currentMembershipId;
     private LocalDate lastAttendanceDate;
 }

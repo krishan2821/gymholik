@@ -85,23 +85,35 @@ describe('formatters & currency rules', () => {
     assert.doesNotMatch(renewFee, /₹₹/);
   });
 
-  it('formats dates consistently as "10 Jan 2027"', () => {
-    assert.strictEqual(formatDate('2027-01-10'), '10 Jan 2027');
-    assert.strictEqual(formatDate('2027-10-18T18:30:00.000Z'), '18 Oct 2027');
-    assert.strictEqual(formatDate(new Date(2027, 0, 10)), '10 Jan 2027');
-    assert.strictEqual(formatDate(''), '—');
-    assert.strictEqual(formatDate(null), '—');
+  it('formats dates consistently in IST even on mock UTC device clock (process.env.TZ = "UTC")', () => {
+    const originalTZ = process.env.TZ;
+    process.env.TZ = 'UTC';
+    try {
+      assert.strictEqual(formatDate('2026-10-12'), '12 Oct 2026');
+      // UTC timestamp for IST midnight (2026-10-11T18:30:00Z -> 12 Oct 2026 IST)
+      assert.strictEqual(formatDate('2026-10-11T18:30:00Z'), '12 Oct 2026');
+      assert.strictEqual(formatDate('2027-01-10'), '10 Jan 2027');
+      assert.strictEqual(formatDate(''), '—');
+      assert.strictEqual(formatDate(null), '—');
+    } finally {
+      process.env.TZ = originalTZ;
+    }
   });
 
-  it('formats times consistently as "9:10 AM" with uppercase AM/PM and no leading hour zero', () => {
-    const d1 = new Date(2026, 9, 14, 9, 10, 0);
-    assert.strictEqual(formatTime(d1), '9:10 AM');
-
-    const d2 = new Date(2026, 9, 14, 14, 5, 0);
-    assert.strictEqual(formatTime(d2), '2:05 PM');
-
-    const d3 = new Date(2026, 9, 14, 0, 0, 0);
-    assert.strictEqual(formatTime(d3), '12:00 AM');
+  it('formats times consistently as "9:10 AM" in IST on mock UTC device clock (process.env.TZ = "UTC")', () => {
+    const originalTZ = process.env.TZ;
+    process.env.TZ = 'UTC';
+    try {
+      // 03:40 UTC is 09:10 IST
+      assert.strictEqual(formatTime('2026-10-14T03:40:00Z'), '9:10 AM');
+      assert.strictEqual(formatTime('2026-10-14T09:10:00'), '9:10 AM');
+      // 08:35 UTC is 14:05 IST
+      assert.strictEqual(formatTime('2026-10-14T08:35:00Z'), '2:05 PM');
+      // 18:30 UTC is 00:00 IST
+      assert.strictEqual(formatTime('2026-10-13T18:30:00Z'), '12:00 AM');
+    } finally {
+      process.env.TZ = originalTZ;
+    }
   });
 
   it('truncates middle of receipt numbers when longer than max length', () => {

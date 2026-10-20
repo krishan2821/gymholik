@@ -79,13 +79,35 @@
       <tr><td><code>memberCode</code></td><td>String</td><td>Compound (gymId, memberCode)</td><td>Auto-incremented gym member code.</td></tr>
       <tr><td><code>name</code></td><td>String</td><td>Compound (gymId, name)</td><td>Full member name.</td></tr>
       <tr><td><code>phone</code></td><td>String</td><td>Compound (gymId, phone)</td><td>Member contact mobile.</td></tr>
-      <tr><td><code>currentExpiry</code></td><td>ISODate</td><td>Indexed</td><td>Active membership end date.</td></tr>
-      <tr><td><code>currentDuePaise</code></td><td>Long</td><td>Indexed</td><td>Pending dues in paise (1 INR = 100 paise).</td></tr>
+      <tr><td><code>currentMembershipId</code></td><td>ObjectId</td><td>-</td><td>Active membership covering today, or next UPCOMING, or latest EXPIRED.</td></tr>
+      <tr><td><code>currentExpiry</code></td><td>ISODate</td><td>Indexed</td><td>End of coverage: maximum expiryDate across all memberships (advance renewals never trigger premature reminders).</td></tr>
+      <tr><td><code>currentDuePaise</code></td><td>Long</td><td>Indexed</td><td>Sum of dues across all member memberships (never negative).</td></tr>
       <tr><td><code>status</code></td><td>String</td><td>Indexed</td><td><code>ACTIVE</code>, <code>EXPIRED</code>.</td></tr>
     </tbody>
   </table>
 
-  <h2>1.4 Collection: <code>payments</code></h2>
+  <h2>1.4 Collection: <code>memberships</code></h2>
+  <table>
+    <thead>
+      <tr><th>Field</th><th>Type</th><th>Index</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>_id</code></td><td>ObjectId</td><td>Primary</td><td>Membership contract ID.</td></tr>
+      <tr><td><code>gymId</code></td><td>ObjectId</td><td>Compound (gymId, memberId)</td><td>Tenant isolation partition.</td></tr>
+      <tr><td><code>memberId</code></td><td>ObjectId</td><td>Compound</td><td>Foreign key to member.</td></tr>
+      <tr><td><code>planId</code></td><td>ObjectId</td><td>-</td><td>Associated plan ID.</td></tr>
+      <tr><td><code>planName</code></td><td>String</td><td>-</td><td>Snapshot plan name at purchase.</td></tr>
+      <tr><td><code>startDate</code></td><td>LocalDate</td><td>-</td><td>Membership period start date (Asia/Kolkata).</td></tr>
+      <tr><td><code>expiryDate</code></td><td>LocalDate</td><td>Indexed</td><td>Membership period end date (Asia/Kolkata).</td></tr>
+      <tr><td><code>totalPaise</code></td><td>Long</td><td>-</td><td>Total plan cost in paise.</td></tr>
+      <tr><td><code>discountPaise</code></td><td>Long</td><td>-</td><td>Discount granted on this membership.</td></tr>
+      <tr><td><code>paidPaise</code></td><td>Long</td><td>-</td><td>Sum of payments minus reversals for this membership.</td></tr>
+      <tr><td><code>duePaise</code></td><td>Long</td><td>-</td><td>Remaining due: max(0, total - discount - paid).</td></tr>
+      <tr><td><code>status</code></td><td>String</td><td>Indexed</td><td><code>UPCOMING</code> (startDate &gt; today), <code>ACTIVE</code> (startDate &le; today &le; expiryDate), <code>EXPIRED</code> (expiryDate &lt; today). Maintained daily at 00:05 IST.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>1.5 Collection: <code>payments</code></h2>
   <table>
     <thead>
       <tr><th>Field</th><th>Type</th><th>Index</th><th>Description</th></tr>
@@ -94,14 +116,16 @@
       <tr><td><code>_id</code></td><td>ObjectId</td><td>Primary</td><td>Payment record identifier.</td></tr>
       <tr><td><code>gymId</code></td><td>ObjectId</td><td>Compound (gymId, createdAt)</td><td>Tenant isolation.</td></tr>
       <tr><td><code>memberId</code></td><td>ObjectId</td><td>Indexed</td><td>Target member foreign key.</td></tr>
-      <tr><td><code>amountPaise</code></td><td>Long</td><td>-</td><td>Transacted sum in paise.</td></tr>
+      <tr><td><code>membershipId</code></td><td>ObjectId</td><td>Indexed</td><td>Target membership foreign key. Defaults to oldest due membership.</td></tr>
+      <tr><td><code>amountPaise</code></td><td>Long</td><td>-</td><td>Transacted sum in paise (cannot exceed due balance).</td></tr>
+      <tr><td><code>paidAt</code></td><td>ISODate</td><td>Indexed</td><td>Recorded timestamp. Default is now (Asia/Kolkata clock); backdated allowed up to 31 days (OWNER only) stored at 12:00:00 IST.</td></tr>
       <tr><td><code>mode</code></td><td>String</td><td>Indexed</td><td><code>CASH</code>, <code>UPI</code>, <code>CARD</code>, <code>BANK_TRANSFER</code>.</td></tr>
       <tr><td><code>type</code></td><td>String</td><td>Indexed</td><td><code>PAYMENT</code>, <code>REVERSAL</code>.</td></tr>
       <tr><td><code>collectedBy</code></td><td>ObjectId</td><td>-</td><td>User ID of staff/owner recording entry.</td></tr>
     </tbody>
   </table>
 
-  <h2>1.5 Collection: <code>attendance</code></h2>
+  <h2>1.6 Collection: <code>attendance</code></h2>
   <table>
     <thead>
       <tr><th>Field</th><th>Type</th><th>Index</th><th>Description</th></tr>
@@ -129,8 +153,10 @@
       <tr><td><code>/api/dashboard</code></td><td>GET</td><td>OWNER, STAFF</td><td>Returns financial metrics & 7-day collections.</td></tr>
       <tr><td><code>/api/members</code></td><td>GET</td><td>Authenticated</td><td>Paged member list (trainers scoped to assigned).</td></tr>
       <tr><td><code>/api/members</code></td><td>POST</td><td>OWNER, STAFF</td><td>Enrolls new member with plan & payment.</td></tr>
+      <tr><td><code>/api/members/{id}/fees</code></td><td>GET</td><td>OWNER, STAFF</td><td>Returns memberships breakdown, dueTotalPaise & defaultMembershipId.</td></tr>
       <tr><td><code>/api/attendance/check-in</code></td><td>POST</td><td>Authenticated</td><td>Records member check-in timestamp.</td></tr>
       <tr><td><code>/api/payments</code></td><td>GET</td><td>OWNER, STAFF</td><td>Paginated payment ledger with date/mode filters.</td></tr>
+      <tr><td><code>/api/payments</code></td><td>POST</td><td>OWNER, STAFF</td><td>Records payment with single-source ledger recomputation.</td></tr>
       <tr><td><code>/api/payments/{id}/reverse</code></td><td>POST</td><td>OWNER Only</td><td>Reverses payment transaction with audit note.</td></tr>
       <tr><td><code>/api/trainers/{id}/approve</code></td><td>POST</td><td>OWNER Only</td><td>Approves trainer and binds trainer types.</td></tr>
     </tbody>

@@ -82,6 +82,8 @@ export const DuesTab: React.FC<DuesTabProps> = ({
     const isOverdue = (item.daysOverdue ?? 0) > 0;
     const isBroken = Boolean(item.promiseBroken);
     const memberName = item.name || item.memberName || 'Member';
+    const isUpcoming = item.status === 'UPCOMING' || (Boolean(item.memberships?.length) && item.memberships!.every(m => m.status === 'UPCOMING'));
+    const hasAdvance = isUpcoming || Boolean(item.memberships?.some(m => m.status === 'UPCOMING' && m.duePaise > 0));
 
     // Role check for full unmasked phone
     const canSeeFullPhone = isOwner || (isStaff && Boolean(gymProfile?.staffCanSeeFullPhone));
@@ -96,9 +98,16 @@ export const DuesTab: React.FC<DuesTabProps> = ({
         <View style={styles.topRow}>
           <Avatar name={memberName} size="md" style={{ marginRight: 12 }} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.name} numberOfLines={1}>
-              {memberName}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <Text style={styles.name} numberOfLines={1}>
+                {memberName}
+              </Text>
+              {hasAdvance && (
+                <View style={styles.upcomingBadge}>
+                  <Text style={styles.upcomingBadgeText}>Advance</Text>
+                </View>
+              )}
+            </View>
             <Text style={styles.planSub}>
               {item.planName || 'Membership'}
               {item.memberCode ? ` • ${item.memberCode}` : ''}
@@ -132,6 +141,11 @@ export const DuesTab: React.FC<DuesTabProps> = ({
                 <Text style={styles.overdueBadgeText}>
                   {item.daysOverdue} days overdue
                 </Text>
+              </View>
+            ) : isUpcoming ? (
+              <View style={styles.upcomingBadge}>
+                <Clock size={13} color={theme.colors.cyan || '#4ECDC4'} />
+                <Text style={styles.upcomingBadgeText}>Upcoming</Text>
               </View>
             ) : item.expiryDate ? (
               <View style={styles.expiryBadge}>
@@ -385,6 +399,22 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 11,
     color: theme.colors.textMuted,
+  },
+  upcomingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: theme.colors.cyanBg || 'rgba(78, 205, 196, 0.15)',
+    borderWidth: 1,
+    borderColor: theme.colors.cyanBorder || 'rgba(78, 205, 196, 0.40)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: theme.radius.sm,
+  },
+  upcomingBadgeText: {
+    fontFamily: theme.fonts.bodySemiBold,
+    fontSize: 11,
+    color: theme.colors.cyan || '#4ECDC4',
   },
   actionsRow: {
     flexDirection: 'row',

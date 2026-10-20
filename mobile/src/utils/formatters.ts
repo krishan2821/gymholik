@@ -30,60 +30,115 @@ export function formatRupees(rupees: number | string | undefined | null = 0): st
   return `₹${rounded.toLocaleString('en-IN')}`;
 }
 
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
+const istDateFormatter = new Intl.DateTimeFormat('en-IN', {
+  timeZone: 'Asia/Kolkata',
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+});
+
+const istTimeFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Kolkata',
+  hour: 'numeric',
+  minute: '2-digit',
+  hour12: true,
+});
+
+export function parseToISTDate(input?: string | Date | number | null): Date | null {
+  if (!input) return null;
+  if (input instanceof Date) return isNaN(input.getTime()) ? null : input;
+  if (typeof input === 'number') {
+    const d = new Date(input);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof input === 'string') {
+    const trimmed = input.trim();
+    if (!trimmed) return null;
+    // YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const d = new Date(`${trimmed}T00:00:00+05:30`);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    // Has explicit timezone (Z or +HH:MM or -HH:MM)
+    if (/T.*(Z|[+-]\d{2}(?::?\d{2})?)$/i.test(trimmed)) {
+      const d = new Date(trimmed);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    // Datetime without offset, treat as IST
+    if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/.test(trimmed)) {
+      const d = new Date(`${trimmed.replace(' ', 'T')}+05:30`);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    const d = new Date(trimmed);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
 
 /**
- * Formats any date string or Date object as "10 Jan 2027".
+ * Formats any date string or Date object as "12 Oct 2026" strictly in Asia/Kolkata timezone.
  * Never displays raw ISO strings.
  */
-export function formatDate(input?: string | Date | null): string {
+export function formatDate(input?: string | Date | number | null): string {
   if (!input) return '—';
   try {
-    if (typeof input === 'string') {
-      const trimmed = input.trim();
-      if (!trimmed) return '—';
-
-      // Match YYYY-MM-DD directly to prevent timezone skew on date-only strings
-      const ymdMatch = /^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/.exec(trimmed);
-      if (ymdMatch) {
-        const y = parseInt(ymdMatch[1], 10);
-        const m = parseInt(ymdMatch[2], 10) - 1;
-        const d = parseInt(ymdMatch[3], 10);
-        if (m >= 0 && m < 12) {
-          return `${d} ${MONTH_NAMES[m]} ${y}`;
-        }
-      }
-
-      const d = new Date(trimmed);
-      if (isNaN(d.getTime())) return '—';
-      return `${d.getDate()} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
-    }
-
-    if (isNaN(input.getTime())) return '—';
-    return `${input.getDate()} ${MONTH_NAMES[input.getMonth()]} ${input.getFullYear()}`;
+    const d = parseToISTDate(input);
+    if (!d) return '—';
+    return istDateFormatter.format(d).replace(/,/g, '').trim();
   } catch {
     return '—';
   }
 }
 
 /**
- * Formats any time (ISO string or Date) as "9:10 AM" (12-hour, no leading zero on hour, uppercase AM/PM).
+ * Formats any time (ISO string or Date) as "9:10 AM" strictly in Asia/Kolkata timezone
+ * (12-hour, no leading zero on hour, uppercase AM/PM).
  */
-export function formatTime(input?: string | Date | null): string {
+export function formatTime(input?: string | Date | number | null): string {
   if (!input) return '';
   try {
-    const d = typeof input === 'string' ? new Date(input) : input;
-    if (isNaN(d.getTime())) return '';
-    let hours = d.getHours();
-    const minutes = d.getMinutes();
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours ? hours : 12;
-    const minStr = minutes < 10 ? `0${minutes}` : `${minutes}`;
-    return `${hours}:${minStr} ${ampm}`;
+    const d = parseToISTDate(input);
+    if (!d) return '';
+    return istTimeFormatter.format(d).replace(/\u202f/g, ' ').trim();
   } catch {
     return '';
   }
+}
+
+/**
+ * Returns today's date in 'YYYY-MM-DD' strictly in Asia/Kolkata timezone.
+ */
+export function getTodayISTDateString(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+/**
+ * Returns yesterday's date in 'YYYY-MM-DD' strictly in Asia/Kolkata timezone.
+ */
+export function getYesterdayISTDateString(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(Date.now() - 86400000));
+}
+
+/**
+ * Returns a future date in 'YYYY-MM-DD' offset by days in Asia/Kolkata timezone.
+ */
+export function getFutureISTDateString(days: number): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(Date.now() + days * 86400000));
 }
 
 /**
@@ -106,6 +161,9 @@ export default {
   formatRupees,
   formatDate,
   formatTime,
+  getTodayISTDateString,
+  getYesterdayISTDateString,
+  getFutureISTDateString,
   truncateMiddle,
   isPhoneMasked,
 };

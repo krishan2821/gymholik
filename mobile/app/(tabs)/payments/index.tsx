@@ -330,7 +330,7 @@ export default function PaymentsScreen() {
 
   // Render a Payment Row
   const renderPaymentRow = ({ item }: { item: PaymentItem }) => {
-    const isReversal = item.type === 'REVERSAL';
+    const isReversal = item.type === 'REVERSAL' || item.status === 'REVERSED';
     const amountSign = isReversal ? '-' : '+';
     const formattedAmount = formatMoney(item.amountPaise);
 
@@ -354,9 +354,14 @@ export default function PaymentsScreen() {
         />
 
         <View style={styles.rowDetails}>
-          <Text style={styles.rowMemberName} numberOfLines={1}>
-            {item.memberName || 'Member'}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={styles.rowMemberName} numberOfLines={1}>
+              {item.memberName || 'Member'}
+            </Text>
+            {isReversal && (
+              <Badge label="Reversed" variant="expired" size="sm" />
+            )}
+          </View>
           <Text style={styles.rowSubText} numberOfLines={1}>
             {item.planName || 'Plan'} • {item.memberCode || '—'}
           </Text>

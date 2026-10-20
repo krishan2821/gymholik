@@ -77,7 +77,7 @@ import { Button } from '../../../src/components/Button';
 import { ErrorState } from '../../../src/components/ErrorState';
 import { MaskedPhone, isPhoneMasked } from '../../../src/components/MaskedPhone';
 import { MEMBER_PROFILE, COMMON } from '../../../src/constants/strings';
-import { formatMoney } from '../../../src/utils/formatters';
+import { formatMoney, formatDate, formatTime } from '../../../src/utils/formatters';
 
 function formatCheckInTime(time: any): string {
   if (!time) return 'Checked In';
@@ -311,7 +311,13 @@ export default function MemberDetailScreen() {
   }
 
   const { name, phone, photoUrl, currentMembership, memberCode } = member;
-  const status = getMembershipStatus(currentMembership);
+  const hasUpcomingRenewal = Boolean(
+    member?.currentExpiry && (
+      member?.status === 'UPCOMING' ||
+      (currentMembership?.expiryDate && member.currentExpiry > currentMembership.expiryDate)
+    )
+  );
+  const status = getMembershipStatus(currentMembership, member);
   const masked = isPhoneMasked(phone);
 
   const openWhatsApp = () => {
@@ -451,9 +457,18 @@ export default function MemberDetailScreen() {
                 <View style={styles.planHeaderInfo}>
                   <Text style={styles.planName}>{currentMembership.planName}</Text>
                   <Text style={styles.planDatesSubtext}>
-                    {format(parseISO(currentMembership.startDate), 'dd MMM yyyy')} –{' '}
-                    {format(parseISO(currentMembership.expiryDate), 'dd MMM yyyy')}
+                    {formatDate(currentMembership.startDate)} – {formatDate(currentMembership.expiryDate)}
                   </Text>
+                  {hasUpcomingRenewal && (
+                    <Text
+                      style={[
+                        styles.planDatesSubtext,
+                        { color: theme.colors.cyan || '#4ECDC4', marginTop: 2, fontFamily: theme.fonts.bodySemiBold },
+                      ]}
+                    >
+                      Renewed till {formatDate(member?.currentExpiry)}
+                    </Text>
+                  )}
                   <Badge label={status.text} variant={status.badgeVariant} size="sm" />
                 </View>
               </View>
@@ -547,6 +562,31 @@ export default function MemberDetailScreen() {
               </>
             )}
           </>
+        ) : hasUpcomingRenewal ? (
+          <View style={styles.planCard}>
+            <Text style={styles.planName}>Upcoming Membership</Text>
+            <Text
+              style={[
+                styles.planDatesSubtext,
+                { color: theme.colors.cyan || '#4ECDC4', marginTop: 4, fontFamily: theme.fonts.bodySemiBold },
+              ]}
+            >
+              Renewed till {formatDate(member?.currentExpiry)}
+            </Text>
+            <View style={{ marginTop: 8 }}>
+              <Badge label="Upcoming" variant="upcoming" size="sm" />
+            </View>
+            {!isTrainer && (
+              <View style={{ marginTop: 16 }}>
+                <Button
+                  title={MEMBER_PROFILE.RENEW}
+                  icon={<RefreshCw color={theme.colors.textOnPrimary} size={18} />}
+                  onPress={() => router.push(`/(tabs)/members/${id}/renew`)}
+                  size="sm"
+                />
+              </View>
+            )}
+          </View>
         ) : (
           <View style={styles.planCard}>
             <Text style={styles.noMembershipText}>{MEMBER_PROFILE.NO_MEMBERSHIP}</Text>
@@ -1144,19 +1184,46 @@ function DaysLeftProgressRing({
   );
 }
 
-function getMembershipStatus(currentMembership: any): {
+function getMembershipStatus(currentMembership: any, member?: any): {
   badgeVariant: BadgeVariant;
   avatarStatus: AvatarStatus;
   text: string;
 } {
-  if (!currentMembership) return { badgeVariant: 'error', avatarStatus: 'expired', text: 'No Plan' };
-  if (currentMembership.status === 'EXPIRED') return { badgeVariant: 'error', avatarStatus: 'expired', text: 'Expired' };
+  const hasUpcomingRenewal = Boolean(
+    member?.currentExpiry && (
+      member?.status === 'UPCOMING' ||
+      (currentMembership?.expiryDate && member.currentExpiry > currentMembership.expiryDate)
+    )
+  );
+
+  if (!currentMembership) {
+    if (member?.status === 'UPCOMING' || hasUpcomingRenewal) {
+      return { badgeVariant: 'upcoming', avatarStatus: 'active', text: 'Upcoming' };
+    }
+    return { badgeVariant: 'expired', avatarStatus: 'expired', text: 'No Plan' };
+  }
+
+  if (currentMembership.status === 'UPCOMING' || member?.status === 'UPCOMING') {
+    return { badgeVariant: 'upcoming', avatarStatus: 'active', text: 'Upcoming' };
+  }
+
+  if (currentMembership.status === 'EXPIRED') {
+    return { badgeVariant: 'expired', avatarStatus: 'expired', text: 'Expired' };
+  }
+
   try {
     const expiry = parseISO(currentMembership.expiryDate);
     const daysLeft = differenceInDays(expiry, new Date());
-    if (daysLeft <= 5) return { badgeVariant: 'warning', avatarStatus: 'expiring', text: daysLeft <= 0 ? 'Expiring today' : `Exp in ${daysLeft}d` };
+    if (daysLeft <= 5 && !hasUpcomingRenewal) {
+      return {
+        badgeVariant: 'warning',
+        avatarStatus: 'expiring',
+        text: daysLeft <= 0 ? 'Expiring today' : `Exp in ${daysLeft}d`,
+      };
+    }
   } catch {}
-  return { badgeVariant: 'success', avatarStatus: 'active', text: 'Active' };
+
+  return { badgeVariant: 'active', avatarStatus: 'active', text: 'Active' };
 }
 
 const styles = StyleSheet.create({

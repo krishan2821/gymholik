@@ -274,10 +274,11 @@ const styles = StyleSheet.create({
     }),
   },
   disabledContainer: {
-    backgroundColor: theme.colors.raised,
+    backgroundColor: 'rgba(22, 56, 50, 0.65)',
+    borderColor: 'rgba(142, 182, 155, 0.25)',
   },
   disabledTextOpacity: {
-    opacity: 0.7,
+    opacity: 0.9,
   },
   floatingLabel: {
     position: 'absolute',
@@ -303,6 +304,7 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
+    minWidth: 0,
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 15,
     color: theme.colors.text,

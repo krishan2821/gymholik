@@ -26,9 +26,11 @@ public class DueItemResponse {
     private long totalDuePaise; // alias for duePaise for backward compatibility
     private long totalPaise;
     private long paidPaise;
+    private LocalDate startDate;
     private LocalDate expiryDate;
     private Long daysOverdue;
     private Long daysToExpiry;
+    private String status;
     private LocalDateTime lastPaymentAt;
     private LocalDate promisedDate;
     private Boolean promiseBroken;

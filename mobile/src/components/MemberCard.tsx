@@ -10,7 +10,7 @@ import { GlassCard } from './GlassCard';
 import { Avatar, AvatarStatus } from './Avatar';
 import { Badge, BadgeVariant } from './Badge';
 import { MaskedPhone, isPhoneMasked } from './MaskedPhone';
-import { formatMoney } from '../utils/formatters';
+import { formatMoney, formatDate } from '../utils/formatters';
 
 interface MemberCardProps {
   member: Member;
@@ -23,24 +23,38 @@ export const MemberCard = React.memo(({ member, onPress }: MemberCardProps) => {
   const isTrainer = role === 'TRAINER';
   const masked = isPhoneMasked(phone);
 
+  const hasUpcomingRenewal = Boolean(
+    member.currentExpiry && (
+      member.status === 'UPCOMING' ||
+      (currentMembership?.expiryDate && member.currentExpiry > currentMembership.expiryDate)
+    )
+  );
+
   const getMembershipStatus = (): {
     badgeVariant: BadgeVariant;
     avatarStatus: AvatarStatus;
     text: string;
   } => {
     if (!currentMembership) {
-      return { badgeVariant: 'error', avatarStatus: 'expired', text: 'No Plan' };
+      if (member.status === 'UPCOMING' || hasUpcomingRenewal) {
+        return { badgeVariant: 'upcoming', avatarStatus: 'active', text: 'Upcoming' };
+      }
+      return { badgeVariant: 'expired', avatarStatus: 'expired', text: 'No Plan' };
+    }
+
+    if (currentMembership.status === 'UPCOMING' || member.status === 'UPCOMING') {
+      return { badgeVariant: 'upcoming', avatarStatus: 'active', text: 'Upcoming' };
     }
 
     if (currentMembership.status === 'EXPIRED') {
-      return { badgeVariant: 'error', avatarStatus: 'expired', text: 'Expired' };
+      return { badgeVariant: 'expired', avatarStatus: 'expired', text: 'Expired' };
     }
 
     try {
       const expiry = parseISO(currentMembership.expiryDate);
       const daysLeft = differenceInDays(expiry, new Date());
 
-      if (daysLeft <= 5) {
+      if (daysLeft <= 5 && !hasUpcomingRenewal) {
         return {
           badgeVariant: 'warning',
           avatarStatus: 'expiring',
@@ -51,7 +65,7 @@ export const MemberCard = React.memo(({ member, onPress }: MemberCardProps) => {
       // Fallback if parsing fails
     }
 
-    return { badgeVariant: 'success', avatarStatus: 'active', text: 'Active' };
+    return { badgeVariant: 'active', avatarStatus: 'active', text: 'Active' };
   };
 
   const openWhatsApp = (e: any) => {
@@ -97,20 +111,24 @@ export const MemberCard = React.memo(({ member, onPress }: MemberCardProps) => {
                 {currentMembership.planName}
               </Text>
               <Text style={styles.expiryText}>
-                Expires:{' '}
-                {new Date(currentMembership.expiryDate).toLocaleDateString('en-IN', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric',
-                })}
+                {hasUpcomingRenewal
+                  ? `Renewed till ${formatDate(member.currentExpiry)}`
+                  : `Expires: ${formatDate(currentMembership.expiryDate)}`}
               </Text>
-              {!isTrainer && currentMembership.duePaise > 0 && (
+              {!isTrainer && (member.dueTotalPaise ?? currentMembership.duePaise ?? 0) > 0 && (
                 <View style={styles.dueBadge}>
                   <Text style={styles.dueText}>
-                    Due {formatMoney(currentMembership.duePaise)}
+                    Due {formatMoney(member.dueTotalPaise ?? currentMembership.duePaise)}
                   </Text>
                 </View>
               )}
+            </>
+          ) : hasUpcomingRenewal ? (
+            <>
+              <Text style={styles.detailText}>Upcoming Membership</Text>
+              <Text style={styles.expiryText}>
+                Renewed till {formatDate(member.currentExpiry)}
+              </Text>
             </>
           ) : (
             <Text style={styles.detailText}>No active membership</Text>

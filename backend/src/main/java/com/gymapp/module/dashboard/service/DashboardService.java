@@ -2,6 +2,7 @@ package com.gymapp.module.dashboard.service;
 
 import com.gymapp.common.TenantContext;
 import com.gymapp.module.dashboard.dto.DashboardResponse;
+import com.gymapp.module.payment.service.DuesCalculationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
@@ -38,6 +39,8 @@ import java.util.stream.Collectors;
 public class DashboardService {
 
     private final MongoTemplate mongoTemplate;
+    private final DuesCalculationService duesCalculationService;
+    private final java.time.Clock clock;
     
     private final Map<String, CachedDashboard> cache = new ConcurrentHashMap<>();
 
@@ -56,7 +59,7 @@ public class DashboardService {
         }
 
         String gymId = TenantContext.getGymId();
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
 
         // Check cache
         CachedDashboard cached = cache.get(gymId);
@@ -103,8 +106,7 @@ public class DashboardService {
 
     private DashboardResponse computeDashboardData(String gymId, LocalDateTime now) {
 
-        java.time.ZoneId kolkata = java.time.ZoneId.of("Asia/Kolkata");
-        LocalDate today = LocalDate.now(kolkata);
+        LocalDate today = LocalDate.now(clock);
         LocalDateTime startOfToday = today.atStartOfDay();
         LocalDateTime endOfToday = today.plusDays(1).atStartOfDay();
         LocalDate startOfMonth = YearMonth.from(today).atDay(1);
@@ -113,12 +115,13 @@ public class DashboardService {
         LocalDate next5Days = today.plusDays(5);
         LocalDateTime last7DaysStart = today.minusDays(6).atStartOfDay();
 
-        // 1. Active Members
-        var activeMembersFuture = java.util.concurrent.CompletableFuture.supplyAsync(() ->
-            mongoTemplate.count(
-                    new Query(Criteria.where("gymId").is(gymId).and("status").is("ACTIVE")),
-                    "members")
-        );
+        // 1. Active Members = members who have a membership with status ACTIVE
+        var activeMembersFuture = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+            List<String> activeMemberIds = mongoTemplate.findDistinct(
+                    new Query(Criteria.where("gymId").is(gymId).and("status").is(com.gymapp.module.member.entity.Membership.MembershipStatus.ACTIVE.name())),
+                    "memberId", "memberships", String.class);
+            return (long) activeMemberIds.size();
+        });
 
         // 2. Today Collection
         var todayColFuture = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
@@ -174,14 +177,10 @@ public class DashboardService {
                     "attendances")
         );
 
-        // 7. Total Due
-        var totalDueFuture = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
-            Aggregation dueAgg = Aggregation.newAggregation(
-                    Aggregation.match(Criteria.where("gymId").is(gymId).and("currentDuePaise").gt(0)),
-                    Aggregation.group().sum("currentDuePaise").as("total")
-            );
-            return getSumFromResult(mongoTemplate.aggregate(dueAgg, "members", Map.class));
-        });
+        // 7. Total Due: recomputes directly using the shared dues calculation
+        var totalDueFuture = java.util.concurrent.CompletableFuture.supplyAsync(() ->
+                duesCalculationService.getPendingDuesSummary(gymId).totalDuePaise()
+        );
 
         // 8. Last 7 Days Collection
         var last7DaysFuture = java.util.concurrent.CompletableFuture.supplyAsync(() -> {

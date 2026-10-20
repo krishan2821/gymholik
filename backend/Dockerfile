@@ -20,6 +20,7 @@ COPY --from=builder /app/target/*.jar app.jar
 
 # Run with memory limits configured via JAVA_OPTS
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=50.0"
+ENV TZ="Asia/Kolkata"
 
 EXPOSE 8080
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

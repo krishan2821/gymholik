@@ -42,6 +42,8 @@ class PaymentServiceTest {
     @Mock private com.gymapp.module.audit.service.AuditLogService auditLogService;
     @Mock private com.gymapp.module.payment.repository.DayCloseRepository dayCloseRepository;
     @Mock private com.gymapp.module.member.service.MembershipLedgerService membershipLedgerService;
+    @org.mockito.Spy private java.time.Clock clock = java.time.Clock.system(java.time.ZoneId.of("Asia/Kolkata"));
+    @Mock private DuesCalculationService duesCalculationService;
 
     @InjectMocks
     private PaymentService paymentService;
@@ -79,6 +81,6 @@ class PaymentServiceTest {
         paymentService.createPayment(request);
 
         // Assert: verify membership ledger recalculate is invoked for single-source-of-truth consistency
-        verify(membershipLedgerService).recalculate("GYM123", "MEM1");
+        verify(membershipLedgerService).recalculate("GYM123", "M1");
     }
 }

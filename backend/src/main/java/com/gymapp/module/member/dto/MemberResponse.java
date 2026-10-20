@@ -23,6 +23,8 @@ public class MemberResponse {
     private String status;
     private LocalDate currentExpiry;
     private long currentDuePaise;
+    private long dueTotalPaise;
+    private String currentMembershipId;
     private LocalDate lastAttendanceDate;
     
     // Summary of current active membership if available

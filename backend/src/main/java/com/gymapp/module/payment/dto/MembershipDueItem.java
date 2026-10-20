@@ -23,4 +23,5 @@ public class MembershipDueItem {
     private LocalDate expiryDate;
     private LocalDate promisedDate;
     private Boolean promiseBroken;
+    private String status;
 }

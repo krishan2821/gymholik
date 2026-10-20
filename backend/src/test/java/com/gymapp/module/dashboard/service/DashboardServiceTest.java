@@ -5,6 +5,7 @@ import com.gymapp.common.exception.AppException;
 import com.gymapp.common.exception.ErrorCode;
 import com.gymapp.module.auth.entity.Gym;
 import com.gymapp.module.dashboard.dto.DashboardResponse;
+import com.gymapp.module.payment.service.DuesCalculationService;
 import com.gymapp.module.member.entity.Member;
 import com.gymapp.security.JwtDetails;
 import org.junit.jupiter.api.AfterEach;
@@ -42,6 +43,12 @@ class DashboardServiceTest {
     @Mock
     private MongoTemplate mongoTemplate;
 
+    @Mock
+    private DuesCalculationService duesCalculationService;
+
+    @org.mockito.Spy
+    private java.time.Clock clock = java.time.Clock.system(java.time.ZoneId.of("Asia/Kolkata"));
+
     @InjectMocks
     private DashboardService dashboardService;
 
@@ -77,6 +84,8 @@ class DashboardServiceTest {
                 .thenReturn(emptyAggResults);
 
         when(mongoTemplate.find(any(Query.class), eq(Member.class))).thenReturn(List.of(member));
+        when(duesCalculationService.getPendingDuesSummary(GYM_ID))
+                .thenReturn(new DuesCalculationService.PendingDuesSummary(0L, 0));
     }
 
     @Test

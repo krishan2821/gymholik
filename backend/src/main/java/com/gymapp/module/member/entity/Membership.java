@@ -13,7 +13,7 @@ import lombok.experimental.SuperBuilder;
 public class Membership extends TenantDocument {
 
     public enum MembershipStatus {
-        ACTIVE, EXPIRED
+        UPCOMING, ACTIVE, EXPIRED
     }
 
     private String memberId;

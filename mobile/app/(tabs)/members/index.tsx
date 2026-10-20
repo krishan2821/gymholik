@@ -34,7 +34,7 @@ import { LoadingSkeleton } from '../../../src/components/LoadingSkeleton';
 import { Screen, getScreenBottomPadding } from '../../../src/components/Screen';
 import { PageHeader } from '../../../src/components/PageHeader';
 import { Avatar } from '../../../src/components/Avatar';
-import { Badge } from '../../../src/components/Badge';
+import { Badge, getStatusBadgeVariant } from '../../../src/components/Badge';
 import { Button } from '../../../src/components/Button';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { AddMemberModal } from '../../../src/components/AddMemberModal';
@@ -326,13 +326,7 @@ export default function MembersListScreen() {
                       <View style={[styles.tableTd, { flex: 1.2 }]}>
                         <Badge
                           label={status}
-                          variant={
-                            status === 'ACTIVE'
-                              ? 'success'
-                              : status === 'EXPIRED'
-                              ? 'error'
-                              : 'warning'
-                          }
+                          variant={getStatusBadgeVariant(status)}
                           size="sm"
                         />
                       </View>
@@ -402,11 +396,7 @@ export default function MembersListScreen() {
                     <View style={{ marginTop: 6 }}>
                       <Badge
                         label={selectedMember.currentMembership?.status || 'INACTIVE'}
-                        variant={
-                          selectedMember.currentMembership?.status === 'ACTIVE'
-                            ? 'success'
-                            : 'error'
-                        }
+                        variant={getStatusBadgeVariant(selectedMember.currentMembership?.status)}
                         size="sm"
                       />
                     </View>

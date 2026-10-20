@@ -210,14 +210,18 @@ export const CollectPaymentModal: React.FC<CollectPaymentModalProps> = ({
                             <Text style={styles.memberName}>{m.name}</Text>
                             <Text style={styles.memberPhone}>{m.phone}</Text>
                           </View>
-                          {m.currentMembership && (
+                          {((m as any).dueTotalPaise ?? m.currentMembership?.duePaise ?? 0) > 0 ? (
                             <Text
                               style={[
                                 styles.memberDueText,
-                                m.currentMembership.duePaise > 0 && { color: theme.colors.error },
+                                { color: theme.colors.coral },
                               ]}
                             >
-                              Due: {formatMoney(m.currentMembership.duePaise)}
+                              Due: {formatMoney((m as any).dueTotalPaise ?? m.currentMembership?.duePaise)}
+                            </Text>
+                          ) : (
+                            <Text style={[styles.memberDueText, { color: theme.colors.textMuted }]}>
+                              No due
                             </Text>
                           )}
                         </TouchableOpacity>

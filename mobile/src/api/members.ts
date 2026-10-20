@@ -13,7 +13,26 @@ export type Membership = Required<components['schemas']['MembershipResponse']> &
 };
 export type Member = Omit<Required<components['schemas']['MemberResponse']>, 'currentMembership'> & {
   currentMembership?: Membership;
+  dueTotalPaise?: number;
 };
+
+export interface MembershipFeeItem {
+  id: string;
+  planName: string;
+  startDate: string;
+  expiryDate: string;
+  status: string;
+  totalPaise: number;
+  discountPaise: number;
+  paidPaise: number;
+  duePaise: number;
+}
+
+export interface MemberFeesResponse {
+  memberships: MembershipFeeItem[];
+  dueTotalPaise: number;
+  defaultMembershipId: string | null;
+}
 
 export type MembersResponse = Omit<
   Required<components['schemas']['PagedResponseMemberResponse']>,
@@ -56,6 +75,19 @@ export const useMember = (id: string) => {
   return useQuery({
     queryKey: ['members', id],
     queryFn: () => fetchMemberById(id),
+    enabled: !!id,
+  });
+};
+
+export const fetchMemberFees = async (id: string): Promise<MemberFeesResponse> => {
+  const { data } = await apiClient.get(`/api/members/${id}/fees`);
+  return data.data;
+};
+
+export const useMemberFees = (id?: string) => {
+  return useQuery({
+    queryKey: ['members', id, 'fees'],
+    queryFn: () => fetchMemberFees(id!),
     enabled: !!id,
   });
 };

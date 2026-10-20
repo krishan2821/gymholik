@@ -31,8 +31,10 @@ import com.gymapp.module.member.dto.ApplyDiscountRequest;
 import com.gymapp.module.member.dto.UpdatePromisedDateRequest;
 
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -51,6 +53,7 @@ public class MemberService {
     private final MembershipLedgerService membershipLedgerService;
     @org.springframework.context.annotation.Lazy
     private final com.gymapp.module.payment.service.PaymentService paymentService;
+    private final java.time.Clock clock;
 
     @Transactional
     public MemberResponse createMember(CreateMemberRequest request) {
@@ -69,8 +72,8 @@ public class MemberService {
 
         String memberCode = sequenceService.generateNextMemberCode(gymId);
 
-        LocalDate todayKolkata = LocalDate.now(java.time.ZoneId.of("Asia/Kolkata"));
-        LocalDate startDate = request.getStartDate() != null ? request.getStartDate() : todayKolkata;
+        LocalDate today = LocalDate.now(clock);
+        LocalDate startDate = request.getStartDate() != null ? request.getStartDate() : today;
         LocalDate expiryDate = startDate.plusDays(plan.getDurationDays());
         long planPricePaise = plan.getPricePaise();
 
@@ -82,6 +85,10 @@ public class MemberService {
             throw new AppException(ErrorCode.VALIDATION_ERROR, "Paid amount cannot exceed plan price");
         }
         long initialDue = planPricePaise - initialPaid;
+
+        Membership.MembershipStatus initialStatus = startDate.isAfter(today)
+                ? Membership.MembershipStatus.UPCOMING
+                : Membership.MembershipStatus.ACTIVE;
 
         Member member = Member.builder()
                 .gymId(gymId)
@@ -108,7 +115,7 @@ public class MemberService {
                 .duePaise(initialDue)
                 .startDate(startDate)
                 .expiryDate(expiryDate)
-                .status(Membership.MembershipStatus.ACTIVE)
+                .status(initialStatus)
                 .build();
         membership = membershipRepository.save(membership);
 
@@ -121,8 +128,8 @@ public class MemberService {
                     .membershipId(membership.getId())
                     .amountPaise(initialPaid)
                     .mode(StringUtils.hasText(request.getPaymentMode()) ? request.getPaymentMode() : "CASH")
-                    .paidAt(java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata")))
-                    .receivedAt(java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata")))
+                    .paidAt(java.time.LocalDateTime.now(clock))
+                    .receivedAt(java.time.LocalDateTime.now(clock))
                     .receiptNo(receiptNo)
                     .type("PAYMENT")
                     .receivedBy(currentUserId)
@@ -131,7 +138,7 @@ public class MemberService {
             mongoTemplate.save(initialPayment);
         }
 
-        membershipLedgerService.recalculate(gymId, membership.getId());
+        membershipLedgerService.recalculate(gymId, member.getId());
         member = memberRepository.findByIdAndGymId(member.getId(), gymId).orElse(member);
         membership = membershipRepository.findByIdAndGymId(membership.getId(), gymId).orElse(membership);
 
@@ -179,10 +186,15 @@ public class MemberService {
         if (org.springframework.util.StringUtils.hasText(status) && !"All".equalsIgnoreCase(status)) {
             if ("Active".equalsIgnoreCase(status)) {
                 if (!com.gymapp.security.SecurityUtils.isTrainer()) {
-                    query.addCriteria(org.springframework.data.mongodb.core.query.Criteria.where("status").is("ACTIVE"));
+                    List<String> activeMemberIds = mongoTemplate.findDistinct(
+                            new org.springframework.data.mongodb.core.query.Query(
+                                    org.springframework.data.mongodb.core.query.Criteria.where("gymId").is(gymId)
+                                            .and("status").is(Membership.MembershipStatus.ACTIVE.name())),
+                            "memberId", "memberships", String.class);
+                    query.addCriteria(org.springframework.data.mongodb.core.query.Criteria.where("id").in(activeMemberIds));
                 }
             } else if ("Expired".equalsIgnoreCase(status)) {
-                query.addCriteria(org.springframework.data.mongodb.core.query.Criteria.where("currentExpiry").lt(LocalDate.now()));
+                query.addCriteria(org.springframework.data.mongodb.core.query.Criteria.where("currentExpiry").lt(LocalDate.now(clock)));
             } else if ("Due".equalsIgnoreCase(status)) {
                 // Trainers get NO access to dues information or due filters
                 if (!com.gymapp.security.SecurityUtils.isTrainer()) {
@@ -197,16 +209,33 @@ public class MemberService {
 
         List<String> memberIds = membersPage.getContent().stream().map(Member::getId).toList();
 
-        Map<String, Membership> tempMembershipMap = Map.of();
+        Map<String, Membership> tempMembershipMap = new java.util.HashMap<>();
         if (!memberIds.isEmpty()) {
-            Aggregation agg = Aggregation.newAggregation(
-                    Aggregation.match(Criteria.where("gymId").is(gymId).and("memberId").in(memberIds)),
-                    Aggregation.sort(Sort.Direction.DESC, "expiryDate"),
-                    Aggregation.group("memberId").first(Aggregation.ROOT).as("latestMembership"),
-                    Aggregation.replaceRoot("latestMembership")
-            );
-            List<Membership> memberships = mongoTemplate.aggregate(agg, "memberships", Membership.class).getMappedResults();
-            tempMembershipMap = memberships.stream().collect(Collectors.toMap(Membership::getMemberId, m -> m));
+            List<String> currMemIds = membersPage.getContent().stream()
+                    .map(Member::getCurrentMembershipId)
+                    .filter(Objects::nonNull)
+                    .toList();
+            if (!currMemIds.isEmpty()) {
+                List<Membership> currMems = membershipRepository.findByGymIdAndIdIn(gymId, currMemIds);
+                for (Membership m : currMems) {
+                    tempMembershipMap.put(m.getMemberId(), m);
+                }
+            }
+            List<String> remainingMemberIds = memberIds.stream()
+                    .filter(mid -> !tempMembershipMap.containsKey(mid))
+                    .toList();
+            if (!remainingMemberIds.isEmpty()) {
+                Aggregation agg = Aggregation.newAggregation(
+                        Aggregation.match(Criteria.where("gymId").is(gymId).and("memberId").in(remainingMemberIds)),
+                        Aggregation.sort(Sort.Direction.DESC, "expiryDate"),
+                        Aggregation.group("memberId").first(Aggregation.ROOT).as("latestMembership"),
+                        Aggregation.replaceRoot("latestMembership")
+                );
+                List<Membership> memberships = mongoTemplate.aggregate(agg, "memberships", Membership.class).getMappedResults();
+                for (Membership m : memberships) {
+                    tempMembershipMap.put(m.getMemberId(), m);
+                }
+            }
         }
 
         final Map<String, Membership> membershipMap = tempMembershipMap;
@@ -240,8 +269,13 @@ public class MemberService {
         Member member = memberRepository.findByIdAndGymId(id, gymId)
                 .orElseThrow(() -> new AppException(ErrorCode.MEMBER_NOT_FOUND));
 
-        Membership activeMembership = membershipRepository.findTopByMemberIdAndGymIdOrderByExpiryDateDesc(id, gymId)
-                .orElse(null);
+        Membership activeMembership = null;
+        if (member.getCurrentMembershipId() != null) {
+            activeMembership = membershipRepository.findByIdAndGymId(member.getCurrentMembershipId(), gymId).orElse(null);
+        }
+        if (activeMembership == null) {
+            activeMembership = membershipRepository.findTopByMemberIdAndGymIdOrderByExpiryDateDesc(id, gymId).orElse(null);
+        }
 
         return mapToResponse(member, activeMembership);
     }
@@ -329,8 +363,8 @@ public class MemberService {
                 .orElse(null);
 
         LocalDate startDate = request.getStartDate();
+        LocalDate today = LocalDate.now(clock);
         if (startDate == null) {
-            LocalDate today = LocalDate.now();
             if (lastMembership != null && lastMembership.getExpiryDate().isAfter(today.minusDays(1))) {
                 startDate = lastMembership.getExpiryDate().plusDays(1);
             } else {
@@ -349,6 +383,10 @@ public class MemberService {
         }
         long initialDue = plan.getPricePaise() - initialPaid;
 
+        Membership.MembershipStatus initialStatus = startDate.isAfter(today)
+                ? Membership.MembershipStatus.UPCOMING
+                : Membership.MembershipStatus.ACTIVE;
+
         Membership newMembership = Membership.builder()
                 .gymId(gymId)
                 .memberId(id)
@@ -359,7 +397,7 @@ public class MemberService {
                 .duePaise(initialDue)
                 .startDate(startDate)
                 .expiryDate(expiryDate)
-                .status(Membership.MembershipStatus.ACTIVE)
+                .status(initialStatus)
                 .build();
 
         newMembership = membershipRepository.save(newMembership);
@@ -373,8 +411,8 @@ public class MemberService {
                     .membershipId(newMembership.getId())
                     .amountPaise(initialPaid)
                     .mode(StringUtils.hasText(request.getPaymentMode()) ? request.getPaymentMode() : "CASH")
-                    .paidAt(java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata")))
-                    .receivedAt(java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata")))
+                    .paidAt(java.time.LocalDateTime.now(clock))
+                    .receivedAt(java.time.LocalDateTime.now(clock))
                     .receiptNo(receiptNo)
                     .type("PAYMENT")
                     .receivedBy(currentUserId)
@@ -383,15 +421,7 @@ public class MemberService {
             mongoTemplate.save(renewalPayment);
         }
 
-        // Optional: expire older active memberships if they are logically replaced
-        if (lastMembership != null && lastMembership.getStatus() == Membership.MembershipStatus.ACTIVE) {
-             if (LocalDate.now().isAfter(lastMembership.getExpiryDate())) {
-                 lastMembership.setStatus(Membership.MembershipStatus.EXPIRED);
-                 membershipRepository.save(lastMembership);
-             }
-        }
-
-        membershipLedgerService.recalculate(gymId, newMembership.getId());
+        membershipLedgerService.recalculate(gymId, member.getId());
         newMembership = membershipRepository.findByIdAndGymId(newMembership.getId(), gymId).orElse(newMembership);
 
         return mapToMembershipResponse(newMembership);
@@ -443,6 +473,8 @@ public class MemberService {
                 .status(member.getStatus())
                 .currentExpiry(member.getCurrentExpiry())
                 .currentDuePaise(currentDuePaise)
+                .dueTotalPaise(currentDuePaise)
+                .currentMembershipId(member.getCurrentMembershipId())
                 .lastAttendanceDate(member.getLastAttendanceDate())
                 .createdAt(member.getCreatedAt())
                 .updatedAt(member.getUpdatedAt())
@@ -478,7 +510,7 @@ public class MemberService {
         membership.setDiscountReason(request.getReason() != null ? request.getReason().trim() : null);
         membership = membershipRepository.save(membership);
 
-        membershipLedgerService.recalculate(gymId, membership.getId());
+        membershipLedgerService.recalculate(gymId, membership.getMemberId());
         membership = membershipRepository.findByIdAndGymId(membership.getId(), gymId).orElse(membership);
 
         // Audit entry: DISCOUNT_APPLIED (amount only, no personal data)
@@ -501,7 +533,7 @@ public class MemberService {
             throw new AppException(ErrorCode.VALIDATION_ERROR, "Promised date is required");
         }
 
-        LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Kolkata"));
+        LocalDate today = LocalDate.now(clock);
         LocalDate promisedDate = request.getPromisedDate();
 
         if (!promisedDate.isAfter(today)) {
@@ -516,6 +548,47 @@ public class MemberService {
         membership = membershipRepository.save(membership);
 
         return mapToMembershipResponse(membership);
+    }
+
+    public com.gymapp.module.member.dto.MemberFeesResponse getMemberFees(String memberId) {
+        if (com.gymapp.security.SecurityUtils.isTrainer()) {
+            throw new AppException(ErrorCode.ACCESS_DENIED, "Trainers cannot view fee details");
+        }
+        String gymId = TenantContext.getGymId();
+        Member member = memberRepository.findByIdAndGymId(memberId, gymId)
+                .orElseThrow(() -> new AppException(ErrorCode.MEMBER_NOT_FOUND));
+
+        List<Membership> memberships = membershipRepository.findByGymIdAndMemberId(gymId, memberId);
+        memberships.sort(Comparator.comparing(Membership::getStartDate, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(Membership::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())));
+
+        List<com.gymapp.module.member.dto.MemberFeesResponse.MembershipFeeItem> items = memberships.stream()
+                .map(m -> com.gymapp.module.member.dto.MemberFeesResponse.MembershipFeeItem.builder()
+                        .id(m.getId())
+                        .planName(m.getPlanName())
+                        .startDate(m.getStartDate())
+                        .expiryDate(m.getExpiryDate())
+                        .status(m.getStatus() != null ? m.getStatus().name() : "ACTIVE")
+                        .totalPaise(m.getTotalPaise())
+                        .discountPaise(m.getDiscountPaise())
+                        .paidPaise(m.getPaidPaise())
+                        .duePaise(m.getDuePaise())
+                        .build())
+                .toList();
+
+        long dueTotalPaise = memberships.stream().mapToLong(Membership::getDuePaise).sum();
+
+        String defaultMembershipId = memberships.stream()
+                .filter(m -> m.getDuePaise() > 0)
+                .map(Membership::getId)
+                .findFirst()
+                .orElse(null);
+
+        return com.gymapp.module.member.dto.MemberFeesResponse.builder()
+                .memberships(items)
+                .dueTotalPaise(dueTotalPaise)
+                .defaultMembershipId(defaultMembershipId)
+                .build();
     }
 
     private MembershipResponse mapToMembershipResponse(Membership membership) {

@@ -28,7 +28,11 @@ public class CreatePaymentRequest {
     @JsonDeserialize(using = FlexibleLocalDateDeserializer.class)
     private LocalDate receivedAt; // optional business date of payment (defaults to now)
 
+    @JsonDeserialize(using = FlexibleLocalDateDeserializer.class)
     private LocalDate paymentDate; // alias for receivedAt
+
+    @JsonDeserialize(using = FlexibleLocalDateDeserializer.class)
+    private LocalDate paidDate; // alias for receivedAt
 
     private String reason;
     private String idempotencyKey;

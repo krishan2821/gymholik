@@ -43,6 +43,7 @@ services:
       MONGO_URI: mongodb://gymadmin:gympass@mongodb:27017/gymdb?replicaSet=rs0
       JWT_SECRET: G3mH0l1kSuperSecretJWTKey2024MustBeAtLeast32BytesLong!
       UPLOAD_DIR: /data/uploads
+      TZ: Asia/Kolkata
     volumes:
       - upload-data:/data/uploads   # persisted member photos
     depends_on:

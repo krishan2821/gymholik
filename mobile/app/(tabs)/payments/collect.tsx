@@ -42,10 +42,18 @@ import { PageHeader } from '../../../src/components/PageHeader';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Button } from '../../../src/components/Button';
 import { Avatar } from '../../../src/components/Avatar';
+import { Badge, getStatusBadgeVariant } from '../../../src/components/Badge';
 import { Skeleton } from '../../../src/components/Skeleton';
 import { ErrorState } from '../../../src/components/ErrorState';
 import { useAuthStore } from '../../../src/store/useAuthStore';
-import { useMember, useMembers, useApplyDiscount, Member } from '../../../src/api/members';
+import {
+  useMember,
+  useMembers,
+  useMemberFees,
+  useApplyDiscount,
+  Member,
+  MembershipFeeItem,
+} from '../../../src/api/members';
 import {
   useCollectPayment,
   useDues,
@@ -55,7 +63,14 @@ import {
 } from '../../../src/api/payments';
 import { useCollectionInfo, useGymProfile } from '../../../src/api/more';
 import { COLLECT, ERRORS, COMMON, FIELDS } from '../../../src/constants/strings';
-import { formatMoney, formatDate, isPhoneMasked } from '../../../src/utils/formatters';
+import {
+  formatMoney,
+  formatDate,
+  isPhoneMasked,
+  getTodayISTDateString,
+  getYesterdayISTDateString,
+  getFutureISTDateString,
+} from '../../../src/utils/formatters';
 import { safeNotificationAsync, NotificationFeedbackType } from '../../../src/utils/safeHaptics';
 import { safeOpenURL } from '../../../src/utils/safeLinking';
 import { safeBack } from '../../../src/utils/navigation';
@@ -102,14 +117,13 @@ export default function CollectPaymentScreen() {
   // Extra inputs
   const [referenceNo, setReferenceNo] = useState('');
   const [note, setNote] = useState('');
-  const [paymentDate, setPaymentDate] = useState<string>(() => {
-    return new Date().toISOString().split('T')[0];
-  });
   const [dateChip, setDateChip] = useState<'today' | 'yesterday' | 'other'>('today');
+  const [customPastDate, setCustomPastDate] = useState<string>('');
   const [promiseDate, setPromiseDate] = useState<string>('');
   const [promiseDateChip, setPromiseDateChip] = useState<'7' | '15' | '30' | 'custom' | null>(
     null
   );
+  const [showAllMemberships, setShowAllMemberships] = useState<boolean>(false);
 
   // UPI QR toggle
   const [showUpiQr, setShowUpiQr] = useState(false);
@@ -169,8 +183,12 @@ export default function CollectPaymentScreen() {
     refetch: refetchMember,
   } = useMember(selectedMemberId || '');
 
-  // Fetch Dues for membership chooser & search ordering
-  const { data: duesData, isLoading: loadingDues } = useDues('ALL', undefined);
+  // Fetch Member Fees (GET /api/members/{id}/fees)
+  const {
+    data: memberFeesData,
+    isLoading: loadingFees,
+    refetch: refetchFees,
+  } = useMemberFees(selectedMemberId);
 
   // Search Members (when picker open)
   const { data: searchMembersData, isLoading: loadingSearch } = useMembers({
@@ -194,97 +212,55 @@ export default function CollectPaymentScreen() {
     }
   }, [params.memberId, params.membershipId]);
 
-  // Determine active memberships with dues for the selected member (sorted oldest first)
-  const memberDuesList = useMemo(() => {
-    if (!selectedMemberId) return [];
-
-    // 1. From dedicated payment context if available
-    if (paymentContext?.memberships && paymentContext.memberships.length > 0) {
-      return [...paymentContext.memberships]
-        .filter((m) => m.duePaise > 0)
-        .sort((a, b) => {
-          const aDate = a.startDate ? new Date(a.startDate).getTime() : 0;
-          const bDate = b.startDate ? new Date(b.startDate).getTime() : 0;
-          return aDate - bDate;
-        });
-    }
-
-    // 2. From duesData grouped item
-    if (duesData?.items) {
-      const match = duesData.items.find((i) => i.memberId === selectedMemberId);
-      if (match?.memberships && match.memberships.length > 0) {
-        return [...match.memberships]
-          .filter((m) => m.duePaise > 0)
-          .sort((a, b) => {
-            const aDate = a.startDate ? new Date(a.startDate).getTime() : 0;
-            const bDate = b.startDate ? new Date(b.startDate).getTime() : 0;
-            return aDate - bDate;
-          });
-      }
-      return duesData.items
-        .filter((item) => item.memberId === selectedMemberId && item.duePaise > 0)
-        .map((item) => ({
-          membershipId: item.membershipId || '',
-          planName: item.planName || 'Membership',
-          totalPaise: item.totalPaise,
-          paidPaise: item.paidPaise,
-          duePaise: item.duePaise,
-          discountPaise: (item as any).discountPaise ?? 0,
-          startDate: item.startDate,
-          expiryDate: item.expiryDate,
-        }))
-        .sort((a, b) => {
-          const aDate = a.startDate ? new Date(a.startDate).getTime() : 0;
-          const bDate = b.startDate ? new Date(b.startDate).getTime() : 0;
-          return aDate - bDate;
-        });
-    }
-
-    return [];
-  }, [selectedMemberId, paymentContext, duesData]);
-
-  // Automatically select oldest membership by default if not explicitly selected
+  // Reset showAllMemberships on member change
   useEffect(() => {
-    if (memberDuesList.length > 0) {
-      const currentExists = memberDuesList.some((m) => m.membershipId === selectedMembershipId);
-      if (!selectedMembershipId || !currentExists) {
-        setSelectedMembershipId(memberDuesList[0].membershipId);
-      }
-    } else if (member?.currentMembership?.id && !selectedMembershipId) {
-      setSelectedMembershipId(member.currentMembership.id);
-    }
-  }, [member, memberDuesList, selectedMembershipId]);
+    setShowAllMemberships(false);
+  }, [selectedMemberId]);
 
-  // Find currently active chosen membership details
-  const chosenMembership = useMemo(() => {
-    if (!member) return null;
-    const dueMatch = memberDuesList.find((d) => d.membershipId === selectedMembershipId);
-    if (dueMatch) {
-      return {
-        id: dueMatch.membershipId,
-        planName: dueMatch.planName || member.currentMembership?.planName || 'Membership',
-        totalPaise: dueMatch.totalPaise || member.currentMembership?.totalPaise || 0,
-        discountPaise: (dueMatch as any).discountPaise ?? member.currentMembership?.discountPaise ?? 0,
-        paidPaise: dueMatch.paidPaise || member.currentMembership?.paidPaise || 0,
-        duePaise: dueMatch.duePaise,
-        startDate: dueMatch.startDate || member.currentMembership?.startDate,
-        expiryDate: dueMatch.expiryDate || member.currentMembership?.expiryDate,
-      };
+  // Memberships list from GET /api/members/{id}/fees
+  const allMemberships: MembershipFeeItem[] = useMemo(() => {
+    return memberFeesData?.memberships || [];
+  }, [memberFeesData]);
+
+  // Filtered memberships with due
+  const membershipsWithDue = useMemo(() => {
+    return allMemberships.filter((m) => m.duePaise > 0);
+  }, [allMemberships]);
+
+  // Visible memberships in chooser: hide zero-due unless user taps "Show all"
+  const visibleChooserMemberships = useMemo(() => {
+    if (showAllMemberships) {
+      return allMemberships;
     }
-    if (member.currentMembership) {
-      return {
-        id: member.currentMembership.id,
-        planName: member.currentMembership.planName || 'Membership',
-        totalPaise: member.currentMembership.totalPaise,
-        discountPaise: member.currentMembership.discountPaise || 0,
-        paidPaise: member.currentMembership.paidPaise,
-        duePaise: member.currentMembership.duePaise,
-        startDate: member.currentMembership.startDate,
-        expiryDate: member.currentMembership.expiryDate,
-      };
+    return membershipsWithDue;
+  }, [allMemberships, membershipsWithDue, showAllMemberships]);
+
+  // Show chooser when more than one membership with a due (or show all clicked)
+  const showChooser = membershipsWithDue.length > 1 || (showAllMemberships && allMemberships.length > 1);
+
+  // Auto-select server's defaultMembershipId, or fall back to first with due, or first membership
+  useEffect(() => {
+    if (!allMemberships.length) return;
+    const currentValid = allMemberships.some((m) => m.id === selectedMembershipId);
+    if (!selectedMembershipId || !currentValid) {
+      const defaultId = memberFeesData?.defaultMembershipId;
+      const defaultValid = defaultId && allMemberships.some((m) => m.id === defaultId);
+      if (defaultValid) {
+        setSelectedMembershipId(defaultId);
+      } else if (membershipsWithDue.length > 0) {
+        setSelectedMembershipId(membershipsWithDue[0].id);
+      } else {
+        setSelectedMembershipId(allMemberships[0].id);
+      }
     }
-    return null;
-  }, [member, memberDuesList, selectedMembershipId]);
+  }, [memberFeesData, allMemberships, membershipsWithDue, selectedMembershipId]);
+
+  // Selected membership for Summary card (numbers of SELECTED membership only!)
+  const chosenMembership: MembershipFeeItem | null = useMemo(() => {
+    if (!allMemberships.length) return null;
+    const found = allMemberships.find((m) => m.id === selectedMembershipId);
+    return found || allMemberships[0];
+  }, [allMemberships, selectedMembershipId]);
 
   // Total outstanding due
   const duePaise = chosenMembership ? Math.max(0, chosenMembership.duePaise) : 0;
@@ -330,42 +306,38 @@ export default function CollectPaymentScreen() {
     setSelectedChip('custom');
   };
 
-  // Date calculation helpers
-  const getTodayStr = () => new Date().toISOString().split('T')[0];
-  const getYesterdayStr = () => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return d.toISOString().split('T')[0];
-  };
-  const getFutureDateStr = (days: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() + days);
-    return d.toISOString().split('T')[0];
-  };
+  // Resolved past payment date: only sent when owner explicitly changed Date row to a past day
+  const resolvedPastPaymentDate = useMemo(() => {
+    if (!isOwner) return undefined;
+    if (dateChip === 'yesterday') {
+      return getYesterdayISTDateString();
+    }
+    if (dateChip === 'other' && customPastDate.trim()) {
+      return customPastDate.trim();
+    }
+    return undefined; // 'today' sends nothing, server assigns real time in IST
+  }, [isOwner, dateChip, customPastDate]);
 
   const isPaymentDateValid = useMemo(() => {
-    if (!isOwner || !paymentDate) return true;
-    const parts = paymentDate.split('-');
-    if (parts.length !== 3) return false;
-    const pDate = new Date(paymentDate + 'T00:00:00');
-    if (isNaN(pDate.getTime())) return false;
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const minDate = new Date(today);
-    minDate.setDate(minDate.getDate() - 31);
-    return pDate <= today && pDate >= minDate;
-  }, [isOwner, paymentDate]);
+    if (!isOwner || dateChip === 'today') return true;
+    if (dateChip === 'yesterday') return true;
+    if (dateChip === 'other') {
+      const trimmed = customPastDate.trim();
+      if (!trimmed) return false;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return false;
+      const todayStr = getTodayISTDateString();
+      const minDateStr = getFutureISTDateString(-31);
+      return trimmed < todayStr && trimmed >= minDateStr;
+    }
+    return true;
+  }, [isOwner, dateChip, customPastDate]);
 
   const isPromiseDateValid = useMemo(() => {
     if (!promiseDate.trim()) return true;
-    const parts = promiseDate.trim().split('-');
-    if (parts.length !== 3) return false;
-    const pDate = new Date(promiseDate.trim() + 'T00:00:00');
-    if (isNaN(pDate.getTime())) return false;
-    const now = new Date();
-    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    const maxDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 90);
-    return pDate >= tomorrow && pDate <= maxDate;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(promiseDate.trim())) return false;
+    const tomorrowStr = getFutureISTDateString(1);
+    const maxDateStr = getFutureISTDateString(90);
+    return promiseDate.trim() >= tomorrowStr && promiseDate.trim() <= maxDateStr;
   }, [promiseDate]);
 
   // Validation
@@ -413,16 +385,22 @@ export default function CollectPaymentScreen() {
     }
 
     try {
-      const payload = {
+      const payload: any = {
         memberId: selectedMemberId,
         membershipId: chosenMembership?.id,
         amountPaise: inputAmountPaise,
         mode,
         notes: note.trim() || undefined,
+        reason: note.trim() || undefined,
         referenceNo: referenceNo.trim() || undefined,
-        receivedAt: isOwner && paymentDate ? paymentDate : undefined,
         idempotencyKey: idempotencyKeyRef.current,
       };
+
+      if (resolvedPastPaymentDate) {
+        payload.paidDate = resolvedPastPaymentDate;
+        payload.paymentDate = resolvedPastPaymentDate;
+        payload.receivedAt = resolvedPastPaymentDate;
+      }
 
       const res = await collectPaymentMutation.mutateAsync(payload);
 
@@ -578,8 +556,8 @@ export default function CollectPaymentScreen() {
   const sortedMembers = useMemo(() => {
     const list = searchMembersData?.pages.flatMap((p) => p.content) || [];
     return [...list].sort((a, b) => {
-      const aDue = a.currentDuePaise ?? a.currentMembership?.duePaise ?? 0;
-      const bDue = b.currentDuePaise ?? b.currentMembership?.duePaise ?? 0;
+      const aDue = a.dueTotalPaise ?? a.currentDuePaise ?? a.currentMembership?.duePaise ?? 0;
+      const bDue = b.dueTotalPaise ?? b.currentDuePaise ?? b.currentMembership?.duePaise ?? 0;
       if (aDue > 0 && bDue <= 0) return -1;
       if (bDue > 0 && aDue <= 0) return 1;
       return (bDue || 0) - (aDue || 0);
@@ -749,13 +727,13 @@ export default function CollectPaymentScreen() {
               contentContainerStyle={{ paddingVertical: 8 }}
               keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => {
-                const itemDue = item.currentDuePaise ?? item.currentMembership?.duePaise ?? 0;
+                const itemDue = item.dueTotalPaise ?? item.currentDuePaise ?? item.currentMembership?.duePaise ?? 0;
                 return (
                   <TouchableOpacity
                     style={styles.memberRow}
                     onPress={() => {
                       setSelectedMemberId(item.id);
-                      setSelectedMembershipId(item.currentMembership?.id);
+                      setSelectedMembershipId(undefined);
                       setShowMemberPicker(false);
                       idempotencyKeyRef.current = generateIdempotencyKey();
                       setErrorMessage(null);
@@ -946,13 +924,26 @@ export default function CollectPaymentScreen() {
             </GlassCard>
           )}
 
-          {/* 2. Multiple Memberships Chooser (if member has > 1 due) */}
-          {memberDuesList.length > 1 && (
+          {/* 2. Multiple Memberships Chooser (when > 1 due, or Show all selected) */}
+          {showChooser && (
             <GlassCard style={styles.card} contentStyle={styles.cardContent}>
-              <Text style={styles.sectionTitle}>{COLLECT.MULTIPLE_MEMBERSHIPS_TITLE}</Text>
+              <View style={styles.chooserHeaderRow}>
+                <Text style={styles.sectionTitle}>{COLLECT.MULTIPLE_MEMBERSHIPS_TITLE}</Text>
+                {allMemberships.length > membershipsWithDue.length && (
+                  <TouchableOpacity
+                    onPress={() => setShowAllMemberships((prev) => !prev)}
+                    style={styles.showAllToggleBtn}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.showAllToggleText}>
+                      {showAllMemberships ? 'Show only dues' : `Show all (${allMemberships.length})`}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
               <View style={styles.chooserList}>
-                {memberDuesList.map((m) => {
-                  const isSelected = m.membershipId === selectedMembershipId;
+                {visibleChooserMemberships.map((m) => {
+                  const isSelected = m.id === selectedMembershipId;
                   const periodText =
                     m.startDate && m.expiryDate
                       ? `${formatDate(m.startDate)} – ${formatDate(m.expiryDate)}`
@@ -961,9 +952,9 @@ export default function CollectPaymentScreen() {
                       : 'Active plan';
                   return (
                     <TouchableOpacity
-                      key={m.membershipId}
+                      key={m.id}
                       style={[styles.chooserItem, isSelected && styles.chooserItemActive]}
-                      onPress={() => setSelectedMembershipId(m.membershipId)}
+                      onPress={() => setSelectedMembershipId(m.id)}
                       accessibilityRole="button"
                       activeOpacity={0.8}
                     >
@@ -971,10 +962,21 @@ export default function CollectPaymentScreen() {
                         {isSelected && <View style={styles.radioInner} />}
                       </View>
                       <View style={{ flex: 1, marginLeft: 12 }}>
-                        <Text style={styles.chooserPlan}>{m.planName || 'Plan'}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <Text style={styles.chooserPlan}>{m.planName || 'Plan'}</Text>
+                          <Badge label={m.status} variant={getStatusBadgeVariant(m.status)} size="sm" />
+                        </View>
                         <Text style={styles.chooserExpiry}>{periodText}</Text>
                       </View>
-                      <Text style={styles.chooserDue}>{formatMoney(m.duePaise)}</Text>
+                      <View style={{ alignItems: 'flex-end', marginLeft: 8 }}>
+                        {m.duePaise > 0 ? (
+                          <Text style={styles.chooserDue}>{formatMoney(m.duePaise)}</Text>
+                        ) : (
+                          <Text style={[styles.chooserDue, { color: theme.colors.textMuted, fontSize: 13 }]}>
+                            No due
+                          </Text>
+                        )}
+                      </View>
                     </TouchableOpacity>
                   );
                 })}
@@ -987,7 +989,10 @@ export default function CollectPaymentScreen() {
             <GlassCard style={styles.card} contentStyle={styles.cardContent}>
               <View style={styles.summaryHeaderRow}>
                 <View>
-                  <Text style={styles.summaryPlanName}>{chosenMembership.planName}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <Text style={styles.summaryPlanName}>{chosenMembership.planName}</Text>
+                    <Badge label={chosenMembership.status} variant={getStatusBadgeVariant(chosenMembership.status)} size="sm" />
+                  </View>
                   {chosenMembership.expiryDate && (
                     <Text style={styles.summaryExpiry}>Valid till {formatDate(chosenMembership.expiryDate)}</Text>
                   )}
@@ -1249,14 +1254,18 @@ export default function CollectPaymentScreen() {
             {/* OWNER Only: Date row (default today; quick chips Today, Yesterday, Other up to 31 days back) */}
             {isOwner && (
               <View style={{ marginTop: 16 }}>
-                <Text style={styles.label}>{COLLECT.PAYMENT_DATE_LABEL}</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <Text style={styles.label}>{COLLECT.PAYMENT_DATE_LABEL}</Text>
+                  {dateChip === 'today' && (
+                    <Text style={{ fontSize: 12, color: theme.colors.textMuted, fontFamily: theme.fonts.bodyRegular }}>
+                      Today, {formatDate(getTodayISTDateString())}
+                    </Text>
+                  )}
+                </View>
                 <View style={styles.chipsRowSmall}>
                   <TouchableOpacity
                     style={[styles.smallChip, dateChip === 'today' && styles.smallChipActive]}
-                    onPress={() => {
-                      setDateChip('today');
-                      setPaymentDate(getTodayStr());
-                    }}
+                    onPress={() => setDateChip('today')}
                     accessibilityRole="button"
                   >
                     <Text
@@ -1270,10 +1279,7 @@ export default function CollectPaymentScreen() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.smallChip, dateChip === 'yesterday' && styles.smallChipActive]}
-                    onPress={() => {
-                      setDateChip('yesterday');
-                      setPaymentDate(getYesterdayStr());
-                    }}
+                    onPress={() => setDateChip('yesterday')}
                     accessibilityRole="button"
                   >
                     <Text
@@ -1307,8 +1313,8 @@ export default function CollectPaymentScreen() {
                       <Calendar size={16} color={theme.colors.textMuted} style={{ marginRight: 8 }} />
                       <TextInput
                         style={styles.dateInput}
-                        value={paymentDate}
-                        onChangeText={setPaymentDate}
+                        value={customPastDate}
+                        onChangeText={setCustomPastDate}
                         placeholder="YYYY-MM-DD"
                         placeholderTextColor={theme.colors.textMuted}
                         maxLength={10}
@@ -1334,7 +1340,7 @@ export default function CollectPaymentScreen() {
                         ]}
                         onPress={() => {
                           setPromiseDateChip('7');
-                          setPromiseDate(getFutureDateStr(7));
+                          setPromiseDate(getFutureISTDateString(7));
                         }}
                         accessibilityRole="button"
                       >
@@ -1354,7 +1360,7 @@ export default function CollectPaymentScreen() {
                         ]}
                         onPress={() => {
                           setPromiseDateChip('15');
-                          setPromiseDate(getFutureDateStr(15));
+                          setPromiseDate(getFutureISTDateString(15));
                         }}
                         accessibilityRole="button"
                       >
@@ -1374,7 +1380,7 @@ export default function CollectPaymentScreen() {
                         ]}
                         onPress={() => {
                           setPromiseDateChip('30');
-                          setPromiseDate(getFutureDateStr(30));
+                          setPromiseDate(getFutureISTDateString(30));
                         }}
                         accessibilityRole="button"
                       >
@@ -1584,6 +1590,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.colors.text,
     marginBottom: 10,
+  },
+  chooserHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  showAllToggleBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: theme.radius.sm,
+    backgroundColor: 'rgba(218, 241, 222, 0.08)',
+  },
+  showAllToggleText: {
+    fontFamily: theme.fonts.bodySemiBold,
+    fontSize: 12,
+    color: theme.colors.primary,
   },
   chooserList: {
     gap: 8,

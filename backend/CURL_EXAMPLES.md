@@ -261,8 +261,11 @@ curl -s -X GET "http://localhost:8080/api/payments/summary?from=2026-10-01&to=20
 ---
 
 ### 9.2 Record a Payment (OWNER or STAFF)
+- `membershipId`: Optional when member has pending dues (defaults to `defaultMembershipId`, which is the oldest membership with an outstanding due). Must belong to the specified member and gym (returns 404 if mismatched).
+- `amountPaise`: Positive amount in paise. Cannot exceed remaining due (`totalPaise - discountPaise - paidPaise`).
 - `referenceNo`: Optional, max 40 chars (e.g. UPI txn id or last 4 digits of card).
-- `receivedAt`: Optional business date (defaults to today). A past date up to 31 days back is allowed for OWNER only (triggers `PAYMENT_BACKDATED` audit).
+- `paymentDate`: Optional business date (defaults to current server time in `Asia/Kolkata`). A past date up to 31 days back is allowed for OWNER only (stored at 12:00:00 IST, never midnight, and logs a `PAYMENT_BACKDATED` audit entry). Future dates are strictly rejected (400).
+- Automatic single-source-of-truth recalculation via `MembershipLedgerService` executes in the same transaction.
 
 ```bash
 curl -s -X POST http://localhost:8080/api/payments \
@@ -274,9 +277,56 @@ curl -s -X POST http://localhost:8080/api/payments \
     "amountPaise":  250000,
     "mode":         "UPI",
     "referenceNo":  "UPI-992384729182",
-    "receivedAt":   "2026-10-13",
+    "paymentDate":  "2026-10-18",
     "reason":       "Membership subscription partial payment"
   }' | jq .
+```
+
+---
+
+### 9.2b Member Fees Breakdown for Collect Screen (OWNER or STAFF)
+Returns full list of memberships with status (`UPCOMING`, `ACTIVE`, `EXPIRED`), total, discount, paid, due amounts, overall `dueTotalPaise`, and `defaultMembershipId` (oldest membership with due).
+
+```bash
+curl -s -X GET "http://localhost:8080/api/members/<member-id>/fees" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" | jq .
+```
+
+**Expected response:**
+```json
+{
+  "success": true,
+  "message": "Member fees details fetched successfully",
+  "data": {
+    "memberId": "6acbe58a32c059781d3ec873",
+    "dueTotalPaise": 400000,
+    "defaultMembershipId": "6acbe58a32c059781d3ec874",
+    "memberships": [
+      {
+        "membershipId": "6acbe58a32c059781d3ec874",
+        "planName": "Quarterly Plan",
+        "startDate": "2026-10-12",
+        "expiryDate": "2027-01-10",
+        "status": "ACTIVE",
+        "totalPaise": 400000,
+        "discountPaise": 0,
+        "paidPaise": 0,
+        "duePaise": 400000
+      },
+      {
+        "membershipId": "6ace7f118bbe1a484954a159",
+        "planName": "Quarterly Plan",
+        "startDate": "2027-01-11",
+        "expiryDate": "2027-04-11",
+        "status": "UPCOMING",
+        "totalPaise": 400000,
+        "discountPaise": 0,
+        "paidPaise": 400000,
+        "duePaise": 0
+      }
+    ]
+  }
+}
 ```
 
 ---

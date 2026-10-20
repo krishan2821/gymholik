@@ -20,10 +20,13 @@ test('Responsive Login Breakpoints and Layout Assertions', async (t) => {
     const cardMaxWidth = 420;
     assert.strictEqual(cardMaxWidth, theme.layout.maxWidth.form);
 
-    // OTP box width between 52 and 56 px
-    const otpBoxWidth = bp.isPhone ? 52 : 54;
-    assert.ok(otpBoxWidth >= 52 && otpBoxWidth <= 56, 'OTP box width must be between 52 and 56px');
-    assert.strictEqual(otpBoxWidth, 54);
+    // OTP row layout: card inner padding 24, gap 8, 6 boxes with flex 1 maxWidth 56
+    const cardInnerPadding = 24;
+    const cardAvailableWidth = cardMaxWidth - 2 * cardInnerPadding; // 372
+    const totalGaps = 5 * 8; // 40
+    const boxWidth = Math.min(56, (cardAvailableWidth - totalGaps) / 6);
+    assert.ok(boxWidth <= 56, 'Box width must not exceed 56px');
+    assert.ok(boxWidth * 6 + totalGaps <= cardAvailableWidth, 'OTP row must fit inside card padding');
   });
 
   await t.test('Width 1024px (Desktop Threshold)', () => {
@@ -32,10 +35,6 @@ test('Responsive Login Breakpoints and Layout Assertions', async (t) => {
     assert.strictEqual(bp.isDesktop, true);
     assert.strictEqual(bp.isTablet, false);
     assert.strictEqual(bp.isPhone, false);
-
-    const otpBoxWidth = bp.isPhone ? 52 : 54;
-    assert.ok(otpBoxWidth >= 52 && otpBoxWidth <= 56);
-    assert.strictEqual(otpBoxWidth, 54);
   });
 
   await t.test('Width 768px (Tablet)', () => {
@@ -49,9 +48,46 @@ test('Responsive Login Breakpoints and Layout Assertions', async (t) => {
     const tabletCardMaxWidth = 440;
     assert.strictEqual(tabletCardMaxWidth, 440);
 
-    const otpBoxWidth = bp.isPhone ? 52 : 54;
-    assert.ok(otpBoxWidth >= 52 && otpBoxWidth <= 56);
-    assert.strictEqual(otpBoxWidth, 54);
+    const cardInnerPadding = 24;
+    const cardAvailableWidth = tabletCardMaxWidth - 2 * cardInnerPadding; // 392
+    const totalGaps = 5 * 8; // 40
+    const boxWidth = Math.min(56, (cardAvailableWidth - totalGaps) / 6);
+    assert.strictEqual(boxWidth, 56);
+    assert.ok(boxWidth * 6 + totalGaps <= cardAvailableWidth);
+  });
+
+  await t.test('Width 393px (iPhone 14/15/16 Pro)', () => {
+    const bp = resolveBreakpoint(393);
+    assert.strictEqual(bp.breakpoint, 'phone');
+    assert.strictEqual(bp.isPhone, true);
+
+    const cardInnerPadding = 24;
+    const screenHorizontalPadding = 20 * 2;
+    const cardWidth = 393 - screenHorizontalPadding; // 353
+    const cardAvailableWidth = cardWidth - 2 * cardInnerPadding; // 305
+    const totalGaps = 5 * 8; // 40
+    const boxWidth = (cardAvailableWidth - totalGaps) / 6; // 44.17
+    assert.ok(boxWidth * 6 + totalGaps <= cardAvailableWidth, 'OTP row must fit within 393pt iPhone');
+    assert.ok(boxWidth < 56, 'Box width flexes down on 393pt phone');
+  });
+
+  await t.test('Width 320px (Narrow Phone)', () => {
+    const bp = resolveBreakpoint(320);
+    assert.strictEqual(bp.breakpoint, 'phone');
+    assert.strictEqual(bp.isPhone, true);
+
+    const isNarrow = 320 < 340;
+    assert.strictEqual(isNarrow, true);
+    const digitFontSize = isNarrow ? 18 : 24;
+    assert.strictEqual(digitFontSize, 18, 'Digit font size must scale down on widths below 340');
+
+    const cardInnerPadding = 24;
+    const screenHorizontalPadding = 20 * 2;
+    const cardWidth = 320 - screenHorizontalPadding; // 280
+    const cardAvailableWidth = cardWidth - 2 * cardInnerPadding; // 232
+    const totalGaps = 5 * 8; // 40
+    const boxWidth = (cardAvailableWidth - totalGaps) / 6; // 32
+    assert.ok(boxWidth * 6 + totalGaps <= cardAvailableWidth, 'OTP row must fit within 320pt phone');
   });
 
   await t.test('Width 390px (Phone)', () => {
@@ -61,15 +97,13 @@ test('Responsive Login Breakpoints and Layout Assertions', async (t) => {
     assert.strictEqual(bp.isTablet, false);
     assert.strictEqual(bp.isDesktop, false);
 
-    // Phone uses unchanged mobile layout
-    const otpBoxWidth = bp.isPhone ? 52 : 54;
-    assert.ok(otpBoxWidth >= 52 && otpBoxWidth <= 56);
-    assert.strictEqual(otpBoxWidth, 52);
-
-    // Fits inside 390px width without horizontal overflow:
-    // 6 boxes of 52px + 5 gaps of 4px = 312 + 20 = 332px <= 390px
-    const totalOtpRowWidth = 6 * otpBoxWidth + 5 * 4;
-    assert.ok(totalOtpRowWidth <= 390, 'OTP row must fit within 390px');
+    const cardInnerPadding = 24;
+    const screenHorizontalPadding = 20 * 2;
+    const cardWidth = 390 - screenHorizontalPadding; // 350
+    const cardAvailableWidth = cardWidth - 2 * cardInnerPadding; // 302
+    const totalGaps = 5 * 8; // 40
+    const boxWidth = (cardAvailableWidth - totalGaps) / 6; // 43.67
+    assert.ok(boxWidth * 6 + totalGaps <= cardAvailableWidth, 'OTP row must fit within 390px');
   });
 
   await t.test('Width range 320px to 2560px produces valid breakpoints', () => {
@@ -83,10 +117,12 @@ test('Responsive Login Breakpoints and Layout Assertions', async (t) => {
   });
 
   await t.test('Disabled Primary Button colors and contrast', () => {
-    // Fill #163832, Text #A7C7B1
+    // Fill #163832, 1px border #235347, text #8EB69B
     const bg = '#163832';
-    const text = '#A7C7B1';
+    const border = '#235347';
+    const text = '#8EB69B';
     assert.strictEqual(bg, '#163832');
-    assert.strictEqual(text, '#A7C7B1');
+    assert.strictEqual(border, '#235347');
+    assert.strictEqual(text, '#8EB69B');
   });
 });

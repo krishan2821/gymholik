@@ -93,7 +93,7 @@ export const Button: React.FC<ButtonProps> = ({
   const isDanger = variant === 'danger';
 
   const textColor = isPrimary
-    ? theme.colors.textOnPrimary // #051F20 for contrast
+    ? (disabled ? '#8EB69B' : theme.colors.textOnPrimary) // #8EB69B sage with > 5:1 contrast, #051F20 active
     : isDanger
     ? theme.colors.error
     : isGhost
@@ -105,7 +105,7 @@ export const Button: React.FC<ButtonProps> = ({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={isPrimary ? theme.colors.textOnPrimary : theme.colors.primary}
+          color={isPrimary ? (disabled ? '#8EB69B' : theme.colors.textOnPrimary) : theme.colors.primary}
         />
       ) : (
         <>
@@ -115,7 +115,7 @@ export const Button: React.FC<ButtonProps> = ({
               styles.text,
               {
                 fontSize: fontSizeBy,
-                color: disabled ? theme.colors.textDisabled : textColor,
+                color: disabled && !isPrimary ? theme.colors.textDisabled : textColor,
               },
               textStyle,
             ]}
@@ -207,8 +207,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
   },
   primaryDisabled: {
-    backgroundColor: theme.colors.raised,
-    opacity: 0.5,
+    backgroundColor: '#163832',
+    borderWidth: 1,
+    borderColor: '#235347',
   },
   contentRow: {
     flexDirection: 'row',

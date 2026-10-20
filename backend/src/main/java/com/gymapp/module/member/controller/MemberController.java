@@ -92,6 +92,14 @@ public class MemberController {
         return ResponseEntity.ok(ApiResponse.success("Membership renewed successfully", response));
     }
 
+    @GetMapping("/{id}/fees")
+    @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
+    @Operation(summary = "Get member fees", description = "Returns membership fee breakdown with default membership ID for collection")
+    public ResponseEntity<ApiResponse<com.gymapp.module.member.dto.MemberFeesResponse>> getMemberFees(@PathVariable String id) {
+        com.gymapp.module.member.dto.MemberFeesResponse response = memberService.getMemberFees(id);
+        return ResponseEntity.ok(ApiResponse.success("Member fees fetched successfully", response));
+    }
+
     @PostMapping(value = "/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
     @Operation(summary = "Upload member photo")

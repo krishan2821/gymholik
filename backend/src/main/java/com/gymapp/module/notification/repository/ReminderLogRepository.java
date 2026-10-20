@@ -9,5 +9,6 @@ public interface ReminderLogRepository extends MongoRepository<ReminderLog, Stri
     List<ReminderLog> findByGymId(String gymId);
     Optional<ReminderLog> findByIdAndGymId(String id, String gymId);
     Optional<ReminderLog> findByGymIdAndMembershipIdAndType(String gymId, String membershipId, String type);
+    boolean existsByGymIdAndMembershipIdAndType(String gymId, String membershipId, String type);
     boolean existsByGymIdAndMemberIdAndType(String gymId, String memberId, String type);
 }

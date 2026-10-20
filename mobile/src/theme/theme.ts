@@ -30,6 +30,9 @@ export const colors = {
   amber: '#F5B544',
   success: '#8EB69B',
   info: '#8EB69B',
+  cyan: '#4ECDC4',
+  cyanBorder: 'rgba(78, 205, 196, 0.40)',
+  cyanBg: 'rgba(78, 205, 196, 0.15)',
 
   // Glassmorphism
   glassBg: 'rgba(11, 43, 38, 0.70)',

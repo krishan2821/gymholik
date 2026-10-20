@@ -31,6 +31,7 @@ services:
     environment:
       - SPRING_DATA_MONGODB_URI=mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongodb:27017/gymholik?authSource=admin
       - JWT_SECRET=${JWT_SECRET}
+      - TZ=Asia/Kolkata
     ports:
       # Bound to localhost only
       - "127.0.0.1:8080:8080"
