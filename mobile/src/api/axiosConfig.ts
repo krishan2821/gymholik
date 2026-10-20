@@ -78,9 +78,9 @@ const devLog = (label: string, payload: any) => {
     // Sanitize any payload that might contain member or auth PII data
     if (payload && typeof payload === 'object' && payload.body && isSensitiveUrl(label)) {
       const sanitized = { ...payload, body: '[REDACTED_SENSITIVE_DATA]' };
-      console.error(`[API ${label}]`, sanitized);
+      console.warn(`[API ${label}]`, sanitized);
     } else {
-      console.error(`[API ${label}]`, payload);
+      console.warn(`[API ${label}]`, payload);
     }
   }
 };
@@ -364,8 +364,9 @@ apiClient.interceptors.response.use(
       url.includes('/api/auth/refresh');
 
     // Log the error to console in development only (excluding member/auth PII data)
-    // Suppress noisy console.error for expected 401 on /api/auth/me during initial auth check
-    const isExpectedUnauthenticatedCheck = status === 401 && url.includes('/api/auth/me');
+    // Suppress noisy console.error for expected 401 checks (/api/auth/me) and expected auth validation (/api/auth/verify-otp)
+    const isExpectedUnauthenticatedCheck =
+      status === 401 && (url.includes('/api/auth/me') || url.includes('/api/auth/verify-otp'));
     if (__DEV__ && !isExpectedUnauthenticatedCheck) {
       console.error(
         `[API Error] Status: ${status ?? 'NO_RESPONSE'} | URL: ${url}`,
