@@ -32,7 +32,7 @@ import {
   Clock,
   Sparkles,
 } from 'lucide-react-native';
-import { theme } from '../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import { useAuthStore } from '../../../src/store/useAuthStore';
 import { useCurrentUser } from '../../../src/api/auth';
 import {
@@ -75,6 +75,8 @@ const LEGAL_DOC_SELECT_OPTIONS = [
 
 export default function GymProfileScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const { user, role } = useAuthStore();
   const { data: currentUser } = useCurrentUser();
   const isOwner = (currentUser?.role || role) === 'OWNER';
@@ -311,7 +313,7 @@ export default function GymProfileScreen() {
   if (isLoading) {
     return (
       <Screen style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </Screen>
     );
   }
@@ -344,7 +346,7 @@ export default function GymProfileScreen() {
             title="Edit"
             size="sm"
             variant="secondary"
-            icon={<Edit3 size={15} color={theme.colors.primary} />}
+            icon={<Edit3 size={15} color={colors.primary} />}
             onPress={handleOpenEdit}
           />
         }
@@ -354,7 +356,7 @@ export default function GymProfileScreen() {
       <GlassCard style={styles.topCard} contentStyle={styles.topCardContent}>
         <View style={styles.topCardHeader}>
           <View style={styles.iconCircle}>
-            <Building2 size={28} color={theme.colors.primary} />
+            <Building2 size={28} color={colors.primary} />
           </View>
           <View style={styles.topHeaderMeta}>
             <Text style={styles.gymName} numberOfLines={2}>
@@ -385,7 +387,7 @@ export default function GymProfileScreen() {
               accessibilityLabel="Copy gym code"
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Copy size={16} color={theme.colors.primary} />
+              <Copy size={16} color={colors.primary} />
               <Text style={styles.codePillText}>{GYM_PROFILE.COPY_BTN}</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -395,7 +397,7 @@ export default function GymProfileScreen() {
               accessibilityLabel="Share gym code"
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Share2 size={16} color={theme.colors.primary} />
+              <Share2 size={16} color={colors.primary} />
               <Text style={styles.codePillText}>{GYM_PROFILE.SHARE_BTN}</Text>
             </TouchableOpacity>
           </View>
@@ -501,15 +503,15 @@ export default function GymProfileScreen() {
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 {isRevealing ? (
-                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                  <ActivityIndicator size="small" color={colors.primary} />
                 ) : isRevealed ? (
                   <>
-                    <EyeOff size={16} color={theme.colors.primary} />
+                    <EyeOff size={16} color={colors.primary} />
                     <Text style={styles.revealBtnText}>{GYM_PROFILE.HIDE_DOC_NUMBER}</Text>
                   </>
                 ) : (
                   <>
-                    <Eye size={16} color={theme.colors.primary} />
+                    <Eye size={16} color={colors.primary} />
                     <Text style={styles.revealBtnText}>{GYM_PROFILE.SHOW_DOC_NUMBER}</Text>
                   </>
                 )}
@@ -518,7 +520,7 @@ export default function GymProfileScreen() {
           </>
         ) : (
           <View style={styles.emptyLegalBox}>
-            <FileText size={28} color={theme.colors.textMuted} />
+            <FileText size={28} color={colors.textSecondary} />
             <Text style={styles.emptyLegalTitle}>{GYM_PROFILE.NO_LEGAL_DOC}</Text>
             <Text style={styles.emptyLegalSub}>
               You can add your Udyam, GSTIN, or NIC number to verify your business identity.
@@ -532,7 +534,7 @@ export default function GymProfileScreen() {
         <Button
           title={GYM_PROFILE.EDIT_BTN}
           variant="primary"
-          icon={<Edit3 size={18} color={theme.colors.background} />}
+          icon={<Edit3 size={18} color={colors.textOnPrimary} />}
           onPress={handleOpenEdit}
         />
       </View>
@@ -559,7 +561,7 @@ export default function GymProfileScreen() {
               accessibilityLabel="Close"
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <X size={22} color={theme.colors.text} />
+              <X size={22} color={colors.text} />
             </TouchableOpacity>
           </View>
 
@@ -571,7 +573,7 @@ export default function GymProfileScreen() {
             {/* Read-Only Gym Code Notice */}
             <View style={styles.immutableNoticeCard}>
               <View style={styles.immutableHeader}>
-                <Lock size={16} color={theme.colors.textMuted} />
+                <Lock size={16} color={colors.textSecondary} />
                 <Text style={styles.immutableLabel}>Gym Code (Permanent)</Text>
               </View>
               <Text style={styles.immutableValue}>{formattedGymCode}</Text>
@@ -585,7 +587,7 @@ export default function GymProfileScreen() {
               value={editName ?? ''}
               onChangeText={setEditName}
               placeholder={REGISTER.GYM_NAME_PLACEHOLDER_NEW}
-              placeholderTextColor={theme.colors.textMuted}
+              placeholderTextColor={colors.textSecondary}
               maxLength={80}
             />
             {fieldErrors.name && <Text style={styles.fieldErrorText}>{fieldErrors.name}</Text>}
@@ -631,7 +633,7 @@ export default function GymProfileScreen() {
                     LEGAL_DOC_CONFIGS[editLegalIdType as LegalDocDataKey]?.placeholder ||
                     REGISTER.LEGAL_DOC_NUMBER_LABEL
                   }
-                  placeholderTextColor={theme.colors.textMuted}
+                  placeholderTextColor={colors.textSecondary}
                   maxLength={LEGAL_DOC_CONFIGS[editLegalIdType as LegalDocDataKey]?.maxLength || 30}
                   keyboardType={
                     LEGAL_DOC_CONFIGS[editLegalIdType as LegalDocDataKey]?.keyboardType || 'default'
@@ -655,7 +657,7 @@ export default function GymProfileScreen() {
               value={editLine1 ?? ''}
               onChangeText={setEditLine1}
               placeholder={REGISTER.ADDRESS_LINE1_PLACEHOLDER}
-              placeholderTextColor={theme.colors.textMuted}
+              placeholderTextColor={colors.textSecondary}
               maxLength={120}
             />
             {fieldErrors.line1 && <Text style={styles.fieldErrorText}>{fieldErrors.line1}</Text>}
@@ -667,7 +669,7 @@ export default function GymProfileScreen() {
               value={editLine2 ?? ''}
               onChangeText={setEditLine2}
               placeholder={REGISTER.ADDRESS_LINE2_PLACEHOLDER}
-              placeholderTextColor={theme.colors.textMuted}
+              placeholderTextColor={colors.textSecondary}
               maxLength={120}
             />
             {fieldErrors.line2 && <Text style={styles.fieldErrorText}>{fieldErrors.line2}</Text>}
@@ -706,7 +708,7 @@ export default function GymProfileScreen() {
               value={editPincode ?? ''}
               onChangeText={setEditPincode}
               placeholder={REGISTER.ADDRESS.PINCODE_PLACEHOLDER}
-              placeholderTextColor={theme.colors.textMuted}
+              placeholderTextColor={colors.textSecondary}
               keyboardType="number-pad"
               maxLength={6}
             />
@@ -741,7 +743,8 @@ export default function GymProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
   container: {
     padding: theme.spacing.md,
     paddingBottom: 110,
@@ -765,7 +768,7 @@ const styles = StyleSheet.create({
     width: 54,
     height: 54,
     borderRadius: 27,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
@@ -788,7 +791,7 @@ const styles = StyleSheet.create({
   },
   gymTypeSub: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
   divider: {
     height: 1,
@@ -807,7 +810,7 @@ const styles = StyleSheet.create({
     ...theme.typography.caption,
     fontSize: 10,
     fontWeight: '700',
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     letterSpacing: 0.8,
     marginBottom: 2,
   },
@@ -821,7 +824,7 @@ const styles = StyleSheet.create({
   codeHint: {
     ...theme.typography.caption,
     fontSize: 11,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginTop: 2,
   },
   codeBtnRow: {
@@ -833,7 +836,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     paddingHorizontal: 12,
     minHeight: 44,
     borderRadius: theme.radius.full,
@@ -847,7 +850,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     fontFamily: theme.fonts.headingMedium,
     fontWeight: '600',
     marginBottom: theme.spacing.xs,
@@ -866,7 +869,7 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: 2,
   },
   detailValue: {
@@ -907,7 +910,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     paddingHorizontal: 14,
     minHeight: 44,
     borderRadius: theme.radius.full,
@@ -931,12 +934,12 @@ const styles = StyleSheet.create({
   },
   emptyLegalSub: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
   },
   emptyText: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     fontStyle: 'italic',
   },
   btnWrapper: {
@@ -945,11 +948,11 @@ const styles = StyleSheet.create({
   // Modal styles
   modalBackdrop: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.bg,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: theme.colors.scrim,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -958,7 +961,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 440,
     maxHeight: '85%',
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.bg,
     borderRadius: theme.radius.xl,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -982,7 +985,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -996,7 +999,7 @@ const styles = StyleSheet.create({
     paddingBottom: 80,
   },
   immutableNoticeCard: {
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderRadius: theme.radius.md,
     padding: theme.spacing.md,
     borderWidth: 1,
@@ -1011,7 +1014,7 @@ const styles = StyleSheet.create({
   },
   immutableLabel: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     fontWeight: '600',
   },
   immutableValue: {
@@ -1024,7 +1027,7 @@ const styles = StyleSheet.create({
   immutableHint: {
     ...theme.typography.caption,
     fontSize: 11,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginTop: 2,
   },
   inputLabel: {
@@ -1036,7 +1039,7 @@ const styles = StyleSheet.create({
   textInput: {
     minHeight: 48,
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1,
     borderColor: theme.colors.border,
     paddingHorizontal: theme.spacing.md,
@@ -1045,17 +1048,17 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   textInputError: {
-    borderColor: theme.colors.error,
+    borderColor: theme.colors.danger,
   },
   fieldErrorText: {
     ...theme.typography.caption,
-    color: theme.colors.error,
+    color: theme.colors.danger,
     marginTop: -10,
     marginBottom: theme.spacing.md,
   },
   inputHint: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginTop: -10,
     marginBottom: theme.spacing.md,
   },
@@ -1074,6 +1077,6 @@ const styles = StyleSheet.create({
   },
   cancelBtnText: {
     ...theme.typography.bodyMedium,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
 });

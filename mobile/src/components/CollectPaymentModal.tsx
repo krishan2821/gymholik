@@ -11,8 +11,9 @@ import {
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { X, Search, CheckCircle, CreditCard, Banknote, Smartphone } from 'lucide-react-native';
-import { theme } from '../theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../theme/ThemeContext';
 import { Button } from './Button';
+import { Badge } from './Badge';
 import { useMember, useMembers, Member } from '../api/members';
 import { useCollectPayment, downloadAndShareReceipt } from '../api/payments';
 import { formatMoney } from '../utils/formatters';
@@ -30,6 +31,8 @@ export const CollectPaymentModal: React.FC<CollectPaymentModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [selectedMemberId, setSelectedMemberId] = useState<string | undefined>(
     initialMemberId
   );
@@ -145,7 +148,7 @@ export const CollectPaymentModal: React.FC<CollectPaymentModalProps> = ({
               accessibilityLabel="Close modal"
               {...({ tabIndex: 0 } as any)}
             >
-              <X size={20} color={theme.colors.textMuted} />
+              <X size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -153,7 +156,7 @@ export const CollectPaymentModal: React.FC<CollectPaymentModalProps> = ({
           {successData ? (
             <View style={styles.successView}>
               <View style={styles.successIconCircle}>
-                <CheckCircle size={48} color={theme.colors.primary} />
+                <CheckCircle size={48} color={colors.primary} />
               </View>
               <Text style={styles.successTitle}>Payment Recorded!</Text>
               <Text style={styles.successReceipt}>Receipt: {successData.receiptNumber}</Text>
@@ -188,11 +191,11 @@ export const CollectPaymentModal: React.FC<CollectPaymentModalProps> = ({
                   <View style={styles.memberPickerSection}>
                     <Text style={styles.label}>Select Member *</Text>
                     <View style={styles.searchRow}>
-                      <Search size={18} color={theme.colors.primary} />
+                      <Search size={18} color={colors.primary} />
                       <TextInput
                         style={styles.searchInput}
                         placeholder="Search member by name or mobile..."
-                        placeholderTextColor={theme.colors.textMuted}
+                        placeholderTextColor={colors.textSecondary}
                         value={searchQuery}
                         onChangeText={setSearchQuery}
                         autoFocus
@@ -211,18 +214,17 @@ export const CollectPaymentModal: React.FC<CollectPaymentModalProps> = ({
                             <Text style={styles.memberPhone}>{m.phone}</Text>
                           </View>
                           {((m as any).dueTotalPaise ?? m.currentMembership?.duePaise ?? 0) > 0 ? (
-                            <Text
-                              style={[
-                                styles.memberDueText,
-                                { color: theme.colors.coral },
-                              ]}
-                            >
-                              Due: {formatMoney((m as any).dueTotalPaise ?? m.currentMembership?.duePaise)}
-                            </Text>
+                            <Badge
+                              label={`Due ${formatMoney((m as any).dueTotalPaise ?? m.currentMembership?.duePaise)}`}
+                              variant="due"
+                              size="sm"
+                            />
                           ) : (
-                            <Text style={[styles.memberDueText, { color: theme.colors.textMuted }]}>
-                              No due
-                            </Text>
+                            <Badge
+                              label="Paid"
+                              variant="paid"
+                              size="sm"
+                            />
                           )}
                         </TouchableOpacity>
                       ))}
@@ -239,7 +241,21 @@ export const CollectPaymentModal: React.FC<CollectPaymentModalProps> = ({
                     </View>
                     <View style={styles.selectedMemberRight}>
                       <Text style={styles.dueLabel}>Outstanding Due</Text>
-                      <Text style={styles.dueValue}>{formatMoney(dueAmount)}</Text>
+                      {dueAmount > 0 ? (
+                        <Badge
+                          label={`Due ${formatMoney(dueAmount)}`}
+                          variant="due"
+                          size="sm"
+                          style={{ marginTop: 2 }}
+                        />
+                      ) : (
+                        <Badge
+                          label="Paid in Full"
+                          variant="paid"
+                          size="sm"
+                          style={{ marginTop: 2 }}
+                        />
+                      )}
                       {!initialMemberId && (
                         <TouchableOpacity
                           onPress={() => setSelectedMemberId(undefined)}
@@ -258,7 +274,7 @@ export const CollectPaymentModal: React.FC<CollectPaymentModalProps> = ({
                   <TextInput
                     style={styles.input}
                     placeholder={`e.g. ${dueAmount / 100 || 1000}`}
-                    placeholderTextColor={theme.colors.textMuted}
+                    placeholderTextColor={colors.textSecondary}
                     keyboardType="numeric"
                     value={amountStr}
                     onChangeText={setAmountStr}
@@ -283,19 +299,19 @@ export const CollectPaymentModal: React.FC<CollectPaymentModalProps> = ({
                         {m === 'UPI' && (
                           <Smartphone
                             size={16}
-                            color={mode === m ? '#DAF1DE' : 'rgba(218, 241, 222, 0.6)'}
+                            color={mode === m ? colors.text : colors.border}
                           />
                         )}
                         {m === 'CASH' && (
                           <Banknote
                             size={16}
-                            color={mode === m ? '#DAF1DE' : 'rgba(218, 241, 222, 0.6)'}
+                            color={mode === m ? colors.text : colors.border}
                           />
                         )}
                         {m === 'CARD' && (
                           <CreditCard
                             size={16}
-                            color={mode === m ? '#DAF1DE' : 'rgba(218, 241, 222, 0.6)'}
+                            color={mode === m ? colors.text : colors.border}
                           />
                         )}
                         <Text style={[styles.modeBtnText, mode === m && styles.modeBtnTextActive]}>
@@ -312,7 +328,7 @@ export const CollectPaymentModal: React.FC<CollectPaymentModalProps> = ({
                   <TextInput
                     style={styles.input}
                     placeholder="e.g. Monthly installment paid via GPay"
-                    placeholderTextColor={theme.colors.textMuted}
+                    placeholderTextColor={colors.textSecondary}
                     value={notes}
                     onChangeText={setNotes}
                     onSubmitEditing={handleSubmit}
@@ -346,10 +362,11 @@ export const CollectPaymentModal: React.FC<CollectPaymentModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(5, 31, 32, 0.85)',
+    backgroundColor: theme.colors.scrim,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
@@ -358,14 +375,14 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 560,
     maxHeight: '90%',
-    backgroundColor: '#072728',
+    backgroundColor: theme.colors.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.16)',
+    borderColor: theme.colors.border,
     overflow: 'hidden',
     ...(Platform.OS === 'web'
       ? ({
-          boxShadow: '0 16px 40px rgba(0, 0, 0, 0.7)',
+          boxShadow: `0 16px 40px ${theme.colors.scrim}`,
         } as any)
       : {}),
   },
@@ -377,24 +394,24 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(218, 241, 222, 0.08)',
+    borderBottomColor: theme.colors.border,
   },
   modalTitle: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 18,
-    color: '#DAF1DE',
+    color: theme.colors.text,
   },
   modalSubtitle: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 12,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginTop: 2,
   },
   closeBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(218, 241, 222, 0.06)',
+    backgroundColor: theme.colors.surfaceRaised,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -412,10 +429,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: 'rgba(11, 43, 38, 0.8)',
+    backgroundColor: theme.colors.surface,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.14)',
+    borderColor: theme.colors.border,
     paddingHorizontal: 12,
     minHeight: 44,
   },
@@ -423,13 +440,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 14,
-    color: '#DAF1DE',
+    color: theme.colors.text,
   },
   membersListContainer: {
-    backgroundColor: 'rgba(11, 43, 38, 0.6)',
+    backgroundColor: theme.colors.surface,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.08)',
+    borderColor: theme.colors.border,
     overflow: 'hidden',
     marginTop: 4,
   },
@@ -439,31 +456,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(218, 241, 222, 0.06)',
+    borderBottomColor: theme.colors.border,
   },
   memberName: {
     fontFamily: theme.fonts.headingMedium,
     fontSize: 14,
-    color: '#DAF1DE',
+    color: theme.colors.text,
   },
   memberPhone: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 12,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
   memberDueText: {
     fontFamily: theme.fonts.headingMedium,
     fontSize: 13,
-    color: '#DAF1DE',
+    color: theme.colors.text,
   },
   selectedMemberCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(11, 43, 38, 0.9)',
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(142, 182, 155, 0.25)',
+    borderColor: theme.colors.border,
   },
   selectedMemberLeft: {
     flex: 1,
@@ -471,12 +488,12 @@ const styles = StyleSheet.create({
   selectedMemberName: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 16,
-    color: '#DAF1DE',
+    color: theme.colors.text,
   },
   selectedMemberPhone: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 12,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginTop: 2,
   },
   selectedMemberPlan: {
@@ -491,12 +508,12 @@ const styles = StyleSheet.create({
   dueLabel: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 11,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
   dueValue: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 18,
-    color: theme.colors.error,
+    color: theme.colors.danger,
     marginTop: 2,
   },
   changeMemberBtn: {
@@ -514,14 +531,14 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: theme.fonts.headingMedium,
     fontSize: 13,
-    color: '#DAF1DE',
+    color: theme.colors.text,
   },
   input: {
-    backgroundColor: 'rgba(11, 43, 38, 0.8)',
+    backgroundColor: theme.colors.surface,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.14)',
-    color: '#DAF1DE',
+    borderColor: theme.colors.border,
+    color: theme.colors.text,
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 14,
     paddingHorizontal: 14,
@@ -546,20 +563,20 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.14)',
-    backgroundColor: 'rgba(11, 43, 38, 0.6)',
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
   },
   modeBtnActive: {
-    backgroundColor: 'rgba(142, 182, 155, 0.22)',
+    backgroundColor: theme.colors.primarySoft,
     borderColor: theme.colors.primary,
   },
   modeBtnText: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 13,
-    color: 'rgba(218, 241, 222, 0.65)',
+    color: theme.colors.textSecondary,
   },
   modeBtnTextActive: {
-    color: '#DAF1DE',
+    color: theme.colors.text,
     fontWeight: '700',
   },
   modalFooter: {
@@ -568,8 +585,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(218, 241, 222, 0.08)',
-    backgroundColor: '#072728',
+    borderTopColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
   },
   successView: {
     padding: 32,
@@ -579,7 +596,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: 'rgba(142, 182, 155, 0.18)',
+    backgroundColor: theme.colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -587,13 +604,13 @@ const styles = StyleSheet.create({
   successTitle: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 20,
-    color: '#DAF1DE',
+    color: theme.colors.text,
     marginBottom: 4,
   },
   successReceipt: {
     fontFamily: theme.fonts.headingMedium,
     fontSize: 13,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: 6,
   },
   successAmount: {

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -43,10 +43,11 @@ import { useCurrentUser } from '../../src/api/auth';
 import { useDashboardData, DailyCollection, ExpiringMember } from '../../src/api/dashboard';
 import { useTodayAttendance } from '../../src/api/attendance';
 import { useGymSettings } from '../../src/api/more';
-import { theme } from '../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../src/theme/ThemeContext';
 import { Screen } from '../../src/components/Screen';
 import { GlassCard } from '../../src/components/GlassCard';
 import { Avatar } from '../../src/components/Avatar';
+import { Badge } from '../../src/components/Badge';
 import { Button } from '../../src/components/Button';
 import { Skeleton } from '../../src/components/Skeleton';
 import { ErrorState } from '../../src/components/ErrorState';
@@ -158,8 +159,12 @@ function PressableScale({
 // ─── 7-Day Trend in Sage Bars ─────────────────────────────────────────────────
 function TrendBars7Days({
   data,
+  styles,
+  colors,
 }: {
   data?: DailyCollection[];
+  styles: any;
+  colors: SemanticTokens;
 }) {
   const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -190,19 +195,9 @@ function TrendBars7Days({
     <View style={styles.trendContainer}>
       <View style={styles.trendBarsRow}>
         {daysList.map((item, idx) => {
-          const barHeight = allZero
-            ? BASELINE_HEIGHT
-            : item.amount === 0
+          const barHeight = allZero || item.amount === 0
             ? BASELINE_HEIGHT
             : Math.max(BASELINE_HEIGHT, Math.round((item.amount / maxVal) * TRACK_HEIGHT));
-
-          const barColor = allZero
-            ? 'rgba(142, 182, 155, 0.22)'
-            : item.amount === 0
-            ? 'rgba(142, 182, 155, 0.22)'
-            : item.isToday
-            ? theme.colors.primary
-            : 'rgba(142, 182, 155, 0.85)';
 
           return (
             <View key={idx} style={styles.trendCol}>
@@ -212,7 +207,8 @@ function TrendBars7Days({
                     styles.trendBarFill,
                     {
                       height: barHeight,
-                      backgroundColor: barColor,
+                      backgroundColor: colors.primary,
+                      opacity: item.isToday ? 1 : 0.35,
                     },
                   ]}
                 />
@@ -238,13 +234,18 @@ function CircularProgressRing({
   progress,
   size = 38,
   strokeWidth = 3.5,
-  color = theme.colors.primary,
+  color,
+  borderColor,
 }: {
   progress: number; // 0 to 1
   size?: number;
   strokeWidth?: number;
   color?: string;
+  borderColor?: string;
 }) {
+  const { colors } = useTheme();
+  const ringColor = color || colors.primary;
+  const trackBorder = borderColor || colors.border;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const clamped = Math.min(1, Math.max(0, progress));
@@ -257,7 +258,7 @@ function CircularProgressRing({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="rgba(218, 241, 222, 0.12)"
+          stroke={trackBorder}
           strokeWidth={strokeWidth}
           fill="none"
         />
@@ -276,7 +277,7 @@ function CircularProgressRing({
       </Svg>
       <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <CalendarCheck color={color} size={16} />
+          <CalendarCheck color={ringColor} size={16} />
         </View>
       </View>
     </View>
@@ -284,7 +285,7 @@ function CircularProgressRing({
 }
 
 // ─── Pulsing Amber Dot Indicator ─────────────────────────────────────────────
-function PulsingDot() {
+function PulsingDot({ styles }: { styles: any }) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(0.7)).current;
 
@@ -340,6 +341,8 @@ function PulsingDot() {
 // ─── Main Dashboard Screen ───────────────────────────────────────────────────
 export default function DashboardScreen() {
   const router = useRouter();
+  const { colors, fonts, spacing, radius, mode } = useTheme();
+  const styles = useStyles(makeStyles);
   const user = useAuthStore((state) => state.user);
   const role = user?.role || useAuthStore((state) => state.role);
   const { isAuthenticated, gymId } = useAuthStore();
@@ -458,20 +461,20 @@ export default function DashboardScreen() {
     return (
       <Screen style={styles.screen}>
         <View style={styles.skeletonHeader}>
-          <Skeleton width="55%" height={26} borderRadius={theme.radius.md} style={{ marginBottom: 8 }} />
-          <Skeleton width="35%" height={16} borderRadius={theme.radius.sm} />
+          <Skeleton width="55%" height={26} borderRadius={radius.md} style={{ marginBottom: 8 }} />
+          <Skeleton width="35%" height={16} borderRadius={radius.sm} />
         </View>
         <View style={styles.skeletonBody}>
           <GlassCard style={styles.skeletonHeroCard}>
-            <Skeleton width="40%" height={14} borderRadius={theme.radius.xs} style={{ marginBottom: 12 }} />
-            <Skeleton width="70%" height={38} borderRadius={theme.radius.md} style={{ marginBottom: 16 }} />
-            <Skeleton width="100%" height={50} borderRadius={theme.radius.md} />
+            <Skeleton width="40%" height={14} borderRadius={radius.xs} style={{ marginBottom: 12 }} />
+            <Skeleton width="70%" height={38} borderRadius={radius.md} style={{ marginBottom: 16 }} />
+            <Skeleton width="100%" height={50} borderRadius={radius.md} />
           </GlassCard>
           <View style={styles.skeletonGrid}>
-            <Skeleton width="48%" height={110} borderRadius={theme.radius.lg} />
-            <Skeleton width="48%" height={110} borderRadius={theme.radius.lg} />
-            <Skeleton width="48%" height={110} borderRadius={theme.radius.lg} />
-            <Skeleton width="48%" height={110} borderRadius={theme.radius.lg} />
+            <Skeleton width="48%" height={110} borderRadius={radius.lg} />
+            <Skeleton width="48%" height={110} borderRadius={radius.lg} />
+            <Skeleton width="48%" height={110} borderRadius={radius.lg} />
+            <Skeleton width="48%" height={110} borderRadius={radius.lg} />
           </View>
         </View>
       </Screen>
@@ -522,7 +525,7 @@ export default function DashboardScreen() {
               accessibilityLabel="Notifications"
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Bell size={20} color={theme.colors.text} />
+              <Bell size={20} color={colors.text} />
               {(data?.expiringSoon || 0) > 0 && <View style={styles.bellBadge} />}
             </TouchableOpacity>
           </View>
@@ -543,7 +546,7 @@ export default function DashboardScreen() {
         >
           <GlassCard style={styles.profileBannerCard} contentStyle={styles.profileBannerContent}>
             <View style={styles.profileBannerIconBox}>
-              <Sparkles size={20} color={theme.colors.primary} />
+              <Sparkles size={20} color={colors.primary} />
             </View>
             <View style={styles.profileBannerTextBox}>
               <Text style={styles.profileBannerTitle}>{COMPLETE_GYM_PROFILE_BANNER.TITLE}</Text>
@@ -551,7 +554,7 @@ export default function DashboardScreen() {
                 {COMPLETE_GYM_PROFILE_BANNER.SUBTITLE}
               </Text>
             </View>
-            <ChevronRight size={18} color={theme.colors.primary} />
+            <ChevronRight size={18} color={colors.primary} />
           </GlassCard>
         </TouchableOpacity>
       )}
@@ -597,7 +600,7 @@ export default function DashboardScreen() {
                   accessibilityRole="button"
                   accessibilityLabel="This month's collection"
                 >
-                  <TrendingUp size={14} color={theme.colors.primary} />
+                  <TrendingUp size={14} color={colors.primary} />
                   <Text style={styles.heroMonthText}>
                     Month: {formatMoney(data?.monthCollection)}
                   </Text>
@@ -616,7 +619,7 @@ export default function DashboardScreen() {
                       : 'Daily revenue'}
                   </Text>
                 </View>
-                <TrendBars7Days data={data?.last7DaysCollection} />
+                <TrendBars7Days data={data?.last7DaysCollection} styles={styles} colors={colors} />
               </View>
             </GlassCard>
           </Animated.View>
@@ -630,28 +633,28 @@ export default function DashboardScreen() {
                     style={styles.desktopActionBtn}
                     onPress={() => setShowAddMemberModal(true)}
                   >
-                    <UserPlus size={18} color={theme.colors.primary} />
+                    <UserPlus size={18} color={colors.primary} />
                     <Text style={styles.desktopActionBtnText}>Add Member</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.desktopActionBtn}
                     onPress={() => router.push('/(tabs)/payments/collect')}
                   >
-                    <CreditCard size={18} color={theme.colors.primary} />
+                    <CreditCard size={18} color={colors.primary} />
                     <Text style={styles.desktopActionBtnText}>Collect Fee</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.desktopActionBtn}
                     onPress={() => router.push({ pathname: '/(tabs)/payments', params: { tab: 'DUES' } })}
                   >
-                    <AlertTriangle size={18} color={theme.colors.primary} />
+                    <AlertTriangle size={18} color={colors.primary} />
                     <Text style={styles.desktopActionBtnText}>View Dues</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.desktopActionBtn}
                     onPress={() => router.push('/(tabs)/attendance/scan')}
                   >
-                    <QrCode size={18} color={theme.colors.primary} />
+                    <QrCode size={18} color={colors.primary} />
                     <Text style={styles.desktopActionBtnText}>Scan QR</Text>
                   </TouchableOpacity>
                 </View>
@@ -687,9 +690,9 @@ export default function DashboardScreen() {
               accessibilityLabel="Add member"
             >
               <View style={styles.quickActionCard}>
-                <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFill} />
+                
                 <View style={styles.quickActionIcon}>
-                  <UserPlus size={20} color={theme.colors.primary} />
+                  <UserPlus size={20} color={colors.primary} />
                 </View>
                 <Text style={styles.quickActionLabel} numberOfLines={1}>Add Member</Text>
               </View>
@@ -702,9 +705,9 @@ export default function DashboardScreen() {
                 accessibilityLabel="Collect payment"
               >
                 <View style={styles.quickActionCard}>
-                  <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFill} />
+                  
                   <View style={styles.quickActionIcon}>
-                    <CreditCard size={20} color={theme.colors.primary} />
+                    <CreditCard size={20} color={colors.primary} />
                   </View>
                   <Text style={styles.quickActionLabel} numberOfLines={1}>Collect Fee</Text>
                 </View>
@@ -717,9 +720,9 @@ export default function DashboardScreen() {
               accessibilityLabel="View Dues"
             >
               <View style={styles.quickActionCard}>
-                <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFill} />
+                
                 <View style={styles.quickActionIcon}>
-                  <AlertTriangle size={20} color={theme.colors.primary} />
+                  <AlertTriangle size={20} color={colors.primary} />
                 </View>
                 <Text style={styles.quickActionLabel} numberOfLines={1}>Dues</Text>
               </View>
@@ -732,9 +735,9 @@ export default function DashboardScreen() {
               accessibilityLabel="Scan QR code"
             >
               <View style={styles.quickActionCard}>
-                <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFill} />
+                
                 <View style={styles.quickActionIcon}>
-                  <QrCode size={20} color={theme.colors.primary} />
+                  <QrCode size={20} color={colors.primary} />
                 </View>
                 <Text style={styles.quickActionLabel} numberOfLines={1}>Scan QR</Text>
               </View>
@@ -770,10 +773,10 @@ export default function DashboardScreen() {
           >
             <GlassCard style={styles.statCard} contentStyle={styles.statCardInner}>
               <View style={styles.statCardHeader}>
-                <View style={[styles.statIconBox, { backgroundColor: 'rgba(142, 182, 155, 0.15)' }]}>
-                  <Users size={18} color={theme.colors.primary} />
+                <View style={[styles.statIconBox, { backgroundColor: colors.primarySoft }]}>
+                  <Users size={18} color={colors.primary} />
                 </View>
-                <ArrowUpRight size={16} color={theme.colors.textMuted} />
+                <ArrowUpRight size={16} color={colors.textSecondary} />
               </View>
               <Text style={styles.statCardLabel}>Active Members</Text>
               <CountUpNumber value={activeCount} style={styles.statCardValue} />
@@ -789,7 +792,7 @@ export default function DashboardScreen() {
             <GlassCard style={styles.statCard} contentStyle={styles.statCardInner}>
               <View style={styles.statCardHeader}>
                 <CircularProgressRing progress={attendanceRatio} size={36} />
-                <ArrowUpRight size={16} color={theme.colors.textMuted} />
+                <ArrowUpRight size={16} color={colors.textSecondary} />
               </View>
               <Text style={styles.statCardLabel}>Check-ins Today</Text>
               <CountUpNumber value={attendanceCount} style={styles.statCardValue} />
@@ -804,10 +807,10 @@ export default function DashboardScreen() {
           >
             <GlassCard style={styles.statCard} contentStyle={styles.statCardInner}>
               <View style={styles.statCardHeader}>
-                <View style={[styles.statIconBox, { backgroundColor: 'rgba(142, 182, 155, 0.15)' }]}>
-                  <TrendingUp size={18} color={theme.colors.primary} />
+                <View style={[styles.statIconBox, { backgroundColor: colors.primarySoft }]}>
+                  <TrendingUp size={18} color={colors.primary} />
                 </View>
-                <ArrowUpRight size={16} color={theme.colors.textMuted} />
+                <ArrowUpRight size={16} color={colors.textSecondary} />
               </View>
               <Text style={styles.statCardLabel}>New This Month</Text>
               <CountUpNumber value={data?.newJoinings || 0} style={styles.statCardValue} />
@@ -821,34 +824,28 @@ export default function DashboardScreen() {
             accessibilityLabel="Expiring in 5 days"
           >
             <GlassCard
-              style={[
-                styles.statCard,
-                (data?.expiringSoon || 0) > 0 && styles.statCardExpiringBorder,
-              ]}
+              style={styles.statCard}
               contentStyle={styles.statCardInner}
             >
               <View style={styles.statCardHeader}>
-                <View style={[styles.statIconBox, { backgroundColor: 'rgba(245, 181, 68, 0.18)' }]}>
-                  <Clock size={18} color={theme.colors.warning} />
+                <View style={[styles.statIconBox, { backgroundColor: colors.surfaceRaised }]}>
+                  <Clock size={18} color={colors.textSecondary} />
                 </View>
                 {(data?.expiringSoon || 0) > 0 ? (
-                  <PulsingDot />
+                  <Badge label="Expiring" variant="expiring" size="sm" />
                 ) : (
-                  <ArrowUpRight size={16} color={theme.colors.textMuted} />
+                  <ArrowUpRight size={16} color={colors.textSecondary} />
                 )}
               </View>
               <Text style={styles.statCardLabel}>Expiring in 5 Days</Text>
               <CountUpNumber
                 value={data?.expiringSoon || 0}
-                style={[
-                  styles.statCardValue,
-                  (data?.expiringSoon || 0) > 0 && { color: theme.colors.warning },
-                ]}
+                style={styles.statCardValue}
               />
             </GlassCard>
           </PressableScale>
 
-          {/* Total Outstanding / Dues (Owner only, Coral) */}
+          {/* Total Outstanding / Dues (Owner only) */}
           {isOwner && (
             <PressableScale
               onPress={() => router.push({ pathname: '/(tabs)/payments', params: { tab: 'DUES' } })}
@@ -856,26 +853,30 @@ export default function DashboardScreen() {
               accessibilityLabel="Total outstanding dues"
             >
               <GlassCard
-
-                style={[styles.statCard, styles.statCardDueBorder]}
+                style={styles.statCard}
                 contentStyle={styles.statCardDueInner}
               >
                 <View style={styles.statDueLeft}>
-                  <View style={[styles.statIconBox, { backgroundColor: 'rgba(255, 107, 107, 0.18)' }]}>
-                    <Wallet size={18} color={theme.colors.error} />
+                  <View style={[styles.statIconBox, { backgroundColor: colors.surfaceRaised }]}>
+                    <Wallet size={18} color={colors.textSecondary} />
                   </View>
                   <View style={{ marginLeft: 12 }}>
-                    <Text style={styles.statCardLabel}>Total Outstanding</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={styles.statCardLabel}>Total Outstanding</Text>
+                      {(data?.totalDue || 0) > 0 && (
+                        <Badge label="Due" variant="due" size="sm" />
+                      )}
+                    </View>
                     <CountUpNumber
                       value={(data?.totalDue || 0) / 100}
                       prefix="₹"
-                      style={[styles.statCardValue, { color: theme.colors.error }]}
+                      style={styles.statCardValue}
                     />
                   </View>
                 </View>
                 <View style={styles.statDueRight}>
                   <Text style={styles.statDueActionText}>View Dues</Text>
-                  <ChevronRight size={16} color={theme.colors.error} />
+                  <ChevronRight size={16} color={colors.primary} />
                 </View>
               </GlassCard>
             </PressableScale>
@@ -889,7 +890,7 @@ export default function DashboardScreen() {
           <GlassCard style={styles.setupCard} intensity={35}>
             <View style={styles.setupHeader}>
               <View style={styles.setupIconCircle}>
-                <Sparkles size={24} color={theme.colors.primary} />
+                <Sparkles size={24} color={colors.primary} />
               </View>
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={styles.setupTitle}>Welcome to your Gym!</Text>
@@ -913,7 +914,7 @@ export default function DashboardScreen() {
                   <Text style={styles.stepTitle}>Create Membership Plans</Text>
                   <Text style={styles.stepDesc}>Set up monthly or quarterly packages</Text>
                 </View>
-                <ChevronRight size={18} color={theme.colors.textMuted} />
+                <ChevronRight size={18} color={colors.textSecondary} />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -921,14 +922,14 @@ export default function DashboardScreen() {
                 onPress={() => router.push('/(tabs)/members/add')}
                 activeOpacity={0.7}
               >
-                <View style={[styles.stepNumCircle, { borderColor: theme.colors.primary }]}>
-                  <Text style={[styles.stepNumText, { color: theme.colors.primary }]}>2</Text>
+                <View style={[styles.stepNumCircle, { borderColor: colors.primary }]}>
+                  <Text style={[styles.stepNumText, { color: colors.primary }]}>2</Text>
                 </View>
                 <View style={styles.stepDetails}>
                   <Text style={styles.stepTitle}>Add Your First Member</Text>
                   <Text style={styles.stepDesc}>Enroll details, assign plan & collect fees</Text>
                 </View>
-                <ChevronRight size={18} color={theme.colors.textMuted} />
+                <ChevronRight size={18} color={colors.textSecondary} />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -943,7 +944,7 @@ export default function DashboardScreen() {
                   <Text style={styles.stepTitle}>Track Daily Attendance</Text>
                   <Text style={styles.stepDesc}>Mark check-ins or scan QR codes instantly</Text>
                 </View>
-                <ChevronRight size={18} color={theme.colors.textMuted} />
+                <ChevronRight size={18} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -953,7 +954,7 @@ export default function DashboardScreen() {
               onPress={() => router.push('/(tabs)/members/add')}
               variant="primary"
               size="lg"
-              style={{ marginTop: theme.spacing.lg }}
+              style={{ marginTop: spacing.lg }}
             />
           </GlassCard>
         </View>
@@ -1000,16 +1001,18 @@ export default function DashboardScreen() {
                       <Text style={styles.memberNameText} numberOfLines={1}>
                         {member.memberName}
                       </Text>
-                      <View style={styles.daysLeftPill}>
-                        <Clock size={11} color={theme.colors.warning} />
-                        <Text style={styles.daysLeftText}>
-                          {member.daysLeft === 0
+                      <Badge
+                        label={
+                          member.daysLeft === 0
                             ? 'Expires Today'
                             : member.daysLeft === 1
-                            ? '1 day left'
-                            : `${member.daysLeft} days left`}
-                        </Text>
-                      </View>
+                            ? '1d left'
+                            : `${member.daysLeft}d left`
+                        }
+                        variant="expiring"
+                        size="sm"
+                        style={{ marginTop: 2 }}
+                      />
                     </View>
 
                     {!isPhoneMasked(member.phone) && (
@@ -1020,7 +1023,7 @@ export default function DashboardScreen() {
                           accessibilityLabel={`Call ${member.memberName}`}
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
-                          <Phone size={16} color={theme.colors.text} />
+                          <Phone size={16} color={colors.text} />
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -1029,7 +1032,7 @@ export default function DashboardScreen() {
                           accessibilityLabel={`WhatsApp ${member.memberName}`}
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
-                          <MessageCircle size={16} color={theme.colors.textOnPrimary} />
+                          <MessageCircle size={16} color={colors.textOnPrimary} />
                         </TouchableOpacity>
                       </View>
                     )}
@@ -1082,7 +1085,7 @@ export default function DashboardScreen() {
                     </View>
 
                     <View style={styles.checkInTimePill}>
-                      <Clock size={11} color={theme.colors.primary} />
+                      <Clock size={11} color={colors.primary} />
                       <Text style={styles.checkInTimeText}>
                         {typeof rec.checkInTime === 'string' && rec.checkInTime.includes(':')
                           ? rec.checkInTime.slice(0, 5)
@@ -1143,16 +1146,18 @@ export default function DashboardScreen() {
                     <Text style={styles.memberNameText} numberOfLines={1}>
                       {member.memberName}
                     </Text>
-                    <View style={styles.daysLeftPill}>
-                      <Clock size={11} color={theme.colors.warning} />
-                      <Text style={styles.daysLeftText}>
-                        {member.daysLeft === 0
+                    <Badge
+                      label={
+                        member.daysLeft === 0
                           ? 'Expires Today'
                           : member.daysLeft === 1
-                          ? '1 day left'
-                          : `${member.daysLeft} days left`}
-                      </Text>
-                    </View>
+                          ? '1d left'
+                          : `${member.daysLeft}d left`
+                      }
+                      variant="expiring"
+                      size="sm"
+                      style={{ marginTop: 2 }}
+                    />
                   </View>
 
                   {!isPhoneMasked(member.phone) && (
@@ -1163,7 +1168,7 @@ export default function DashboardScreen() {
                         accessibilityLabel={`Call ${member.memberName}`}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
-                        <Phone size={16} color={theme.colors.text} />
+                        <Phone size={16} color={colors.text} />
                       </TouchableOpacity>
 
                       <TouchableOpacity
@@ -1172,7 +1177,7 @@ export default function DashboardScreen() {
                         accessibilityLabel={`WhatsApp ${member.memberName}`}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
-                        <MessageCircle size={16} color={theme.colors.textOnPrimary} />
+                        <MessageCircle size={16} color={colors.textOnPrimary} />
                       </TouchableOpacity>
                     </View>
                   )}
@@ -1199,10 +1204,12 @@ export default function DashboardScreen() {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const makeStyles = (theme: ThemeValue) => {
+  const colors = theme.colors;
+  return StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   scrollContent: {
     paddingHorizontal: theme.spacing.lg,
@@ -1253,21 +1260,21 @@ const styles = StyleSheet.create({
     marginRight: theme.spacing.sm,
     fontFamily: theme.fonts.headingBold,
     fontSize: 22,
-    color: theme.colors.text,
+    color: colors.text,
     letterSpacing: 0.2,
   },
   gymNameText: {
     ...theme.typography.caption,
-    color: 'rgba(218, 241, 222, 0.80)',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   bellBtn: {
     width: 44,
     height: 44,
     borderRadius: theme.radius.full,
-    backgroundColor: 'rgba(11, 43, 38, 0.75)',
+    backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
-    borderColor: theme.colors.glassBorder,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     ...theme.shadows.glow,
@@ -1279,7 +1286,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: theme.colors.warning,
+    backgroundColor: colors.warning,
   },
 
   // 2. Glass Hero Card
@@ -1290,6 +1297,21 @@ const styles = StyleSheet.create({
   heroCard: {
     padding: theme.spacing.lg,
     borderRadius: theme.radius.xl,
+    backgroundColor: colors.surface,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.22,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 4,
+      },
+      web: {
+        boxShadow: `0 4px 20px ${colors.primary}26`,
+      } as any,
+    }),
   },
   heroCardTop: {
     flexDirection: 'row',
@@ -1300,31 +1322,33 @@ const styles = StyleSheet.create({
   heroCardLabel: {
     fontFamily: theme.fonts.headingSemiBold,
     fontSize: 11,
-    color: theme.colors.textMuted,
+    color: colors.textMuted,
     letterSpacing: 1.2,
     marginBottom: 4,
   },
   heroCardLargeValue: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 32,
-    color: theme.colors.text,
+    color: colors.text,
     lineHeight: 38,
+    fontVariant: ['tabular-nums'],
   },
   heroMonthBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: 'rgba(142, 182, 155, 0.15)',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: theme.radius.full,
     borderWidth: 1,
-    borderColor: 'rgba(142, 182, 155, 0.3)',
+    borderColor: colors.border,
   },
   heroMonthText: {
     fontFamily: theme.fonts.bodyMedium,
     fontSize: 12,
-    color: theme.colors.primary,
+    color: colors.primary,
+    fontVariant: ['tabular-nums'],
   },
 
   // 7-Day Trend Bars
@@ -1332,7 +1356,7 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.xs,
     paddingTop: theme.spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(218, 241, 222, 0.08)',
+    borderTopColor: colors.border,
   },
   sparklineHeaderRow: {
     flexDirection: 'row',
@@ -1343,11 +1367,11 @@ const styles = StyleSheet.create({
   sparklineTitle: {
     fontFamily: theme.fonts.headingSemiBold,
     fontSize: 12,
-    color: theme.colors.text,
+    color: colors.text,
   },
   sparklineSubtitle: {
     ...theme.typography.small,
-    color: theme.colors.textMuted,
+    color: colors.textMuted,
   },
   trendContainer: {
     width: '100%',
@@ -1367,7 +1391,10 @@ const styles = StyleSheet.create({
     height: 44,
     justifyContent: 'flex-end',
     alignItems: 'center',
-    width: 20,
+    width: 10,
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: 5,
+    overflow: 'hidden',
   },
   trendBarFill: {
     width: 10,
@@ -1376,16 +1403,16 @@ const styles = StyleSheet.create({
   trendDayText: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 10,
-    color: theme.colors.textMuted,
+    color: colors.textSecondary,
     marginTop: 6,
   },
   trendDayTextToday: {
-    color: theme.colors.primary,
-    fontFamily: theme.fonts.bodyMedium,
+    color: colors.primary,
+    fontFamily: theme.fonts.headingBold,
   },
   trendZeroCaption: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: colors.textMuted,
     textAlign: 'center',
     marginTop: 8,
     fontStyle: 'italic',
@@ -1398,7 +1425,7 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontFamily: theme.fonts.headingSemiBold,
     fontSize: 11,
-    color: theme.colors.textMuted,
+    color: colors.textMuted,
     letterSpacing: 1.2,
     marginBottom: theme.spacing.sm,
     paddingLeft: 2,
@@ -1415,10 +1442,10 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(11, 43, 38, 0.70)',
+    backgroundColor: colors.surface,
     borderRadius: theme.radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.14)',
+    borderColor: colors.border,
     paddingVertical: 14,
     paddingHorizontal: 4,
     overflow: 'hidden',
@@ -1427,9 +1454,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(142, 182, 155, 0.18)',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: 'rgba(142, 182, 155, 0.30)',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -1438,7 +1465,7 @@ const styles = StyleSheet.create({
   quickActionLabel: {
     fontFamily: theme.fonts.headingMedium,
     fontSize: 11,
-    color: theme.colors.text,
+    color: colors.text,
     textAlign: 'center',
   },
 
@@ -1478,23 +1505,24 @@ const styles = StyleSheet.create({
   statCardLabel: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 12,
-    color: theme.colors.textMuted,
+    color: colors.textMuted,
     marginTop: 8,
   },
   statCardValue: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 22,
-    color: theme.colors.text,
+    color: colors.text,
     marginTop: 2,
+    fontVariant: ['tabular-nums'],
   },
   statCardExpiringBorder: {
-    borderColor: 'rgba(245, 181, 68, 0.35)',
+    borderColor: colors.warning,
   },
   statCardFullWidth: {
     width: '100%',
   },
   statCardDueBorder: {
-    borderColor: 'rgba(255, 107, 107, 0.35)',
+    borderColor: colors.danger,
   },
   statCardDueInner: {
     flexDirection: 'row',
@@ -1510,7 +1538,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255, 107, 107, 0.12)',
+    backgroundColor: colors.chipDangerBg,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: theme.radius.full,
@@ -1518,7 +1546,7 @@ const styles = StyleSheet.create({
   statDueActionText: {
     fontFamily: theme.fonts.headingMedium,
     fontSize: 12,
-    color: theme.colors.error,
+    color: colors.error,
   },
 
   // Pulsing Dot
@@ -1533,13 +1561,13 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: theme.colors.warning,
+    backgroundColor: colors.warning,
   },
   pulsingInner: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: theme.colors.warning,
+    backgroundColor: colors.warning,
   },
 
   // 5. Zero Members Empty State
@@ -1549,7 +1577,7 @@ const styles = StyleSheet.create({
   setupCard: {
     padding: theme.spacing.lg,
     borderRadius: theme.radius.xl,
-    borderColor: 'rgba(142, 182, 155, 0.3)',
+    borderColor: colors.border,
   },
   setupHeader: {
     flexDirection: 'row',
@@ -1560,20 +1588,20 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: theme.radius.full,
-    backgroundColor: 'rgba(142, 182, 155, 0.18)',
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: theme.colors.primary,
+    borderColor: colors.primary,
   },
   setupTitle: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 18,
-    color: theme.colors.text,
+    color: colors.text,
   },
   setupSubtitle: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: colors.textMuted,
     marginTop: 2,
   },
   checklist: {
@@ -1583,11 +1611,11 @@ const styles = StyleSheet.create({
   checkStep: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(11, 43, 38, 0.65)',
+    backgroundColor: colors.surface,
     padding: 12,
     borderRadius: theme.radius.md,
     borderWidth: 1,
-    borderColor: theme.colors.glassBorder,
+    borderColor: colors.glassBorder,
     minHeight: 52,
   },
   stepNumCircle: {
@@ -1595,7 +1623,7 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: theme.colors.textMuted,
+    borderColor: colors.textMuted,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -1603,7 +1631,7 @@ const styles = StyleSheet.create({
   stepNumText: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 13,
-    color: theme.colors.text,
+    color: colors.text,
   },
   stepDetails: {
     flex: 1,
@@ -1611,11 +1639,11 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontFamily: theme.fonts.headingMedium,
     fontSize: 14,
-    color: theme.colors.text,
+    color: colors.text,
   },
   stepDesc: {
     ...theme.typography.small,
-    color: theme.colors.textMuted,
+    color: colors.textMuted,
     marginTop: 1,
   },
 
@@ -1631,22 +1659,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   expiringBadgeCount: {
-    backgroundColor: 'rgba(245, 181, 68, 0.2)',
+    backgroundColor: colors.chipWarningBg,
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: theme.radius.full,
     borderWidth: 1,
-    borderColor: theme.colors.warning,
+    borderColor: colors.warning,
   },
   expiringBadgeCountText: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 11,
-    color: theme.colors.warning,
+    color: colors.warning,
   },
   seeAllText: {
     fontFamily: theme.fonts.headingMedium,
     fontSize: 13,
-    color: theme.colors.primary,
+    color: colors.primary,
   },
   expiringMemberCard: {
     marginBottom: 8,
@@ -1664,7 +1692,7 @@ const styles = StyleSheet.create({
   memberNameText: {
     fontFamily: theme.fonts.headingMedium,
     fontSize: 15,
-    color: theme.colors.text,
+    color: colors.text,
     marginBottom: 4,
   },
   daysLeftPill: {
@@ -1672,7 +1700,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(245, 181, 68, 0.15)',
+    backgroundColor: colors.chipWarningBg,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: theme.radius.full,
@@ -1680,7 +1708,7 @@ const styles = StyleSheet.create({
   daysLeftText: {
     fontFamily: theme.fonts.bodyMedium,
     fontSize: 11,
-    color: theme.colors.warning,
+    color: colors.warning,
   },
   actionBtnsRow: {
     flexDirection: 'row',
@@ -1691,9 +1719,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: theme.radius.full,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: colors.raised,
     borderWidth: 1,
-    borderColor: theme.colors.glassBorder,
+    borderColor: colors.glassBorder,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1701,7 +1729,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: theme.radius.full,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1712,7 +1740,7 @@ const styles = StyleSheet.create({
   },
   profileBannerCard: {
     borderWidth: 1,
-    borderColor: theme.colors.primary,
+    borderColor: colors.primary,
   },
   profileBannerContent: {
     flexDirection: 'row',
@@ -1723,12 +1751,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: colors.raised,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: theme.spacing.sm,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
   },
   profileBannerTextBox: {
     flex: 1,
@@ -1737,11 +1765,11 @@ const styles = StyleSheet.create({
   profileBannerTitle: {
     ...theme.typography.bodyMedium,
     fontWeight: '700',
-    color: theme.colors.text,
+    color: colors.text,
   },
   profileBannerSubtitle: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: colors.textMuted,
     marginTop: 2,
   },
   desktopHeroSection: {
@@ -1774,10 +1802,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(11, 43, 38, 0.7)',
+    backgroundColor: colors.surface,
     borderRadius: theme.radius.md,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.14)',
+    borderColor: colors.border,
     paddingVertical: 12,
     paddingHorizontal: 10,
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
@@ -1785,7 +1813,7 @@ const styles = StyleSheet.create({
   desktopActionBtnText: {
     fontFamily: theme.fonts.headingMedium,
     fontSize: 12,
-    color: '#DAF1DE',
+    color: colors.text,
     fontWeight: '600',
   },
   desktopGrid3Col: {
@@ -1815,42 +1843,43 @@ const styles = StyleSheet.create({
   emptySideText: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 13,
-    color: theme.colors.textMuted,
+    color: colors.textMuted,
     textAlign: 'center',
   },
   checkInBadgeCount: {
-    backgroundColor: 'rgba(142, 182, 155, 0.2)',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: theme.radius.full,
     borderWidth: 1,
-    borderColor: theme.colors.primary,
+    borderColor: colors.primary,
   },
   checkInBadgeCountText: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 11,
-    color: theme.colors.primary,
+    color: colors.primary,
   },
   memberCodeText: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 11,
-    color: theme.colors.textMuted,
+    color: colors.textMuted,
   },
   checkInTimePill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(142, 182, 155, 0.15)',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: theme.radius.full,
     borderWidth: 1,
-    borderColor: 'rgba(142, 182, 155, 0.3)',
+    borderColor: colors.border,
   },
   checkInTimeText: {
     fontFamily: theme.fonts.bodyMedium,
     fontSize: 11,
-    color: '#DAF1DE',
+    color: colors.text,
     fontWeight: '600',
   },
 });
+};

@@ -33,7 +33,7 @@ import { completeRegistration, classifyError } from '../../src/api';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import { useRegistrationFormStore } from '../../src/store/useRegistrationFormStore';
 import { getHomeRouteForRole } from '../../src/navigation/tabsByRole';
-import { theme } from '../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../src/theme/ThemeContext';
 import { Screen } from '../../src/components/Screen';
 import { GlassCard } from '../../src/components/GlassCard';
 import { GymholikLogo } from '../../src/components/GymholikLogo';
@@ -73,6 +73,8 @@ function formatVerifiedPhone(phone?: string | null): string {
 }
 
 export default function OwnerRegistrationScreen() {
+  const { colors, fonts, spacing, radius, layout } = useTheme();
+  const styles = useStyles(makeStyles);
   const registrationToken = useAuthStore((s) => s.registrationToken);
   const registrationPhone = useAuthStore((s) => s.registrationPhone);
   const clearRegistrationSession = useAuthStore((s) => s.clearRegistrationSession);
@@ -475,12 +477,12 @@ export default function OwnerRegistrationScreen() {
           accessibilityRole="button"
           accessibilityLabel="Back"
         >
-          <ArrowLeft size={20} color={theme.colors.text} />
+          <ArrowLeft size={20} color={colors.text} />
         </TouchableOpacity>
 
         {/* Read-only Verified Phone Badge at the top */}
         <View style={styles.verifiedPhoneBadge}>
-          <CheckCircle2 size={15} color={theme.colors.primary} />
+          <CheckCircle2 size={15} color={colors.primary} />
           <Text style={styles.verifiedPhoneText}>
             {formatVerifiedPhone(registrationPhone)}
           </Text>
@@ -516,7 +518,7 @@ export default function OwnerRegistrationScreen() {
         {/* Coral Error Banner */}
         {bannerError && (
           <View style={styles.errorBanner} accessibilityRole="alert">
-            <AlertCircle color={theme.colors.error} size={18} />
+            <AlertCircle color={colors.chipDangerText} size={18} />
             <Text style={styles.errorBannerText}>{bannerError}</Text>
           </View>
         )}
@@ -826,7 +828,7 @@ export default function OwnerRegistrationScreen() {
                 ]}
               >
                 {acceptedTerms && (
-                  <Check size={14} color={theme.colors.textOnPrimary} strokeWidth={3} />
+                  <Check size={14} color={colors.textOnPrimary} strokeWidth={3} />
                 )}
               </View>
               <Text style={styles.termsText}>
@@ -878,7 +880,7 @@ export default function OwnerRegistrationScreen() {
             {/* Icon & Heading */}
             <View style={styles.welcomeHeader}>
               <View style={styles.sparkleIconCircle}>
-                <Sparkles size={28} color={theme.colors.primary} />
+                <Sparkles size={28} color={colors.primary} />
               </View>
               <Text style={styles.welcomeTitle}>
                 {REGISTER.WELCOME_SHEET.TITLE}
@@ -904,7 +906,7 @@ export default function OwnerRegistrationScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Copy gym code"
               >
-                <Copy size={16} color={theme.colors.primary} />
+                <Copy size={16} color={colors.primary} />
                 <Text style={styles.copyBtnText}>
                   {REGISTER.WELCOME_SHEET.COPY_BTN}
                 </Text>
@@ -926,7 +928,8 @@ export default function OwnerRegistrationScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: theme.spacing.lg,
@@ -942,7 +945,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: theme.radius.full,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1,
     borderColor: theme.colors.border,
     alignItems: 'center',
@@ -952,9 +955,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(142, 182, 155, 0.14)',
+    backgroundColor: theme.colors.primarySoft,
     borderWidth: 1,
-    borderColor: 'rgba(142, 182, 155, 0.35)',
+    borderColor: theme.colors.border,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: theme.radius.full,
@@ -981,7 +984,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     ...theme.typography.body,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -998,7 +1001,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 13,
     lineHeight: 18,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginVertical: theme.spacing.sm,
   },
   actionRow: {
@@ -1024,7 +1027,7 @@ const styles = StyleSheet.create({
   skipBtnText: {
     fontFamily: theme.fonts.headingMedium,
     fontSize: 14,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     textDecorationLine: 'underline',
   },
   termsRow: {
@@ -1049,11 +1052,11 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.primary,
   },
   checkboxError: {
-    borderColor: theme.colors.error,
+    borderColor: theme.colors.danger,
   },
   termsText: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     flex: 1,
   },
   termsLinkText: {
@@ -1063,7 +1066,7 @@ const styles = StyleSheet.create({
   },
   termsErrorText: {
     ...theme.typography.small,
-    color: theme.colors.error,
+    color: theme.colors.danger,
     marginTop: 2,
     marginLeft: 4,
   },
@@ -1071,15 +1074,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(255, 107, 107, 0.15)',
+    backgroundColor: theme.colors.chipDangerBg,
     borderRadius: theme.radius.md,
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.40)',
+    borderColor: theme.colors.danger,
     padding: 12,
     marginBottom: theme.spacing.md,
   },
   errorBannerText: {
-    color: theme.colors.error,
+    color: theme.colors.chipDangerText,
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 13,
     lineHeight: 18,
@@ -1094,13 +1097,13 @@ const styles = StyleSheet.create({
   },
   trainerStaffNote: {
     ...theme.typography.small,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     lineHeight: 18,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(5, 31, 32, 0.85)',
+    backgroundColor: theme.colors.scrim,
     justifyContent: 'flex-end',
     alignItems: 'center',
   },
@@ -1130,7 +1133,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(218, 241, 222, 0.28)',
+    backgroundColor: theme.colors.surfaceRaised,
   },
   welcomeHeader: {
     alignItems: 'center',
@@ -1141,7 +1144,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: 'rgba(142, 182, 155, 0.16)',
+    backgroundColor: theme.colors.primarySoft,
     borderWidth: 1,
     borderColor: theme.colors.primary,
     alignItems: 'center',
@@ -1155,15 +1158,15 @@ const styles = StyleSheet.create({
   },
   welcomeSubtitle: {
     ...theme.typography.body,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
     paddingHorizontal: theme.spacing.md,
   },
   codeCard: {
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1,
-    borderColor: theme.colors.borderLight,
+    borderColor: theme.colors.border,
     borderRadius: theme.radius.lg,
     paddingVertical: theme.spacing.lg,
     alignItems: 'center',
@@ -1173,7 +1176,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.headingMedium,
     fontSize: 11,
     letterSpacing: 1.2,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: 6,
   },
   codeValue: {
@@ -1183,12 +1186,13 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     letterSpacing: 2.5,
     marginBottom: theme.spacing.md,
+    fontVariant: ['tabular-nums'],
   },
   copyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(142, 182, 155, 0.12)',
+    backgroundColor: theme.colors.primarySoft,
     borderWidth: 1,
     borderColor: theme.colors.primary,
     paddingHorizontal: 16,

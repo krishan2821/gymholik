@@ -2,7 +2,7 @@ import { apiClient, BASE_URL } from './axiosConfig';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
 import { Platform } from 'react-native';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { safeShareAsync, safeIsAvailableAsync } from '../utils/safeSharing';
 import { getAccessToken } from '../utils/tokenUtils';
 

@@ -7,11 +7,11 @@ import { View, ActivityIndicator, TextInput, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   useFonts,
-  SpaceGrotesk_400Regular,
-  SpaceGrotesk_500Medium,
-  SpaceGrotesk_600SemiBold,
-  SpaceGrotesk_700Bold,
-} from '@expo-google-fonts/space-grotesk';
+  Manrope_500Medium,
+  Manrope_600SemiBold,
+  Manrope_700Bold,
+  Manrope_800ExtraBold,
+} from '@expo-google-fonts/manrope';
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -19,43 +19,60 @@ import {
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
 import { useAuthStore } from '../src/store/useAuthStore';
-import { theme } from '../src/theme/theme';
+import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
+import {
+  useAppearanceSync,
+  useAppearanceStore,
+  loadAppearanceSetting,
+} from '../src/theme/useAppearance';
 import { toastConfig } from '../src/components/Toast';
 import { GlobalConfirmDialog } from '../src/components/ConfirmDialog';
 import { queryClient } from '../src/api/queryClient';
 import { getHomeRouteForRole } from '../src/navigation/tabsByRole';
 import { injectGlobalWebStyles } from '../src/utils/webStyles';
 
-// Set global text cursor and selection colour to #8EB69B across all inputs
-if ((TextInput as any).defaultProps == null) {
-  (TextInput as any).defaultProps = {};
-}
-(TextInput as any).defaultProps.cursorColor = '#8EB69B';
-(TextInput as any).defaultProps.selectionColor = '#8EB69B';
-
-export default function RootLayout() {
+// ── Inner layout: has access to ThemeProvider ─────────────────────────────
+function InnerLayout() {
   const { isAuthenticated, isLoading, checkAuth } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
+  const { colors } = useTheme();
+  const resolvedMode = useAppearanceStore((s) => s.resolvedMode);
+
+  // Sync OS appearance changes → store
+  useAppearanceSync();
 
   const [fontsLoaded] = useFonts({
-    SpaceGrotesk_400Regular,
-    SpaceGrotesk_500Medium,
-    SpaceGrotesk_600SemiBold,
-    SpaceGrotesk_700Bold,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+    Manrope_800ExtraBold,
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
   });
 
+  // Set global text cursor/selection colour from primary token
+  useEffect(() => {
+    if ((TextInput as any).defaultProps == null) {
+      (TextInput as any).defaultProps = {};
+    }
+    (TextInput as any).defaultProps.cursorColor = colors.primary;
+    (TextInput as any).defaultProps.selectionColor = colors.primary;
+  }, [colors.primary]);
+
   useEffect(() => {
     injectGlobalWebStyles();
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       document.title = 'Gymholik: Gym management';
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) {
+        meta.setAttribute('content', colors.bg);
+      }
     }
     checkAuth();
-  }, []);
+  }, [colors.bg]);
 
   useEffect(() => {
     if (isLoading || !fontsLoaded) return;
@@ -72,20 +89,21 @@ export default function RootLayout() {
   }, [isAuthenticated, isLoading, fontsLoaded, segments]);
 
   const showSplash = isLoading || !fontsLoaded;
+  const statusStyle = resolvedMode === 'dark' ? 'light' : 'dark';
 
   return (
-    <SafeAreaProvider style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <StatusBar style="light" />
+    <SafeAreaProvider style={{ flex: 1, backgroundColor: colors.bg }}>
+      <StatusBar style={statusStyle} />
       {showSplash ? (
         <View
           style={{
             flex: 1,
             justifyContent: 'center',
             alignItems: 'center',
-            backgroundColor: theme.colors.background,
+            backgroundColor: colors.bg,
           }}
         >
-          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <QueryClientProvider client={queryClient}>
@@ -95,5 +113,18 @@ export default function RootLayout() {
         </QueryClientProvider>
       )}
     </SafeAreaProvider>
+  );
+}
+
+export default function RootLayout() {
+  // Load persisted appearance setting before rendering
+  useEffect(() => {
+    loadAppearanceSetting();
+  }, []);
+
+  return (
+    <ThemeProvider>
+      <InnerLayout />
+    </ThemeProvider>
   );
 }

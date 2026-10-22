@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera } from 'lucide-react-native';
-import { theme } from '../theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../theme/ThemeContext';
 
 export interface PhotoPickerProps {
   photoUri: string | null;
@@ -15,6 +15,9 @@ export const PhotoPicker: React.FC<PhotoPickerProps> = ({
   onChange,
   label = 'Add photo',
 }) => {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
+
   const pickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -46,7 +49,7 @@ export const PhotoPicker: React.FC<PhotoPickerProps> = ({
         ) : (
           <View style={styles.placeholder}>
             <View style={styles.iconCircle}>
-              <Camera color={theme.colors.primary} size={28} />
+              <Camera color={colors.primary} size={28} />
             </View>
             <Text style={styles.text}>{label}</Text>
           </View>
@@ -56,45 +59,46 @@ export const PhotoPicker: React.FC<PhotoPickerProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    marginVertical: theme.spacing.md,
-  },
-  imageContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: theme.colors.raised,
-    borderWidth: 2,
-    borderColor: theme.colors.border,
-    borderStyle: 'dashed',
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-  placeholder: {
-    alignItems: 'center',
-  },
-  iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: theme.colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 4,
-    borderWidth: 1,
-    borderColor: theme.colors.borderLight,
-  },
-  text: {
-    ...theme.typography.small,
-    color: theme.colors.textMuted,
-  },
-});
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
+    container: {
+      alignItems: 'center',
+      marginVertical: theme.spacing.md,
+    },
+    imageContainer: {
+      width: 120,
+      height: 120,
+      borderRadius: 60,
+      backgroundColor: theme.colors.surfaceRaised,
+      borderWidth: 2,
+      borderColor: theme.colors.border,
+      borderStyle: 'dashed',
+      overflow: 'hidden',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    image: {
+      width: '100%',
+      height: '100%',
+    },
+    placeholder: {
+      alignItems: 'center',
+    },
+    iconCircle: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: theme.colors.surface,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 4,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    text: {
+      ...theme.typography.small,
+      color: theme.colors.textSecondary,
+    },
+  });
 
 export default PhotoPicker;

@@ -24,8 +24,9 @@ import {
   ArrowRight,
   ArrowLeft,
 } from 'lucide-react-native';
-import { theme } from '../theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../theme/ThemeContext';
 import { Button } from './Button';
+import { Badge } from './Badge';
 import { PhotoPicker } from './PhotoPicker';
 import { PlanPicker } from './PlanPicker';
 import { useAddMember, uploadMemberPhoto } from '../api/members';
@@ -63,6 +64,8 @@ export const AddMemberModal: React.FC<AddMemberModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const { data: plans } = usePlans();
   const addMemberMutation = useAddMember();
 
@@ -226,7 +229,7 @@ export const AddMemberModal: React.FC<AddMemberModalProps> = ({
               accessibilityLabel="Close modal"
               {...({ tabIndex: 0 } as any)}
             >
-              <X size={20} color={theme.colors.textMuted} />
+              <X size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -249,8 +252,8 @@ export const AddMemberModal: React.FC<AddMemberModalProps> = ({
                     size={15}
                     color={
                       isCurrent || isCompleted
-                        ? '#DAF1DE'
-                        : 'rgba(218, 241, 222, 0.4)'
+                        ? colors.text
+                        : colors.border
                     }
                   />
                   <Text
@@ -289,7 +292,7 @@ export const AddMemberModal: React.FC<AddMemberModalProps> = ({
                         <TextInput
                           style={[styles.input, errors.name && styles.inputError]}
                           placeholder="e.g. Vikram Sharma"
-                          placeholderTextColor={theme.colors.textMuted}
+                          placeholderTextColor={colors.textSecondary}
                           value={value ?? ''}
                           onChangeText={onChange}
                           onBlur={onBlur}
@@ -313,7 +316,7 @@ export const AddMemberModal: React.FC<AddMemberModalProps> = ({
                       <TextInput
                         style={[styles.input, errors.phone && styles.inputError]}
                         placeholder="10-digit mobile number"
-                        placeholderTextColor={theme.colors.textMuted}
+                        placeholderTextColor={colors.textSecondary}
                         keyboardType="phone-pad"
                         maxLength={10}
                         value={value ?? ''}
@@ -389,7 +392,7 @@ export const AddMemberModal: React.FC<AddMemberModalProps> = ({
                       <TextInput
                         style={styles.input}
                         placeholder="YYYY-MM-DD"
-                        placeholderTextColor={theme.colors.textMuted}
+                        placeholderTextColor={colors.textSecondary}
                         value={value ?? ''}
                         onChangeText={onChange}
                         onBlur={onBlur}
@@ -412,15 +415,20 @@ export const AddMemberModal: React.FC<AddMemberModalProps> = ({
                   <Text style={styles.summaryValue}>{formatMoney(totalAmount)}</Text>
                   <View style={styles.divider} />
                   <View style={styles.summaryRow}>
-                    <Text style={styles.summaryRowLabel}>Due Amount:</Text>
-                    <Text
-                      style={[
-                        styles.summaryRowValue,
-                        dueAmount > 0 && { color: theme.colors.error },
-                      ]}
-                    >
-                      {formatMoney(dueAmount)}
-                    </Text>
+                    <Text style={styles.summaryRowLabel}>Balance:</Text>
+                    {dueAmount > 0 ? (
+                      <Badge
+                        label={`Due ${formatMoney(dueAmount)}`}
+                        variant="due"
+                        size="sm"
+                      />
+                    ) : (
+                      <Badge
+                        label="Paid in Full"
+                        variant="paid"
+                        size="sm"
+                      />
+                    )}
                   </View>
                 </View>
 
@@ -433,7 +441,7 @@ export const AddMemberModal: React.FC<AddMemberModalProps> = ({
                       <TextInput
                         style={[styles.input, errors.paidAmount && styles.inputError]}
                         placeholder={`Up to ${totalAmount / 100}`}
-                        placeholderTextColor={theme.colors.textMuted}
+                        placeholderTextColor={colors.textSecondary}
                         keyboardType="numeric"
                         value={value ?? ''}
                         onChangeText={onChange}
@@ -535,10 +543,11 @@ export const AddMemberModal: React.FC<AddMemberModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(5, 31, 32, 0.85)',
+    backgroundColor: theme.colors.scrim,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
@@ -547,14 +556,14 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 560,
     maxHeight: '90%',
-    backgroundColor: '#072728',
+    backgroundColor: theme.colors.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.16)',
+    borderColor: theme.colors.border,
     overflow: 'hidden',
     ...(Platform.OS === 'web'
       ? ({
-          boxShadow: '0 16px 40px rgba(0, 0, 0, 0.7)',
+          boxShadow: `0 16px 40px ${theme.colors.scrim}`,
         } as any)
       : {}),
   },
@@ -566,24 +575,24 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(218, 241, 222, 0.08)',
+    borderBottomColor: theme.colors.border,
   },
   modalTitle: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 18,
-    color: '#DAF1DE',
+    color: theme.colors.text,
   },
   modalSubtitle: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 12,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginTop: 2,
   },
   closeBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(218, 241, 222, 0.06)',
+    backgroundColor: theme.colors.surfaceRaised,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -591,7 +600,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: 'rgba(5, 31, 32, 0.5)',
+    backgroundColor: theme.colors.scrim,
     gap: 8,
   },
   stepTab: {
@@ -602,23 +611,23 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: 'rgba(218, 241, 222, 0.04)',
+    backgroundColor: theme.colors.surfaceRaised,
   },
   stepTabActive: {
-    backgroundColor: 'rgba(142, 182, 155, 0.2)',
+    backgroundColor: theme.colors.primarySoft,
     borderWidth: 1,
-    borderColor: 'rgba(142, 182, 155, 0.4)',
+    borderColor: theme.colors.border,
   },
   stepTabCompleted: {
-    backgroundColor: 'rgba(142, 182, 155, 0.1)',
+    backgroundColor: theme.colors.primarySoft,
   },
   stepTabText: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 12,
-    color: 'rgba(218, 241, 222, 0.5)',
+    color: theme.colors.textSecondary,
   },
   stepTabTextActive: {
-    color: '#DAF1DE',
+    color: theme.colors.text,
     fontWeight: '600',
   },
   formScroll: {
@@ -640,14 +649,14 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: theme.fonts.headingMedium,
     fontSize: 13,
-    color: '#DAF1DE',
+    color: theme.colors.text,
   },
   input: {
-    backgroundColor: 'rgba(11, 43, 38, 0.8)',
+    backgroundColor: theme.colors.surface,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.14)',
-    color: '#DAF1DE',
+    borderColor: theme.colors.border,
+    color: theme.colors.text,
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 14,
     paddingHorizontal: 14,
@@ -655,12 +664,12 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   inputError: {
-    borderColor: theme.colors.error,
+    borderColor: theme.colors.danger,
   },
   errorText: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 11,
-    color: theme.colors.error,
+    color: theme.colors.danger,
     marginTop: 2,
   },
   helperText: {
@@ -678,45 +687,45 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.14)',
-    backgroundColor: 'rgba(11, 43, 38, 0.6)',
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   genderBtnActive: {
-    backgroundColor: 'rgba(142, 182, 155, 0.22)',
+    backgroundColor: theme.colors.primarySoft,
     borderColor: theme.colors.primary,
   },
   genderBtnText: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 13,
-    color: 'rgba(218, 241, 222, 0.65)',
+    color: theme.colors.textSecondary,
   },
   genderBtnTextActive: {
-    color: '#DAF1DE',
+    color: theme.colors.text,
     fontWeight: '700',
   },
   paymentSummaryCard: {
-    backgroundColor: 'rgba(11, 43, 38, 0.9)',
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.12)',
+    borderColor: theme.colors.border,
   },
   summaryLabel: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 12,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
   summaryValue: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 24,
-    color: '#DAF1DE',
+    color: theme.colors.text,
     marginTop: 2,
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(218, 241, 222, 0.08)',
+    backgroundColor: theme.colors.surfaceRaised,
     marginVertical: 10,
   },
   summaryRow: {
@@ -727,12 +736,12 @@ const styles = StyleSheet.create({
   summaryRowLabel: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 13,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
   summaryRowValue: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 15,
-    color: '#DAF1DE',
+    color: theme.colors.text,
   },
   modalFooter: {
     flexDirection: 'row',
@@ -740,7 +749,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(218, 241, 222, 0.08)',
-    backgroundColor: '#072728',
+    borderTopColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
   },
 });

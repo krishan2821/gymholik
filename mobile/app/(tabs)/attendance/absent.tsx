@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { safeOpenURL } from '../../../src/utils/safeLinking';
 import { Phone, MessageCircle } from 'lucide-react-native';
-import { theme } from '../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import { useAbsentMembers, AbsentRecord } from '../../../src/api/attendance';
-import { Screen } from '../../../src/components/Screen';
+import { Screen, getScreenBottomPadding } from '../../../src/components/Screen';
+import { PageHeader } from '../../../src/components/PageHeader';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Avatar } from '../../../src/components/Avatar';
 import { Chip } from '../../../src/components/Chip';
@@ -14,6 +16,10 @@ import { isPhoneMasked } from '../../../src/components/MaskedPhone';
 import { ABSENT } from '../../../src/constants/strings';
 
 export default function AbsentMembersScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
+  const rawInsets = useSafeAreaInsets();
+  const insets = Platform.OS === 'web' ? { top: 0, right: 0, bottom: 0, left: 0 } : (rawInsets ?? { top: 0, right: 0, bottom: 0, left: 0 });
   const [daysFilter, setDaysFilter] = useState<number>(7);
 
   const { data: absentMembers, isLoading, isError, refetch } = useAbsentMembers(daysFilter);
@@ -54,7 +60,7 @@ export default function AbsentMembersScreen() {
               accessibilityRole="button"
               accessibilityLabel={`Call ${item.memberName}`}
             >
-              <Phone color={theme.colors.primary} size={18} />
+              <Phone color={colors.primary} size={18} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionBtn, { marginLeft: 8 }]}
@@ -62,7 +68,7 @@ export default function AbsentMembersScreen() {
               accessibilityRole="button"
               accessibilityLabel={`WhatsApp ${item.memberName}`}
             >
-              <MessageCircle color={theme.colors.primary} size={20} />
+              <MessageCircle color={colors.primary} size={20} />
             </TouchableOpacity>
           </View>
         )}
@@ -71,7 +77,8 @@ export default function AbsentMembersScreen() {
   };
 
   return (
-    <Screen>
+    <Screen safeTop={true} safeBottom={false}>
+      <PageHeader title={ABSENT.SCREEN_TITLE} showBack />
       {/* ── Segment Filter Chips ───────────────────────────────────── */}
       <View style={styles.segments}>
         {[3, 7, 15, 30].map((d) => (
@@ -87,7 +94,7 @@ export default function AbsentMembersScreen() {
 
       {isLoading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : isError ? (
         <ErrorState message={ABSENT.LOAD_ERROR} onRetry={() => refetch()} />
@@ -96,7 +103,10 @@ export default function AbsentMembersScreen() {
           data={absentMembers}
           keyExtractor={(item) => item.memberId}
           renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: getScreenBottomPadding(insets.bottom) },
+          ]}
           ListEmptyComponent={<EmptyState message={ABSENT.EMPTY} />}
         />
       )}
@@ -104,7 +114,8 @@ export default function AbsentMembersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
   center: {
     flex: 1,
     justifyContent: 'center',
@@ -113,8 +124,8 @@ const styles = StyleSheet.create({
   segments: {
     flexDirection: 'row',
     padding: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-    borderBottomWidth: 1,
+    backgroundColor: theme.colors.bg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: theme.colors.border,
   },
   listContent: {
@@ -140,7 +151,7 @@ const styles = StyleSheet.create({
   },
   lastVisit: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginTop: 2,
   },
   actions: {
@@ -151,7 +162,7 @@ const styles = StyleSheet.create({
     width: 44, // 44px tap target
     height: 44,
     borderRadius: 22,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1,
     borderColor: theme.colors.border,
     alignItems: 'center',

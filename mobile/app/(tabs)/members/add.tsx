@@ -28,11 +28,12 @@ import {
   ShieldCheck,
 } from 'lucide-react-native';
 
-import { theme } from '../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import { Screen } from '../../../src/components/Screen';
 import { PageHeader } from '../../../src/components/PageHeader';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Button } from '../../../src/components/Button';
+import { Badge } from '../../../src/components/Badge';
 import { PhotoPicker } from '../../../src/components/PhotoPicker';
 import { PlanPicker } from '../../../src/components/PlanPicker';
 import { useAddMember, uploadMemberPhoto } from '../../../src/api/members';
@@ -65,6 +66,8 @@ const STEPS = [
 ];
 
 export default function AddMemberScreen() {
+  const { colors, fonts } = useTheme();
+  const styles = useStyles(makeStyles);
   const router = useRouter();
   const { data: plans } = usePlans();
   const addMemberMutation = useAddMember();
@@ -281,7 +284,7 @@ export default function AddMemberScreen() {
               },
             ]}
           >
-            <CheckCircle color={theme.colors.primary} size={64} strokeWidth={2.4} />
+            <CheckCircle color={colors.primary} size={64} strokeWidth={2.4} />
           </Animated.View>
 
           <Text style={styles.successTitle}>Member Added Successfully</Text>
@@ -293,23 +296,24 @@ export default function AddMemberScreen() {
           </Text>
 
           <View style={styles.successBalanceBadge}>
-            <Text
-              style={[
-                styles.successBalanceText,
-                successResult.remainingDuePaise === 0 && { color: theme.colors.primary },
-              ]}
-            >
-              {successResult.remainingDuePaise === 0
-                ? 'All fees paid in full'
-                : `Balance due: ${formatMoney(successResult.remainingDuePaise)}`}
-            </Text>
+            <View style={{ marginTop: 8 }}>
+              {successResult.remainingDuePaise === 0 ? (
+                <Badge label="All fees paid in full" variant="paid" size="md" />
+              ) : (
+                <Badge
+                  label={`Balance due: ${formatMoney(successResult.remainingDuePaise)}`}
+                  variant="due"
+                  size="md"
+                />
+              )}
+            </View>
           </View>
 
           <View style={styles.successActionsColumn}>
             {canSendWhatsApp && (
               <Button
                 title="Send on WhatsApp"
-                icon={<Send size={18} color={theme.colors.text} />}
+                icon={<Send size={18} color={colors.text} />}
                 onPress={handleSendWhatsApp}
                 variant="secondary"
                 size="md"
@@ -342,7 +346,7 @@ export default function AddMemberScreen() {
   }
 
   return (
-    <Screen safeTop={false} scrollable keyboardAvoiding contentContainerStyle={[styles.scroll, isDesktop && styles.desktopScroll]}>
+    <Screen safeTop={true} scrollable keyboardAvoiding contentContainerStyle={[styles.scroll, isDesktop && styles.desktopScroll]}>
       <View style={[isDesktop && styles.desktopFormWrapper]}>
         <PageHeader
           title="Add Member"
@@ -391,11 +395,11 @@ export default function AddMemberScreen() {
                   ]}
                 >
                   {isDone ? (
-                    <Check size={14} color={theme.colors.textOnPrimary} strokeWidth={2.6} />
+                    <Check size={14} color={colors.textOnPrimary} strokeWidth={2.6} />
                   ) : (
                     <Icon
                       size={14}
-                      color={isCurrent ? theme.colors.textOnPrimary : theme.colors.textMuted}
+                      color={isCurrent ? colors.textOnPrimary : colors.textSecondary}
                     />
                   )}
                 </View>
@@ -430,7 +434,7 @@ export default function AddMemberScreen() {
                 <TextInput
                   style={[styles.input, errors.name && styles.inputError]}
                   placeholder={FIELDS.NAME}
-                  placeholderTextColor={theme.colors.textMuted}
+                  placeholderTextColor={colors.textSecondary}
                   value={value}
                   onChangeText={onChange}
                   autoCapitalize="words"
@@ -450,7 +454,7 @@ export default function AddMemberScreen() {
                   <TextInput
                     style={styles.phoneField}
                     placeholder={FIELDS.PHONE_PLACEHOLDER}
-                    placeholderTextColor={theme.colors.textMuted}
+                    placeholderTextColor={colors.textSecondary}
                     value={value}
                     onChangeText={(val) => onChange(val.replace(/\D/g, ''))}
                     keyboardType="phone-pad"
@@ -491,7 +495,7 @@ export default function AddMemberScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder={FIELDS.ADDRESS_PLACEHOLDER}
-                  placeholderTextColor={theme.colors.textMuted}
+                  placeholderTextColor={colors.textSecondary}
                   value={value}
                   onChangeText={onChange}
                 />
@@ -504,7 +508,7 @@ export default function AddMemberScreen() {
             onPress={handleNextFromStep1}
             variant="primary"
             size="lg"
-            icon={<ArrowRight size={18} color={theme.colors.textOnPrimary} />}
+            icon={<ArrowRight size={18} color={colors.textOnPrimary} />}
             style={styles.stepBtn}
           />
         </View>
@@ -562,7 +566,7 @@ export default function AddMemberScreen() {
               onPress={handleNextFromStep2}
               variant="primary"
               size="lg"
-              icon={<ArrowRight size={18} color={theme.colors.textOnPrimary} />}
+              icon={<ArrowRight size={18} color={colors.textOnPrimary} />}
               style={{ flex: 1.5 }}
             />
           </View>
@@ -575,7 +579,7 @@ export default function AddMemberScreen() {
           {/* Member & Plan Recap */}
           <GlassCard style={styles.card} contentStyle={styles.cardContent}>
             <View style={styles.recapHeader}>
-              <ShieldCheck size={20} color={theme.colors.primary} />
+              <ShieldCheck size={20} color={colors.primary} />
               <Text style={styles.recapTitle}>Summary & Confirmation</Text>
             </View>
 
@@ -594,7 +598,7 @@ export default function AddMemberScreen() {
               </View>
               <View style={styles.recapRow}>
                 <Text style={styles.recapLabel}>Total Fee</Text>
-                <Text style={[styles.recapValue, { color: theme.colors.primary, fontFamily: theme.fonts.headingBold }]}>
+                <Text style={[styles.recapValue, { color: colors.primary, fontFamily: fonts.headingBold }]}>
                   {formatMoney(totalAmount)}
                 </Text>
               </View>
@@ -612,7 +616,7 @@ export default function AddMemberScreen() {
                 <TextInput
                   style={[styles.input, errors.paidAmount && styles.inputError]}
                   placeholder={`Full amount: ${formatMoney(totalAmount)}`}
-                  placeholderTextColor={theme.colors.textMuted}
+                  placeholderTextColor={colors.textSecondary}
                   value={value}
                   onChangeText={onChange}
                   keyboardType="number-pad"
@@ -624,10 +628,12 @@ export default function AddMemberScreen() {
             )}
 
             {dueAmount > 0 && selectedPlan && (
-              <View style={styles.dueAlertBox}>
-                <Text style={styles.dueAlertText}>
-                  Pending Due: {formatMoney(dueAmount)}
-                </Text>
+              <View style={{ marginTop: 8, alignSelf: 'flex-start' }}>
+                <Badge
+                  label={`Pending Due: ${formatMoney(dueAmount)}`}
+                  variant="due"
+                  size="md"
+                />
               </View>
             )}
 
@@ -680,7 +686,7 @@ export default function AddMemberScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: ThemeValue) => StyleSheet.create({
   scroll: {
     padding: theme.spacing.md,
     paddingBottom: 60,
@@ -692,10 +698,10 @@ const styles = StyleSheet.create({
   desktopFormWrapper: {
     maxWidth: 560,
     width: '100%',
-    backgroundColor: '#072728',
+    backgroundColor: theme.colors.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.16)',
+    borderColor: theme.colors.border,
     padding: 24,
     ...(Platform.OS === 'web'
       ? ({
@@ -711,7 +717,7 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height: 4,
-    backgroundColor: 'rgba(218, 241, 222, 0.12)',
+    backgroundColor: theme.colors.surfaceRaised,
     borderRadius: 2,
     overflow: 'hidden',
     marginBottom: 12,
@@ -734,7 +740,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1,
     borderColor: theme.colors.border,
     alignItems: 'center',
@@ -751,14 +757,14 @@ const styles = StyleSheet.create({
   stepLabel: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 12,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
   stepLabelCurrent: {
     color: theme.colors.text,
     fontFamily: theme.fonts.headingBold,
   },
   stepLabelDone: {
-    color: theme.colors.primary,
+    color: theme.colors.textSecondary,
   },
 
   card: {
@@ -775,13 +781,13 @@ const styles = StyleSheet.create({
   },
   label: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: 6,
     marginLeft: 2,
     fontWeight: '600',
   },
   input: {
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.lg,
@@ -794,7 +800,7 @@ const styles = StyleSheet.create({
   phoneInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.lg,
@@ -823,11 +829,11 @@ const styles = StyleSheet.create({
     paddingRight: 14,
   },
   inputError: {
-    borderColor: theme.colors.error,
+    borderColor: theme.colors.danger,
   },
   errorText: {
     ...theme.typography.small,
-    color: theme.colors.error,
+    color: theme.colors.danger,
     marginTop: 4,
     marginLeft: 4,
   },
@@ -838,7 +844,7 @@ const styles = StyleSheet.create({
   chip: {
     flex: 1,
     minHeight: 44,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderRadius: theme.radius.full,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -860,7 +866,7 @@ const styles = StyleSheet.create({
   },
 
   planSummary: {
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     padding: theme.spacing.md,
     borderRadius: theme.radius.lg,
     marginTop: theme.spacing.md,
@@ -876,7 +882,7 @@ const styles = StyleSheet.create({
   planSummaryLabel: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 13,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
   planSummaryValue: {
     fontFamily: theme.fonts.headingSemiBold,
@@ -911,7 +917,7 @@ const styles = StyleSheet.create({
   recapLabel: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 13,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
   recapValue: {
     fontFamily: theme.fonts.headingMedium,
@@ -920,9 +926,9 @@ const styles = StyleSheet.create({
   },
 
   dueAlertBox: {
-    backgroundColor: 'rgba(255, 107, 107, 0.15)',
+    backgroundColor: theme.colors.chipDangerBg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.35)',
+    borderColor: theme.colors.danger,
     borderRadius: theme.radius.md,
     padding: 10,
     marginTop: 8,
@@ -930,7 +936,7 @@ const styles = StyleSheet.create({
   dueAlertText: {
     fontFamily: theme.fonts.headingSemiBold,
     fontSize: 13,
-    color: theme.colors.error,
+    color: theme.colors.danger,
     textAlign: 'center',
   },
 
@@ -949,9 +955,9 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   successCard: {
-    backgroundColor: '#072728',
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.18)',
+    borderColor: theme.colors.border,
     borderRadius: theme.radius.lg,
     padding: 24,
     alignItems: 'center',
@@ -962,7 +968,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(142, 182, 155, 0.12)',
+    backgroundColor: theme.colors.primarySoft,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -983,21 +989,21 @@ const styles = StyleSheet.create({
   successSub: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 13,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: 12,
     textAlign: 'center',
   },
   successBalanceBadge: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: 'rgba(218, 241, 222, 0.08)',
+    backgroundColor: theme.colors.surfaceRaised,
     borderRadius: theme.radius.full,
     marginBottom: 24,
   },
   successBalanceText: {
     fontFamily: theme.fonts.bodySemiBold,
     fontSize: 13,
-    color: theme.colors.coral,
+    color: theme.colors.accent,
   },
   successActionsColumn: {
     width: '100%',

@@ -2,8 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { safeOpenURL } from '../utils/safeLinking';
 import { differenceInDays, parseISO } from 'date-fns';
-import { MessageCircle } from 'lucide-react-native';
-import { theme } from '../theme/theme';
+import { MessageCircle, AlertCircle } from 'lucide-react-native';
 import { Member } from '../api/members';
 import { useAuthStore } from '../store/useAuthStore';
 import { GlassCard } from './GlassCard';
@@ -11,6 +10,7 @@ import { Avatar, AvatarStatus } from './Avatar';
 import { Badge, BadgeVariant } from './Badge';
 import { MaskedPhone, isPhoneMasked } from './MaskedPhone';
 import { formatMoney, formatDate } from '../utils/formatters';
+import { useTheme } from '../theme/ThemeContext';
 
 interface MemberCardProps {
   member: Member;
@@ -18,6 +18,7 @@ interface MemberCardProps {
 }
 
 export const MemberCard = React.memo(({ member, onPress }: MemberCardProps) => {
+  const { colors, fonts, spacing, radius } = useTheme();
   const { name, phone, photoUrl, currentMembership } = member;
   const role = useAuthStore((state) => state.role);
   const isTrainer = role === 'TRAINER';
@@ -76,9 +77,10 @@ export const MemberCard = React.memo(({ member, onPress }: MemberCardProps) => {
   };
 
   const status = getMembershipStatus();
+  const duePaise = member.dueTotalPaise ?? currentMembership?.duePaise ?? 0;
 
   return (
-    <GlassCard style={styles.card} contentStyle={styles.cardRow}>
+    <GlassCard style={[styles.card, { marginBottom: spacing.md }]} contentStyle={[styles.cardRow, { padding: spacing.md }]}>
       <TouchableOpacity
         style={styles.cardMain}
         onPress={onPress}
@@ -86,7 +88,7 @@ export const MemberCard = React.memo(({ member, onPress }: MemberCardProps) => {
         accessibilityRole="button"
         accessibilityLabel={`View details for ${name}`}
       >
-        <View style={styles.avatarWrapper}>
+        <View style={[styles.avatarWrapper, { marginRight: spacing.md }]}>
           <Avatar
             photoUrl={photoUrl}
             name={name}
@@ -97,54 +99,81 @@ export const MemberCard = React.memo(({ member, onPress }: MemberCardProps) => {
 
         <View style={styles.infoContainer}>
           <View style={styles.headerRow}>
-            <Text style={styles.name} numberOfLines={1}>
+            <Text style={[styles.name, { fontFamily: fonts.headingBold, color: colors.text }]} numberOfLines={1}>
               {name}
             </Text>
             <Badge label={status.text} variant={status.badgeVariant} size="sm" />
           </View>
 
-          <MaskedPhone phone={phone} textStyle={styles.phone} style={styles.phoneContainer} />
+          <MaskedPhone
+            phone={phone}
+            textStyle={{ fontFamily: fonts.bodyRegular, fontSize: 13, color: colors.textSecondary }}
+            style={{ marginBottom: 4 }}
+          />
 
           {currentMembership ? (
             <>
-              <Text style={styles.detailText} numberOfLines={1}>
+              <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 13, color: colors.textSecondary }} numberOfLines={1}>
                 {currentMembership.planName}
               </Text>
-              <Text style={styles.expiryText}>
+              <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 12, color: colors.textSecondary }}>
                 {hasUpcomingRenewal
                   ? `Renewed till ${formatDate(member.currentExpiry)}`
                   : `Expires: ${formatDate(currentMembership.expiryDate)}`}
               </Text>
-              {!isTrainer && (member.dueTotalPaise ?? currentMembership.duePaise ?? 0) > 0 && (
-                <View style={styles.dueBadge}>
-                  <Text style={styles.dueText}>
-                    Due {formatMoney(member.dueTotalPaise ?? currentMembership.duePaise)}
+              {!isTrainer && duePaise > 0 && (
+                <View
+                  style={[
+                    styles.dueBadge,
+                    {
+                      backgroundColor: colors.chipDangerBg,
+                      borderColor: colors.border,
+                      borderRadius: radius.chip,
+                    },
+                  ]}
+                >
+                  <AlertCircle size={12} color={colors.chipDangerText} style={{ marginRight: 4 }} />
+                  <Text
+                    style={{
+                      fontFamily: fonts.headingBold,
+                      fontSize: 11,
+                      color: colors.chipDangerText,
+                      fontVariant: ['tabular-nums'],
+                    }}
+                  >
+                    Due {formatMoney(duePaise)}
                   </Text>
                 </View>
               )}
             </>
           ) : hasUpcomingRenewal ? (
             <>
-              <Text style={styles.detailText}>Upcoming Membership</Text>
-              <Text style={styles.expiryText}>
+              <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 13, color: colors.textSecondary }}>Upcoming Membership</Text>
+              <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 12, color: colors.textSecondary }}>
                 Renewed till {formatDate(member.currentExpiry)}
               </Text>
             </>
           ) : (
-            <Text style={styles.detailText}>No active membership</Text>
+            <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 13, color: colors.textSecondary }}>No active membership</Text>
           )}
         </View>
       </TouchableOpacity>
 
       {!masked && !isTrainer && (
         <TouchableOpacity
-          style={styles.waButton}
+          style={[
+            styles.waButton,
+            {
+              backgroundColor: colors.surfaceRaised,
+              borderColor: colors.border,
+            },
+          ]}
           onPress={openWhatsApp}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           accessibilityRole="button"
           accessibilityLabel={`WhatsApp ${name}`}
         >
-          <MessageCircle color={theme.colors.primary} size={22} />
+          <MessageCircle color={colors.primary} size={22} />
         </TouchableOpacity>
       )}
     </GlassCard>
@@ -152,22 +181,17 @@ export const MemberCard = React.memo(({ member, onPress }: MemberCardProps) => {
 });
 
 const styles = StyleSheet.create({
-  card: {
-    marginBottom: theme.spacing.md,
-  },
+  card: {},
   cardRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: theme.spacing.md,
   },
   cardMain: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
   },
-  avatarWrapper: {
-    marginRight: theme.spacing.md,
-  },
+  avatarWrapper: {},
   infoContainer: {
     flex: 1,
   },
@@ -178,51 +202,27 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   name: {
-    ...theme.typography.h3,
-    color: theme.colors.text,
+    fontSize: 16,
     flex: 1,
-    marginRight: theme.spacing.xs,
-  },
-  phoneContainer: {
-    marginBottom: 4,
-  },
-  phone: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-  },
-  detailText: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-  },
-  expiryText: {
-    ...theme.typography.small,
-    color: theme.colors.textMuted,
+    marginRight: 8,
   },
   dueBadge: {
-    backgroundColor: 'rgba(255, 107, 107, 0.15)',
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: theme.radius.sm,
+    paddingVertical: 3,
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.35)',
     alignSelf: 'flex-start',
     marginTop: 6,
-  },
-  dueText: {
-    ...theme.typography.small,
-    color: theme.colors.error,
-    fontWeight: '700',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   waButton: {
     minWidth: 44, // 44px tap target
     minHeight: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: theme.colors.raised,
-    borderRadius: theme.radius.full,
+    borderRadius: 9999,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginLeft: theme.spacing.xs,
+    marginLeft: 8,
   },
 });
 

@@ -14,7 +14,7 @@ import {
   Platform,
 } from 'react-native';
 import { ChevronDown, X, Check, Plus } from 'lucide-react-native';
-import { theme } from '../theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../theme/ThemeContext';
 import { usePlans, useAddPlan } from '../api/plans';
 import { Button } from './Button';
 import { formatMoney } from '../utils/formatters';
@@ -32,6 +32,8 @@ export const PlanPicker: React.FC<PlanPickerProps> = ({
   error,
   label,
 }) => {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const { data: plans, isLoading, refetch, isRefetching } = usePlans();
   const addPlanMutation = useAddPlan();
 
@@ -104,7 +106,7 @@ export const PlanPicker: React.FC<PlanPickerProps> = ({
             ? `${selectedPlan.name} (${formatMoney(selectedPlan.pricePaise)})`
             : 'Select a plan'}
         </Text>
-        <ChevronDown color={theme.colors.primary} size={20} />
+        <ChevronDown color={colors.primary} size={20} />
       </TouchableOpacity>
       {error && <Text style={styles.errorText}>{error}</Text>}
 
@@ -125,7 +127,7 @@ export const PlanPicker: React.FC<PlanPickerProps> = ({
                 accessibilityRole="button"
                 accessibilityLabel="Create new plan"
               >
-                <Plus size={16} color={theme.colors.primary} />
+                <Plus size={16} color={colors.primary} />
                 <Text style={styles.addPlanHeaderText}>New Plan</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -134,14 +136,14 @@ export const PlanPicker: React.FC<PlanPickerProps> = ({
                 accessibilityRole="button"
                 accessibilityLabel="Close plan picker"
               >
-                <X color={theme.colors.text} size={22} />
+                <X color={colors.text} size={22} />
               </TouchableOpacity>
             </View>
           </View>
 
           {isLoading && !isRefetching ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <ActivityIndicator size="large" color={colors.primary} />
               <Text style={styles.loadingText}>Loading plans…</Text>
             </View>
           ) : (
@@ -185,7 +187,7 @@ export const PlanPicker: React.FC<PlanPickerProps> = ({
                       </View>
                       {isSelected && (
                         <View style={styles.checkCircle}>
-                          <Check size={16} color={theme.colors.textOnPrimary} />
+                          <Check size={16} color={colors.textOnPrimary} />
                         </View>
                       )}
                     </View>
@@ -215,7 +217,7 @@ export const PlanPicker: React.FC<PlanPickerProps> = ({
                 onPress={() => setShowCreateModal(false)}
                 style={styles.closeBtn}
               >
-                <X color={theme.colors.textMuted} size={20} />
+                <X color={colors.textSecondary} size={20} />
               </TouchableOpacity>
             </View>
 
@@ -227,7 +229,7 @@ export const PlanPicker: React.FC<PlanPickerProps> = ({
             <TextInput
               style={styles.textInput}
               placeholder="e.g. 1 Month Regular"
-              placeholderTextColor={theme.colors.textMuted}
+              placeholderTextColor={colors.textSecondary}
               value={newName}
               onChangeText={setNewName}
             />
@@ -238,7 +240,7 @@ export const PlanPicker: React.FC<PlanPickerProps> = ({
                 <TextInput
                   style={styles.textInput}
                   placeholder="30"
-                  placeholderTextColor={theme.colors.textMuted}
+                  placeholderTextColor={colors.textSecondary}
                   keyboardType="number-pad"
                   value={newDays}
                   onChangeText={setNewDays}
@@ -250,7 +252,7 @@ export const PlanPicker: React.FC<PlanPickerProps> = ({
                 <TextInput
                   style={styles.textInput}
                   placeholder="1500"
-                  placeholderTextColor={theme.colors.textMuted}
+                  placeholderTextColor={colors.textSecondary}
                   keyboardType="numeric"
                   value={newPrice}
                   onChangeText={setNewPrice}
@@ -281,13 +283,14 @@ export const PlanPicker: React.FC<PlanPickerProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
   root: {
     marginBottom: theme.spacing.md,
   },
   label: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: 6,
     marginLeft: 4,
   },
@@ -310,7 +313,7 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
   },
   placeholder: {
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
   errorText: {
     ...theme.typography.small,
@@ -347,7 +350,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     padding: theme.spacing.xl,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
   },
   planCard: {
@@ -362,7 +365,7 @@ const styles = StyleSheet.create({
   },
   planCardSelected: {
     borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
   },
   planCardContent: {
     flexDirection: 'row',
@@ -379,7 +382,7 @@ const styles = StyleSheet.create({
   },
   planDetails: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
   checkCircle: {
     width: 24,
@@ -399,9 +402,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(142, 182, 155, 0.16)',
+    backgroundColor: theme.colors.primarySoft,
     borderWidth: 1,
-    borderColor: 'rgba(142, 182, 155, 0.35)',
+    borderColor: theme.colors.border,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: theme.radius.full,
@@ -432,13 +435,13 @@ const styles = StyleSheet.create({
   },
   emptySubtitle: {
     ...theme.typography.body,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     maxWidth: 280,
   },
   createModalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(5, 31, 32, 0.85)',
+    backgroundColor: theme.colors.scrim,
     justifyContent: 'center',
     alignItems: 'center',
     padding: theme.spacing.lg,
@@ -451,7 +454,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     borderRadius: theme.radius.xl,
     padding: theme.spacing.xl,
-    shadowColor: '#000',
+    shadowColor: theme.colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.4,
     shadowRadius: 20,
@@ -469,17 +472,17 @@ const styles = StyleSheet.create({
   },
   createModalError: {
     ...theme.typography.caption,
-    color: theme.colors.error,
+    color: theme.colors.danger,
     marginBottom: theme.spacing.sm,
   },
   inputLabel: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: 6,
     marginLeft: 2,
   },
   textInput: {
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.md,
@@ -489,11 +492,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: theme.fonts.bodyRegular,
   },
-  createModalActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: theme.spacing.xl,
-  },
-});
+    createModalActions: {
+      flexDirection: 'row',
+      gap: 12,
+      marginTop: theme.spacing.xl,
+    },
+  });
 
 export default PlanPicker;

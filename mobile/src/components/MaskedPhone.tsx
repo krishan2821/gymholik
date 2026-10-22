@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextStyle, ViewStyle } from 'react-native';
 import { Lock } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
-import { theme } from '../theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../theme/ThemeContext';
 
 import { isPhoneMasked } from '../utils/formatters';
 export { isPhoneMasked };
@@ -21,14 +21,18 @@ export const MaskedPhone: React.FC<MaskedPhoneProps> = ({
   style,
   textStyle,
   iconSize = 13,
-  iconColor = theme.colors.textMuted,
+  iconColor,
   showTooltipOnPress = true,
 }) => {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
+
   if (!phone) {
     return null;
   }
 
   const masked = isPhoneMasked(phone);
+  const resolvedIconColor = iconColor ?? colors.textSecondary;
 
   const handlePress = () => {
     if (masked && showTooltipOnPress) {
@@ -54,25 +58,28 @@ export const MaskedPhone: React.FC<MaskedPhoneProps> = ({
       <Text style={[styles.text, textStyle]}>{phone}</Text>
       {masked && (
         <View style={styles.iconWrap}>
-          <Lock size={iconSize} color={iconColor} />
+          <Lock size={iconSize} color={resolvedIconColor} />
         </View>
       )}
     </TouchableOpacity>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  text: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-  },
-  iconWrap: {
-    marginLeft: 5,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    text: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+    },
+    iconWrap: {
+      marginLeft: 5,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+  });
+
+export default MaskedPhone;

@@ -11,9 +11,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { theme } from '../theme/theme';
+import { useTheme } from '../theme/ThemeContext';
+import { useAppearanceStore } from '../theme/useAppearance';
 import { BackgroundImage } from './BackgroundImage';
 import { AppContainer } from './AppContainer';
+import { useBreakpoint } from '../hooks/useBreakpoint';
 
 export interface ScreenProps {
   children?: React.ReactNode;
@@ -32,15 +34,9 @@ export interface ScreenProps {
 
 export const TAB_BAR_HEIGHT = 64;
 
-/**
- * Returns required bottom padding for any scrollable container so that the last card
- * is never hidden behind the floating tab bar (bottom safe-area inset + 64 + 40).
- */
-export function getScreenBottomPadding(insetsBottom: number = 0): number {
-  return insetsBottom + TAB_BAR_HEIGHT + 40;
+export function getScreenBottomPadding(insetsBottom: number = 0, hasFab: boolean = false): number {
+  return TAB_BAR_HEIGHT + insetsBottom + 24 + (hasFab ? 72 : 0);
 }
-
-import { useBreakpoint } from '../hooks/useBreakpoint';
 
 export const Screen: React.FC<ScreenProps> = ({
   children,
@@ -56,13 +52,16 @@ export const Screen: React.FC<ScreenProps> = ({
   keyboardAvoiding = false,
   contained = true,
 }) => {
+  const { colors } = useTheme();
   const { isDesktop } = useBreakpoint();
+  const resolvedMode = useAppearanceStore((s) => s.resolvedMode);
   const rawInsets = useSafeAreaInsets();
-  const insets = Platform.OS === 'web' ? { top: 0, right: 0, bottom: 0, left: 0 } : (rawInsets ?? { top: 0, right: 0, bottom: 0, left: 0 });
+  const insets =
+    Platform.OS === 'web'
+      ? { top: 0, right: 0, bottom: 0, left: 0 }
+      : rawInsets ?? { top: 0, right: 0, bottom: 0, left: 0 };
 
-  // Top padding: insets.top + 12 so nothing sits under status bar or Dynamic Island
   const topPad = safeTop ? insets.top + (isDesktop ? 16 : 12) : 0;
-  // Bottom padding: on desktop no floating tab bar, on phone/tablet bottomPad reserves 104px
   const bottomPad = safeBottom
     ? isDesktop
       ? 32
@@ -78,11 +77,13 @@ export const Screen: React.FC<ScreenProps> = ({
       }
     : null;
 
+  const statusStyle = resolvedMode === 'dark' ? 'light' : 'dark';
+
   const content = scrollable ? (
     <ScrollView
-      style={[styles.scroll, style]}
+      style={[{ flex: 1 }, style]}
       contentContainerStyle={[
-        styles.scrollContent,
+        { flexGrow: 1 },
         desktopContainerStyle,
         contentContainerStyle,
         { paddingTop: topPad, paddingBottom: bottomPad },
@@ -94,8 +95,8 @@ export const Screen: React.FC<ScreenProps> = ({
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={theme.colors.primary}
-            colors={[theme.colors.primary]}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         ) : undefined
       }
@@ -103,19 +104,40 @@ export const Screen: React.FC<ScreenProps> = ({
       {children}
     </ScrollView>
   ) : (
-    <View style={[styles.content, desktopContainerStyle, style, { paddingTop: topPad, paddingBottom: bottomPad }]}>
+    <View
+      style={[
+        { flex: 1 },
+        desktopContainerStyle,
+        style,
+        { paddingTop: topPad, paddingBottom: bottomPad },
+      ]}
+    >
       {children}
     </View>
   );
 
   const innerContent = (
     <>
-      <StatusBar style="light" />
-      {withHeroImage && <BackgroundImage opacity={heroOpacity} />}
+      <StatusBar style={statusStyle} />
+      {safeTop && insets.top > 0 && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: insets.top,
+            backgroundColor: colors.bg,
+            zIndex: 100,
+          }}
+          pointerEvents="none"
+        />
+      )}
+      {withHeroImage && <BackgroundImage />}
       {keyboardAvoiding ? (
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.keyboardContainer}
+          style={{ flex: 1 }}
         >
           {content}
         </KeyboardAvoidingView>
@@ -127,37 +149,17 @@ export const Screen: React.FC<ScreenProps> = ({
 
   if (contained && !isDesktop) {
     return (
-      <AppContainer style={styles.root}>
+      <AppContainer style={{ flex: 1, backgroundColor: colors.bg }}>
         {innerContent}
       </AppContainer>
     );
   }
 
   return (
-    // Root fills whole screen edge-to-edge — background extends under status bar & home indicator
-    <View style={styles.root}>
+    <View style={[{ flex: 1, backgroundColor: colors.bg }]}>
       {innerContent}
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  content: {
-    flex: 1,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  keyboardContainer: {
-    flex: 1,
-  },
-});
 
 export default Screen;

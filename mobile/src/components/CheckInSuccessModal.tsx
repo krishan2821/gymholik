@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import * as Haptics from '../utils/safeHaptics';
 import { Check } from 'lucide-react-native';
-import { theme } from '../theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../theme/ThemeContext';
 
 interface CheckInSuccessModalProps {
   visible: boolean;
@@ -25,6 +25,9 @@ export const CheckInSuccessModal: React.FC<CheckInSuccessModalProps> = ({
   onDismiss,
   durationMs = 1800,
 }) => {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
+
   const pulseScale = useRef(new Animated.Value(1)).current;
   const pulseOpacity = useRef(new Animated.Value(0.7)).current;
   const checkScale = useRef(new Animated.Value(0)).current;
@@ -73,20 +76,20 @@ export const CheckInSuccessModal: React.FC<CheckInSuccessModalProps> = ({
 
       return () => clearTimeout(timer);
     }
-  }, [visible, durationMs, onDismiss, pulseScale, pulseOpacity, checkScale, contentFade]);
+  }, [visible, durationMs, onDismiss]);
 
-  if (!visible) return null;
-
-  const currentTime = new Date().toLocaleTimeString('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  });
+  const now = new Date();
+  const currentTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      onRequestClose={onDismiss}
+    >
       <View style={styles.overlay}>
-        {/* Full-screen Sage Pulse Effect */}
+        {/* Expanding pulse ring */}
         <Animated.View
           style={[
             styles.pulseCircle,
@@ -97,7 +100,7 @@ export const CheckInSuccessModal: React.FC<CheckInSuccessModalProps> = ({
           ]}
         />
 
-        {/* Center Checkmark Container */}
+        {/* Content Box */}
         <Animated.View
           style={[
             styles.contentContainer,
@@ -114,7 +117,7 @@ export const CheckInSuccessModal: React.FC<CheckInSuccessModalProps> = ({
               },
             ]}
           >
-            <Check size={48} color={theme.colors.textOnPrimary} strokeWidth={3.5} />
+            <Check size={48} color={colors.textOnPrimary} strokeWidth={3.5} />
           </Animated.View>
 
           <Text style={styles.title}>Check-in Successful!</Text>
@@ -131,59 +134,62 @@ export const CheckInSuccessModal: React.FC<CheckInSuccessModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(5, 31, 32, 0.94)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pulseCircle: {
-    position: 'absolute',
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: theme.colors.primary,
-  },
-  contentContainer: {
-    alignItems: 'center',
-    paddingHorizontal: 32,
-  },
-  checkCircle: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    ...theme.shadows.glow,
-  },
-  title: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 22,
-    color: theme.colors.text,
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  memberName: {
-    fontFamily: theme.fonts.headingSemiBold,
-    fontSize: 18,
-    color: theme.colors.primary,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  timeBadge: {
-    backgroundColor: 'rgba(142, 182, 155, 0.18)',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: theme.radius.full,
-    borderWidth: 1,
-    borderColor: 'rgba(142, 182, 155, 0.35)',
-  },
-  timeText: {
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: 13,
-    color: theme.colors.text,
-  },
-});
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: theme.colors.scrim,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    pulseCircle: {
+      position: 'absolute',
+      width: 140,
+      height: 140,
+      borderRadius: 70,
+      backgroundColor: theme.colors.primary,
+    },
+    contentContainer: {
+      alignItems: 'center',
+      paddingHorizontal: 32,
+    },
+    checkCircle: {
+      width: 96,
+      height: 96,
+      borderRadius: 48,
+      backgroundColor: theme.colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 20,
+      ...theme.shadows.glow,
+    },
+    title: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 22,
+      color: theme.colors.text,
+      textAlign: 'center',
+      marginBottom: 6,
+    },
+    memberName: {
+      fontFamily: theme.fonts.headingSemiBold,
+      fontSize: 18,
+      color: theme.colors.primary,
+      textAlign: 'center',
+      marginBottom: 16,
+    },
+    timeBadge: {
+      backgroundColor: theme.colors.primarySoft,
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+      borderRadius: theme.radius.full,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    timeText: {
+      fontFamily: theme.fonts.bodyMedium,
+      fontSize: 13,
+      color: theme.colors.text,
+    },
+  });
+
+export default CheckInSuccessModal;

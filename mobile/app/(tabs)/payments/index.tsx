@@ -27,7 +27,7 @@ import {
   FileText,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { theme } from '../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import { Screen, getScreenBottomPadding } from '../../../src/components/Screen';
 import { PageHeader } from '../../../src/components/PageHeader';
 import { GlassCard } from '../../../src/components/GlassCard';
@@ -73,6 +73,8 @@ let sessionSelectedTab: 'HISTORY' | 'DUES' = 'HISTORY';
 
 export default function PaymentsScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const params = useLocalSearchParams<{ tab?: 'HISTORY' | 'DUES'; period?: string }>();
   const rawInsets = useSafeAreaInsets();
   const insets = Platform.OS === 'web' ? { top: 0, right: 0, bottom: 0, left: 0 } : (rawInsets ?? { top: 0, right: 0, bottom: 0, left: 0 });
@@ -330,7 +332,7 @@ export default function PaymentsScreen() {
 
   // Render a Payment Row
   const renderPaymentRow = ({ item }: { item: PaymentItem }) => {
-    const isReversal = item.type === 'REVERSAL' || item.status === 'REVERSED';
+    const isReversal = item.type === 'REVERSAL' || (item as any).status === 'REVERSED';
     const amountSign = isReversal ? '-' : '+';
     const formattedAmount = formatMoney(item.amountPaise);
 
@@ -354,14 +356,14 @@ export default function PaymentsScreen() {
         />
 
         <View style={styles.rowDetails}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={styles.rowMemberName} numberOfLines={1}>
-              {item.memberName || 'Member'}
-            </Text>
-            {isReversal && (
+          <Text style={styles.rowMemberName} numberOfLines={1}>
+            {item.memberName || 'Member'}
+          </Text>
+          {isReversal && (
+            <View style={{ marginTop: 2, marginBottom: 2, alignSelf: 'flex-start' }}>
               <Badge label="Reversed" variant="expired" size="sm" />
-            )}
-          </View>
+            </View>
+          )}
           <Text style={styles.rowSubText} numberOfLines={1}>
             {item.planName || 'Plan'} • {item.memberCode || '—'}
           </Text>
@@ -369,13 +371,14 @@ export default function PaymentsScreen() {
 
         <View style={styles.rowRight}>
           <View style={styles.rowAmountWrap}>
-            {item.mode === 'CASH' && <Banknote size={14} color={theme.colors.textMuted} style={styles.modeIcon} />}
-            {item.mode === 'UPI' && <Smartphone size={14} color={theme.colors.textMuted} style={styles.modeIcon} />}
-            {item.mode === 'CARD' && <CreditCard size={14} color={theme.colors.textMuted} style={styles.modeIcon} />}
+            {item.mode === 'CASH' && <Banknote size={14} color={colors.textSecondary} style={styles.modeIcon} />}
+            {item.mode === 'UPI' && <Smartphone size={14} color={colors.textSecondary} style={styles.modeIcon} />}
+            {item.mode === 'CARD' && <CreditCard size={14} color={colors.textSecondary} style={styles.modeIcon} />}
             <Text
               style={[
                 styles.rowAmount,
                 isReversal ? styles.amountCoral : styles.amountSage,
+                isReversal && styles.rowAmountStrikethrough,
               ]}
             >
               {amountSign}{formattedAmount}
@@ -421,9 +424,9 @@ export default function PaymentsScreen() {
             {...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {})}
           >
             {showSearch ? (
-              <X size={20} color={theme.colors.text} />
+              <X size={20} color={colors.text} />
             ) : (
-              <Search size={20} color={theme.colors.text} />
+              <Search size={20} color={colors.text} />
             )}
           </TouchableOpacity>
         }
@@ -433,12 +436,12 @@ export default function PaymentsScreen() {
       {showSearch && (
         <View style={styles.searchBarWrap}>
           <View style={styles.searchBar}>
-            <Search size={16} color={theme.colors.textMuted} style={{ marginRight: 8 }} />
+            <Search size={16} color={colors.textSecondary} style={{ marginRight: 8 }} />
             <TextInput
               ref={searchInputRef}
               style={styles.searchInput}
               placeholder="Search member name, code or receipt #..."
-              placeholderTextColor={theme.colors.textMuted}
+              placeholderTextColor={colors.textSecondary}
               value={rawSearchQuery}
               onChangeText={setRawSearchQuery}
               autoCapitalize="none"
@@ -446,7 +449,7 @@ export default function PaymentsScreen() {
             />
             {Boolean(rawSearchQuery) && (
               <TouchableOpacity onPress={() => setRawSearchQuery('')}>
-                <X size={16} color={theme.colors.textMuted} />
+                <X size={16} color={colors.textSecondary} />
               </TouchableOpacity>
             )}
           </View>
@@ -543,7 +546,7 @@ export default function PaymentsScreen() {
               <Text style={styles.filterChipText}>
                 {periodChipLabel}
               </Text>
-              <ChevronDown size={14} color={theme.colors.textMuted} style={{ marginLeft: 4 }} />
+              <ChevronDown size={14} color={colors.textSecondary} style={{ marginLeft: 4 }} />
             </TouchableOpacity>
 
             {/* Mode Chip */}
@@ -555,7 +558,7 @@ export default function PaymentsScreen() {
               <Text style={styles.filterChipText}>
                 {MODE_OPTIONS.find((m) => m.value === modeFilter)?.label || 'All methods'}
               </Text>
-              <ChevronDown size={14} color={theme.colors.textMuted} style={{ marginLeft: 4 }} />
+              <ChevronDown size={14} color={colors.textSecondary} style={{ marginLeft: 4 }} />
             </TouchableOpacity>
 
             {/* Clear Button when filters are active */}
@@ -617,7 +620,10 @@ export default function PaymentsScreen() {
               renderSectionHeader={renderSectionHeader}
               stickySectionHeadersEnabled={true}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.listContent}
+              contentContainerStyle={[
+                styles.listContent,
+                { paddingBottom: getScreenBottomPadding(insets.bottom, !shouldHideFab) },
+              ]}
               onEndReached={() => {
                 if (hasNextPage && !isFetchingNextPage) {
                   fetchNextPage();
@@ -628,13 +634,13 @@ export default function PaymentsScreen() {
                 <RefreshControl
                   refreshing={isPaymentsRefetching}
                   onRefresh={handleRefreshAll}
-                  tintColor={theme.colors.primary}
+                  tintColor={colors.primary}
                 />
               }
               ListFooterComponent={
                 isFetchingNextPage ? (
                   <View style={{ paddingVertical: 16 }}>
-                    <ActivityIndicator size="small" color={theme.colors.primary} />
+                    <ActivityIndicator size="small" color={colors.primary} />
                   </View>
                 ) : null
               }
@@ -649,7 +655,7 @@ export default function PaymentsScreen() {
           style={[
             styles.fabBtn,
             {
-              bottom: getScreenBottomPadding(insets.bottom) - 16,
+              bottom: (insets.bottom || 0) + 88,
             },
           ]}
           onPress={() => router.push('/(tabs)/payments/collect' as any)}
@@ -658,7 +664,7 @@ export default function PaymentsScreen() {
           accessibilityLabel="Collect fee"
           {...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {})}
         >
-          <Plus size={20} color="#051F20" strokeWidth={2.5} style={{ marginRight: 6 }} />
+          <Plus size={20} color={colors.textOnPrimary} strokeWidth={2.5} style={{ marginRight: 6 }} />
           <Text style={styles.fabText}>Collect fee</Text>
         </TouchableOpacity>
       )}
@@ -703,7 +709,7 @@ export default function PaymentsScreen() {
               <View style={styles.customDateHeader}>
                 <Text style={styles.customDateTitle}>Custom Date Range</Text>
                 <TouchableOpacity onPress={() => setShowCustomDateModal(false)}>
-                  <X size={18} color={theme.colors.textMuted} />
+                  <X size={18} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
@@ -742,7 +748,7 @@ export default function PaymentsScreen() {
                   <TextInput
                     style={styles.dateTextInput}
                     placeholder="YYYY-MM-DD"
-                    placeholderTextColor={theme.colors.textMuted}
+                    placeholderTextColor={colors.textSecondary}
                     value={tempStartDate}
                     onChangeText={setTempStartDate}
                   />
@@ -752,7 +758,7 @@ export default function PaymentsScreen() {
                   <TextInput
                     style={styles.dateTextInput}
                     placeholder="YYYY-MM-DD"
-                    placeholderTextColor={theme.colors.textMuted}
+                    placeholderTextColor={colors.textSecondary}
                     value={tempEndDate}
                     onChangeText={setTempEndDate}
                   />
@@ -789,336 +795,349 @@ export default function PaymentsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerSearchBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(218, 241, 222, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  searchBarWrap: {
-    paddingHorizontal: 20,
-    marginBottom: 12,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(11, 43, 38, 0.8)',
-    borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.16)',
-    borderRadius: theme.radius.md,
-    paddingHorizontal: 12,
-    height: 42,
-  },
-  searchInput: {
-    flex: 1,
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 14,
-    color: theme.colors.text,
-    paddingVertical: 0,
-  },
-  segmentedControlWrap: {
-    paddingHorizontal: 20,
-    marginBottom: 12,
-  },
-  segmentedControl: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(11, 43, 38, 0.8)',
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.12)',
-    padding: 3,
-  },
-  segmentBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: theme.radius.sm,
-  },
-  segmentBtnActive: {
-    backgroundColor: 'rgba(142, 182, 155, 0.16)',
-  },
-  segmentText: {
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: 14,
-    color: theme.colors.textMuted,
-  },
-  segmentTextActive: {
-    fontFamily: theme.fonts.headingBold,
-    color: theme.colors.text,
-  },
-  badgeWrap: {
-    marginLeft: 6,
-    backgroundColor: '#FF6B6B',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 10,
-  },
-  badgeCount: {
-    fontFamily: theme.fonts.bodyBold,
-    fontSize: 11,
-    color: '#051F20',
-  },
-  historyContainer: {
-    flex: 1,
-  },
-  filtersRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 10,
-    gap: 8,
-  },
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(218, 241, 222, 0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.12)',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: theme.radius.full,
-  },
-  filterChipText: {
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: 12,
-    color: theme.colors.text,
-  },
-  clearBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-  },
-  clearBtnText: {
-    fontFamily: theme.fonts.bodyBold,
-    fontSize: 12,
-    color: theme.colors.primary,
-  },
-  skeletonList: {
-    paddingHorizontal: 20,
-  },
-  skeletonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(218, 241, 222, 0.04)',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#051F20',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(218, 241, 222, 0.06)',
-  },
-  sectionTitle: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  sectionTotal: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 13,
-    color: theme.colors.primary,
-  },
-  listContent: {
-    paddingBottom: 110,
-  },
-  paymentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: 'transparent',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(218, 241, 222, 0.05)',
-  },
-  rowAvatar: {
-    marginRight: 12,
-  },
-  rowDetails: {
-    flex: 1,
-    marginRight: 10,
-  },
-  rowMemberName: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 15,
-    color: theme.colors.text,
-    marginBottom: 2,
-  },
-  rowSubText: {
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 12,
-    color: theme.colors.textMuted,
-  },
-  rowRight: {
-    alignItems: 'flex-end',
-  },
-  rowAmountWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  modeIcon: {
-    marginRight: 4,
-  },
-  rowAmount: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 15,
-  },
-  amountSage: {
-    color: '#8EB69B',
-  },
-  amountCoral: {
-    color: '#FF6B6B',
-  },
-  rowTimeText: {
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 11,
-    color: theme.colors.textMuted,
-  },
-  rowReceiptText: {
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 10,
-    color: theme.colors.textMuted,
-    opacity: 0.85,
-    marginTop: 2,
-  },
-  fabBtn: {
-    position: 'absolute',
-    right: 20,
-    backgroundColor: theme.colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 6,
-    zIndex: 90,
-  },
-  fabText: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 14,
-    color: '#051F20',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(5, 31, 32, 0.85)',
-    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
-    alignItems: 'center',
-    padding: Platform.OS === 'web' ? 16 : 0,
-  },
-  customDateCard: {
-    width: '100%',
-    maxWidth: Platform.OS === 'web' ? 420 : '100%',
-    backgroundColor: '#0B2B26',
-    borderTopLeftRadius: Platform.OS === 'web' ? theme.radius.lg : theme.radius.xl,
-    borderTopRightRadius: Platform.OS === 'web' ? theme.radius.lg : theme.radius.xl,
-    borderRadius: Platform.OS === 'web' ? theme.radius.lg : undefined,
-    borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.16)',
-    padding: 20,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 20,
-  },
-  customDateHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  customDateTitle: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 16,
-    color: theme.colors.text,
-  },
-  customDateSubtitle: {
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    marginBottom: 14,
-  },
-  presetsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
-  },
-  presetChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: theme.radius.full,
-    backgroundColor: 'rgba(218, 241, 222, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.14)',
-  },
-  presetChipText: {
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: 12,
-    color: theme.colors.text,
-  },
-  dateInputsRow: {
-    flexDirection: 'row',
-    marginBottom: 20,
-  },
-  dateInputLabel: {
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: 12,
-    color: theme.colors.textMuted,
-    marginBottom: 6,
-  },
-  dateTextInput: {
-    backgroundColor: 'rgba(5, 31, 32, 0.7)',
-    borderRadius: theme.radius.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.14)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 14,
-    color: theme.colors.text,
-  },
-  customDateActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
-  },
-  cancelCustomBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: theme.radius.sm,
-  },
-  cancelCustomText: {
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: 14,
-    color: theme.colors.textMuted,
-  },
-  applyCustomBtn: {
-    backgroundColor: theme.colors.primary,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: theme.radius.sm,
-  },
-  applyCustomText: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 14,
-    color: '#051F20',
-  },
-});
+const makeStyles = (theme: ThemeValue) => {
+  const { colors } = theme;
+  return StyleSheet.create({
+    center: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerSearchBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.surfaceRaised,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    searchBarWrap: {
+      paddingHorizontal: 20,
+      marginBottom: 12,
+    },
+    searchBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: theme.radius.md,
+      paddingHorizontal: 12,
+      height: 42,
+    },
+    searchInput: {
+      flex: 1,
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 14,
+      color: colors.text,
+      paddingVertical: 0,
+    },
+    segmentedControlWrap: {
+      paddingHorizontal: 20,
+      marginBottom: 12,
+    },
+    segmentedControl: {
+      flexDirection: 'row',
+      backgroundColor: colors.surfaceRaised,
+      borderRadius: theme.radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 3,
+    },
+    segmentBtn: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 8,
+      borderRadius: theme.radius.sm,
+    },
+    segmentBtnActive: {
+      backgroundColor: colors.surface,
+    },
+    segmentText: {
+      fontFamily: theme.fonts.bodyMedium,
+      fontSize: 14,
+      color: colors.textSecondary,
+    },
+    segmentTextActive: {
+      fontFamily: theme.fonts.headingBold,
+      color: colors.primary,
+    },
+    badgeWrap: {
+      marginLeft: 6,
+      backgroundColor: colors.danger,
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+      borderRadius: 10,
+    },
+    badgeCount: {
+      fontFamily: theme.fonts.bodyBold,
+      fontSize: 11,
+      color: colors.textOnPrimary,
+    },
+    historyContainer: {
+      flex: 1,
+    },
+    filtersRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      marginBottom: 10,
+      gap: 8,
+    },
+    filterChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surfaceRaised,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: theme.radius.full,
+    },
+    filterChipText: {
+      fontFamily: theme.fonts.bodyMedium,
+      fontSize: 12,
+      color: colors.text,
+    },
+    clearBtn: {
+      paddingHorizontal: 8,
+      paddingVertical: 6,
+    },
+    clearBtnText: {
+      fontFamily: theme.fonts.bodyBold,
+      fontSize: 12,
+      color: colors.primary,
+    },
+    skeletonList: {
+      paddingHorizontal: 20,
+    },
+    skeletonRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.bg,
+      paddingHorizontal: 20,
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    sectionTitle: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 13,
+      color: colors.textSecondary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    sectionTotal: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 13,
+      color: colors.primary,
+      fontVariant: ['tabular-nums'],
+    },
+    listContent: {
+      paddingBottom: 110,
+    },
+    paymentRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      backgroundColor: 'transparent',
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    rowAvatar: {
+      marginRight: 12,
+    },
+    rowDetails: {
+      flex: 1,
+      marginRight: 10,
+    },
+    rowMemberName: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 15,
+      color: colors.text,
+      marginBottom: 2,
+    },
+    rowSubText: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+    rowRight: {
+      alignItems: 'flex-end',
+      justifyContent: 'center',
+      minWidth: 90,
+      flexShrink: 0,
+    },
+    rowAmountWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      marginBottom: 3,
+    },
+    modeIcon: {
+      marginRight: 4,
+    },
+    rowAmount: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 15,
+      fontVariant: ['tabular-nums'],
+    },
+    rowAmountStrikethrough: {
+      textDecorationLine: 'line-through',
+    },
+    amountSage: {
+      color: colors.primary,
+    },
+    amountCoral: {
+      color: colors.danger,
+    },
+    rowTimeText: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 11,
+      lineHeight: 15,
+      color: colors.textSecondary,
+    },
+    rowReceiptText: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 10,
+      lineHeight: 14,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    fabBtn: {
+      position: 'absolute',
+      right: 20,
+      backgroundColor: colors.primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 18,
+      paddingVertical: 12,
+      borderRadius: 24,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.35,
+      shadowRadius: 8,
+      elevation: 6,
+      zIndex: 90,
+    },
+    fabText: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 14,
+      color: colors.textOnPrimary,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: colors.scrim,
+      justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
+      alignItems: 'center',
+      padding: Platform.OS === 'web' ? 16 : 0,
+    },
+    customDateCard: {
+      width: '100%',
+      maxWidth: Platform.OS === 'web' ? 420 : '100%',
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: Platform.OS === 'web' ? theme.radius.lg : theme.radius.xl,
+      borderTopRightRadius: Platform.OS === 'web' ? theme.radius.lg : theme.radius.xl,
+      borderRadius: Platform.OS === 'web' ? theme.radius.lg : undefined,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 20,
+      paddingBottom: Platform.OS === 'ios' ? 36 : 20,
+    },
+    customDateHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    customDateTitle: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 16,
+      color: colors.text,
+    },
+    customDateSubtitle: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 13,
+      color: colors.textSecondary,
+      marginBottom: 14,
+    },
+    presetsRow: {
+      flexDirection: 'row',
+      gap: 8,
+      marginBottom: 16,
+    },
+    presetChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: theme.radius.full,
+      backgroundColor: colors.surfaceRaised,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    presetChipText: {
+      fontFamily: theme.fonts.bodyMedium,
+      fontSize: 12,
+      color: colors.text,
+    },
+    dateInputsRow: {
+      flexDirection: 'row',
+      marginBottom: 20,
+    },
+    dateInputLabel: {
+      fontFamily: theme.fonts.bodyMedium,
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginBottom: 6,
+    },
+    dateTextInput: {
+      backgroundColor: colors.scrim,
+      borderRadius: theme.radius.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 14,
+      color: colors.text,
+    },
+    customDateActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: 12,
+    },
+    cancelCustomBtn: {
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: theme.radius.sm,
+    },
+    cancelCustomText: {
+      fontFamily: theme.fonts.bodyMedium,
+      fontSize: 14,
+      color: colors.textSecondary,
+    },
+    applyCustomBtn: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 18,
+      paddingVertical: 10,
+      borderRadius: theme.radius.sm,
+    },
+    applyCustomText: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 14,
+      color: colors.textOnPrimary,
+    },
+  });
+};

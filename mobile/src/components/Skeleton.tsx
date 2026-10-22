@@ -1,12 +1,15 @@
 import React, { useEffect, useRef } from 'react';
 import {
   StyleSheet,
+  View,
   Animated,
   ViewStyle,
   StyleProp,
   DimensionValue,
+  Platform,
 } from 'react-native';
-import { theme } from '../theme/theme';
+import { useTheme } from '../theme/ThemeContext';
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion';
 
 export interface SkeletonProps {
   width?: DimensionValue;
@@ -18,43 +21,65 @@ export interface SkeletonProps {
 export const Skeleton: React.FC<SkeletonProps> = ({
   width = '100%',
   height = 16,
-  borderRadius = theme.radius.sm,
+  borderRadius,
   style,
 }) => {
-  const opacityAnim = useRef(new Animated.Value(0.4)).current;
+  const { colors, radius } = useTheme();
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const resolvedRadius = borderRadius !== undefined ? borderRadius : radius.sm;
+
+  // Animated translation for shimmer sweep
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (prefersReducedMotion) {
+      shimmerAnim.setValue(0);
+      return;
+    }
+
     const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacityAnim, {
-          toValue: 0.85,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacityAnim, {
-          toValue: 0.4,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-      ])
+      Animated.timing(shimmerAnim, {
+        toValue: 1,
+        duration: 1300,
+        useNativeDriver: Platform.OS !== 'web',
+      })
     );
     animation.start();
     return () => animation.stop();
-  }, [opacityAnim]);
+  }, [prefersReducedMotion, shimmerAnim]);
+
+  // Interpolate shimmer translateX
+  const shimmerTranslate = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-150, 300],
+  });
 
   return (
-    <Animated.View
+    <View
       style={[
-        styles.skeleton,
+        styles.skeletonContainer,
         {
           width,
           height,
-          borderRadius,
-          opacity: opacityAnim,
+          borderRadius: resolvedRadius,
+          backgroundColor: colors.surfaceRaised,
+          borderColor: colors.border,
         },
         style,
       ]}
-    />
+    >
+      {!prefersReducedMotion && (
+        <Animated.View
+          style={[
+            styles.shimmerSweep,
+            {
+              backgroundColor: colors.primarySoft,
+              transform: [{ translateX: shimmerTranslate }],
+            },
+          ]}
+        />
+      )}
+    </View>
   );
 };
 
@@ -64,10 +89,17 @@ export const SkeletonCircle: React.FC<{ size?: number; style?: StyleProp<ViewSty
 }) => <Skeleton width={size} height={size} borderRadius={size / 2} style={style} />;
 
 const styles = StyleSheet.create({
-  skeleton: {
-    backgroundColor: theme.colors.raised,
+  skeletonContainer: {
     borderWidth: 1,
-    borderColor: theme.colors.borderLight,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  shimmerSweep: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: '60%',
+    opacity: 0.35,
   },
 });
 

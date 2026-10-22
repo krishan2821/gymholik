@@ -1,8 +1,14 @@
 import { ScrollViewStyleReset } from 'expo-router/html';
 import type { PropsWithChildren } from 'react';
+import { BRAND, PALETTES } from '../src/theme';
+
+// Use the dark-mode bg for initial HTML render (before JS loads)
+const initBg = PALETTES[BRAND].dark.bg;
+const initPrimary = PALETTES[BRAND].dark.primary;
 
 /**
  * Root HTML component for web rendering in Expo Router.
+ * Sets the theme-color meta tag and initial background so there is no flash.
  */
 export default function Root({ children }: PropsWithChildren) {
   return (
@@ -14,6 +20,8 @@ export default function Root({ children }: PropsWithChildren) {
           name="viewport"
           content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover"
         />
+        {/* Web theme-color follows the app mode (dark default) */}
+        <meta name="theme-color" content={initBg} />
         <title>Gymholik: Gym management</title>
         <link rel="icon" type="image/png" href="/assets/favicon.png" />
         <ScrollViewStyleReset />
@@ -32,14 +40,14 @@ export default function Root({ children }: PropsWithChildren) {
                 overflow-x: hidden;
                 display: flex;
                 flex-direction: column;
-                background-color: #051F20;
+                background-color: ${initBg};
                 -webkit-font-smoothing: antialiased;
                 -moz-osx-font-smoothing: grayscale;
               }
 
-              /* Visible 2px sage focus ring for keyboard navigation */
+              /* Visible 2px focus ring for keyboard navigation */
               :focus-visible {
-                outline: 2px solid #8EB69B !important;
+                outline: 2px solid ${initPrimary} !important;
                 outline-offset: 2px !important;
               }
 

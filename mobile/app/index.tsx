@@ -16,7 +16,7 @@ import {
 import { Redirect, router } from 'expo-router';
 import { ArrowRight, Users, Wallet, QrCode } from 'lucide-react-native';
 import { useAuthStore } from '../src/store/useAuthStore';
-import { theme } from '../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../src/theme/ThemeContext';
 import { Screen } from '../src/components/Screen';
 import { GymholikLogo } from '../src/components/GymholikLogo';
 import { Button } from '../src/components/Button';
@@ -53,6 +53,8 @@ const INTRO_SLIDES: IntroSlide[] = [
 
 export default function SplashScreen() {
   const { width: screenWidth } = useWindowDimensions();
+  const { colors, layout } = useTheme();
+  const styles = useStyles(makeStyles);
   const { isAuthenticated, isLoading, user } = useAuthStore();
   const [reduceMotion, setReduceMotion] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
@@ -102,7 +104,7 @@ export default function SplashScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -112,8 +114,8 @@ export default function SplashScreen() {
     return <Redirect href={homeRoute as any} />;
   }
 
-  const contentWidth = Math.min(screenWidth, theme.layout.maxWidth.column);
-  const slideItemWidth = contentWidth - theme.spacing.lg * 2 - theme.spacing.md * 2;
+  const contentWidth = Math.min(screenWidth, layout.maxWidth.column);
+  const slideItemWidth = contentWidth - 48;
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const slideIndex = Math.round(event.nativeEvent.contentOffset.x / slideItemWidth);
@@ -162,7 +164,7 @@ export default function SplashScreen() {
               return (
                 <View style={[styles.slideItem, { width: slideItemWidth }]}>
                   <View style={styles.iconCircle}>
-                    <IconComponent size={24} color={theme.colors.primary} />
+                    <IconComponent size={24} color={colors.primary} />
                   </View>
                   <Text style={styles.slideTitle}>{item.title}</Text>
                   <Text style={styles.slideDesc}>{item.description}</Text>
@@ -199,7 +201,7 @@ export default function SplashScreen() {
             onPress={handleGetStarted}
             variant="primary"
             size="lg"
-            icon={<ArrowRight size={20} color={theme.colors.textOnPrimary} />}
+            icon={<ArrowRight size={20} color={colors.textOnPrimary} />}
             iconPosition="right"
           />
         </View>
@@ -208,98 +210,99 @@ export default function SplashScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: theme.colors.background,
-  },
-  topSection: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.xl,
-    paddingTop: theme.spacing.xxl,
-  },
-  logoContainer: {
-    alignItems: 'center',
-  },
-  brandTitle: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 34,
-    color: theme.colors.text,
-    letterSpacing: 0.5,
-    marginTop: theme.spacing.md,
-    marginBottom: 4,
-  },
-  brandTagline: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-  },
-  bottomSection: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl,
-  },
-  sliderCard: {
-    paddingVertical: theme.spacing.lg,
-    paddingHorizontal: theme.spacing.md,
-    marginBottom: theme.spacing.lg,
-    alignItems: 'center',
-  },
-  slideItem: {
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.md,
-  },
-  iconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: theme.radius.full,
-    backgroundColor: theme.colors.raised,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: theme.spacing.sm,
-  },
-  slideTitle: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 18,
-    color: theme.colors.text,
-    marginBottom: 4,
-  },
-  slideDesc: {
-    ...theme.typography.body,
-    fontSize: 14,
-    lineHeight: 20,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-  },
-  dotsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: theme.spacing.md,
-    gap: 8,
-  },
-  dot: {
-    height: 8,
-    borderRadius: 4,
-  },
-  dotActive: {
-    width: 24,
-    backgroundColor: theme.colors.primary,
-  },
-  dotInactive: {
-    width: 8,
-    backgroundColor: theme.colors.border,
-  },
-  ctaWrapper: {
-    marginTop: theme.spacing.xs,
-  },
-});
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      justifyContent: 'space-between',
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.colors.bg,
+    },
+    topSection: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: theme.spacing.xl,
+      paddingTop: theme.spacing.xxl,
+    },
+    logoContainer: {
+      alignItems: 'center',
+    },
+    brandTitle: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 34,
+      color: theme.colors.text,
+      letterSpacing: 0.5,
+      marginTop: theme.spacing.md,
+      marginBottom: 4,
+    },
+    brandTagline: {
+      ...theme.typography.body,
+      color: theme.colors.textMuted,
+      textAlign: 'center',
+    },
+    bottomSection: {
+      paddingHorizontal: theme.spacing.lg,
+      paddingBottom: theme.spacing.xl,
+    },
+    sliderCard: {
+      paddingVertical: theme.spacing.lg,
+      paddingHorizontal: theme.spacing.md,
+      marginBottom: theme.spacing.lg,
+      alignItems: 'center',
+    },
+    slideItem: {
+      alignItems: 'center',
+      paddingHorizontal: theme.spacing.md,
+    },
+    iconCircle: {
+      width: 52,
+      height: 52,
+      borderRadius: theme.radius.full,
+      backgroundColor: theme.colors.surfaceRaised,
+      borderWidth: 1.5,
+      borderColor: theme.colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: theme.spacing.sm,
+    },
+    slideTitle: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 18,
+      color: theme.colors.text,
+      marginBottom: 4,
+    },
+    slideDesc: {
+      ...theme.typography.body,
+      fontSize: 14,
+      lineHeight: 20,
+      color: theme.colors.textMuted,
+      textAlign: 'center',
+    },
+    dotsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: theme.spacing.md,
+      gap: 8,
+    },
+    dot: {
+      height: 8,
+      borderRadius: 4,
+    },
+    dotActive: {
+      width: 24,
+      backgroundColor: theme.colors.primary,
+    },
+    dotInactive: {
+      width: 8,
+      backgroundColor: theme.colors.border,
+    },
+    ctaWrapper: {
+      marginTop: theme.spacing.xs,
+    },
+  });

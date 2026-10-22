@@ -11,7 +11,7 @@ import {
   TextStyle,
   Platform,
 } from 'react-native';
-import { theme } from '../theme/theme';
+import { useTheme } from '../theme/ThemeContext';
 
 export interface InputProps extends Omit<TextInputProps, 'style'> {
   label: string;
@@ -51,11 +51,11 @@ export const Input = React.forwardRef<TextInput, InputProps>(
     },
     ref
   ) => {
+    const { colors, fonts, spacing, radius } = useTheme();
     const [isFocused, setIsFocused] = useState(false);
     const hasValue = !!(value || defaultValue);
     const isFloated = isFocused || hasValue || !!prefix;
 
-    // Determine smart defaults for inputMode and autoComplete if not explicitly passed
     const resolvedInputMode: TextInputProps['inputMode'] =
       inputMode ??
       (keyboardType === 'phone-pad'
@@ -80,7 +80,6 @@ export const Input = React.forwardRef<TextInput, InputProps>(
         ? 'current-password'
         : undefined);
 
-    // Floating label animation
     const animatedIsFocused = useRef(
       new Animated.Value(isFloated ? 1 : 0)
     ).current;
@@ -103,7 +102,6 @@ export const Input = React.forwardRef<TextInput, InputProps>(
       onBlur?.(e);
     };
 
-    // On Web, ensure pressing Enter triggers form submission (onSubmitEditing)
     const handleKeyPress = (e: any) => {
       if (
         Platform.OS === 'web' &&
@@ -126,33 +124,75 @@ export const Input = React.forwardRef<TextInput, InputProps>(
     });
 
     const labelColor = error
-      ? theme.colors.error
+      ? colors.danger
       : isFocused
-      ? theme.colors.primary
-      : theme.colors.textMuted;
+      ? colors.primary
+      : colors.textSecondary;
 
     const borderColor = error
-      ? theme.colors.error
+      ? colors.danger
       : isFocused
-      ? theme.colors.primary // 2px sage focus
-      : theme.colors.border;
+      ? colors.primary
+      : colors.border;
+
+    const focusShadow = Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.35,
+        shadowRadius: 6,
+      },
+      android: { elevation: 2 },
+      web: {
+        boxShadow: `0 0 0 2px ${colors.primary}40`,
+      } as any,
+    });
+
+    const errorShadow = Platform.select({
+      ios: {
+        shadowColor: colors.danger,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.30,
+        shadowRadius: 6,
+      },
+      android: { elevation: 2 },
+      web: {
+        boxShadow: `0 0 0 2px ${colors.danger}40`,
+      } as any,
+    });
 
     return (
-      <View style={[styles.root, containerStyle]}>
+      <View style={[{ width: '100%', marginBottom: spacing.md }, containerStyle]}>
         <View
           style={[
-            styles.inputContainer,
-            { borderColor },
-            isFocused && styles.focusGlow,
-            error && styles.errorGlow,
-            !editable && styles.disabledContainer,
+            {
+              minHeight: 56,
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: colors.surfaceRaised, // Filled style (surfaceRaised)
+              borderRadius: radius.input, // 18 radius
+              borderWidth: 1, // 1px border
+              borderColor,
+              paddingHorizontal: 16,
+              position: 'relative',
+              overflow: 'hidden',
+            },
+            isFocused && focusShadow,
+            error && errorShadow,
+            !editable && {
+              opacity: 0.75,
+              borderColor: colors.border,
+            },
           ]}
         >
-          {/* Animated Floating Label */}
+          {/* Floating Label */}
           <Animated.Text
             style={[
-              styles.floatingLabel,
               {
+                position: 'absolute',
+                fontFamily: fonts.headingMedium,
+                fontWeight: '600',
+                zIndex: 1,
                 top: labelTop,
                 fontSize: labelFontSize,
                 color: labelColor,
@@ -164,17 +204,20 @@ export const Input = React.forwardRef<TextInput, InputProps>(
             {label}
           </Animated.Text>
 
-          {/* Left Icon */}
-          {leftIcon && <View style={styles.leftIconContainer}>{leftIcon}</View>}
-
-          {/* Optional Prefix (+91, etc.) */}
-          {prefix && (
-            <View style={[styles.prefixContainer, !editable && styles.disabledTextOpacity]}>
-              <Text style={styles.prefixText}>{prefix}</Text>
+          {leftIcon && (
+            <View style={{ marginRight: 10, justifyContent: 'center', alignItems: 'center' }}>
+              {leftIcon}
             </View>
           )}
 
-          {/* Main Input */}
+          {prefix && (
+            <View style={{ marginRight: 8, justifyContent: 'center', paddingTop: 12 }}>
+              <Text style={{ fontFamily: fonts.headingBold, fontSize: 15, color: colors.text, fontWeight: '700' }}>
+                {prefix}
+              </Text>
+            </View>
+          )}
+
           <TextInput
             ref={ref}
             value={value !== undefined ? (value ?? '') : (defaultValue !== undefined ? undefined : '')}
@@ -189,32 +232,42 @@ export const Input = React.forwardRef<TextInput, InputProps>(
             autoComplete={resolvedAutoComplete}
             editable={editable}
             placeholder={isFloated || !label ? placeholder : ''}
-            placeholderTextColor="rgba(218, 241, 222, 0.40)"
-            cursorColor="#8EB69B"
-            selectionColor="#8EB69B"
+            placeholderTextColor={colors.textSecondary}
+            cursorColor={colors.primary}
+            selectionColor={colors.primary}
             style={[
-              styles.textInput,
               {
+                flex: 1,
+                minWidth: 0,
+                fontFamily: fonts.bodyRegular,
+                fontSize: 15,
+                color: colors.text,
+                minHeight: 52,
+                paddingVertical: 8,
                 paddingTop: isFloated ? 20 : 0,
               },
-              !editable && styles.disabledTextOpacity,
+              Platform.OS === 'web' && ({ outlineStyle: 'none' } as any),
               inputStyle,
             ]}
             {...(Platform.OS === 'web' ? ({ tabIndex: 0 } as any) : {})}
             {...props}
           />
 
-          {/* Custom Right Icon */}
           {rightIcon && (
-            <View style={styles.rightAction}>{rightIcon}</View>
+            <View style={{ minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center', marginLeft: 8 }}>
+              {rightIcon}
+            </View>
           )}
         </View>
 
-        {/* Error or Helper Text */}
         {error ? (
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 11, lineHeight: 15, color: colors.danger, marginTop: 5, marginLeft: 4 }}>
+            {error}
+          </Text>
         ) : helperText ? (
-          <Text style={styles.helperText}>{helperText}</Text>
+          <Text style={{ fontFamily: fonts.bodyRegular, fontSize: 11, lineHeight: 15, color: colors.textSecondary, marginTop: 5, marginLeft: 4 }}>
+            {helperText}
+          </Text>
         ) : null}
       </View>
     );
@@ -222,119 +275,5 @@ export const Input = React.forwardRef<TextInput, InputProps>(
 );
 
 Input.displayName = 'Input';
-
-const styles = StyleSheet.create({
-  root: {
-    width: '100%',
-    marginBottom: theme.spacing.md,
-  },
-  inputContainer: {
-    minHeight: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.lg,
-    borderWidth: 1.5,
-    paddingHorizontal: 16,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  focusGlow: {
-    borderWidth: 2,
-    borderColor: '#8EB69B', // Visible 2px sage focus ring
-    ...Platform.select({
-      ios: {
-        shadowColor: theme.colors.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.45,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-      web: {
-        boxShadow: '0 0 0 2px rgba(142, 182, 155, 0.25)',
-      } as any,
-    }),
-  },
-  errorGlow: {
-    ...Platform.select({
-      ios: {
-        shadowColor: theme.colors.error,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.4,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 3,
-      },
-      web: {
-        boxShadow: '0 0 0 2px rgba(255, 107, 107, 0.25)',
-      } as any,
-    }),
-  },
-  disabledContainer: {
-    backgroundColor: 'rgba(22, 56, 50, 0.65)',
-    borderColor: 'rgba(142, 182, 155, 0.25)',
-  },
-  disabledTextOpacity: {
-    opacity: 0.9,
-  },
-  floatingLabel: {
-    position: 'absolute',
-    fontFamily: theme.fonts.headingMedium,
-    fontWeight: '500',
-    zIndex: 1,
-  },
-  leftIconContainer: {
-    marginRight: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  prefixContainer: {
-    marginRight: 8,
-    justifyContent: 'center',
-    paddingTop: 12,
-  },
-  prefixText: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 15,
-    color: theme.colors.text,
-    fontWeight: '700',
-  },
-  textInput: {
-    flex: 1,
-    minWidth: 0,
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 15,
-    color: theme.colors.text,
-    minHeight: 52,
-    paddingVertical: 8,
-    ...(Platform.OS === 'web'
-      ? ({
-          outlineStyle: 'none',
-        } as any)
-      : {}),
-  },
-  rightAction: {
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  errorText: {
-    ...theme.typography.small,
-    color: theme.colors.error,
-    marginTop: 5,
-    marginLeft: 4,
-  },
-  helperText: {
-    ...theme.typography.small,
-    color: theme.colors.textMuted,
-    marginTop: 5,
-    marginLeft: 4,
-  },
-});
 
 export default Input;

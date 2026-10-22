@@ -4,6 +4,7 @@
   "main": "expo-router/entry",
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
+    "@expo-google-fonts/manrope": "^0.4.2",
     "@expo-google-fonts/space-grotesk": "^0.4.1",
     "@expo/metro-runtime": "~57.0.16",
     "@hookform/resolvers": "^5.9.1",
@@ -45,6 +46,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@testing-library/react-native": "^14.1.0",
     "@types/node": "^26.6.5",
     "@types/react": "~19.2.2",
     "tsx": "^4.23.15",
@@ -55,7 +57,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "test": "tsx --test src/**/*.test.ts"
+    "audit:theme": "node scripts/audit-theme.js",
+    "test": "npm run audit:theme && tsx --tsconfig tsconfig.test.json --test src/**/*.test.ts"
   },
   "private": true
 }

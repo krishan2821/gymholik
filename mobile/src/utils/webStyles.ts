@@ -1,12 +1,15 @@
 import { Platform } from 'react-native';
+import { BRAND, PALETTES } from '../theme';
 
 /**
  * Injects global responsive and interaction styling for web.
- * - Cursor pointer on pressables ([role="button"], button, links, etc.)
- * - Visible focus ring (2px solid sage #8EB69B) for keyboard users (:focus-visible)
- * - Hover state (slight lift -2px and brighter border) on buttons, cards, and rows strictly for mouse devices
- * - No hover effects on touch devices (@media (hover: hover) and (pointer: fine))
- * - Respects prefers-reduced-motion (@media (prefers-reduced-motion: reduce))
+ * Colours are derived from the active brand/mode palette tokens.
+ *
+ * - Cursor pointer on pressables
+ * - Visible focus ring (2px solid primary) for keyboard users (:focus-visible)
+ * - Hover state (slight lift -2px and brighter border) on buttons, cards, rows
+ *   for mouse devices only (@media (hover: hover) and (pointer: fine))
+ * - Respects prefers-reduced-motion
  */
 export function injectGlobalWebStyles(): void {
   if (Platform.OS !== 'web' || typeof document === 'undefined') return;
@@ -14,12 +17,16 @@ export function injectGlobalWebStyles(): void {
   const styleId = 'gymholik-web-responsive-styles';
   if (document.getElementById(styleId)) return;
 
+  // Use the active brand dark tokens for initial CSS injection
+  const t = PALETTES[BRAND].dark;
+  const tLight = PALETTES[BRAND].light;
+
   const style = document.createElement('style');
   style.id = styleId;
   style.textContent = `
-    /* Full-height dark background container without horizontal scroll */
+    /* Full-height background without horizontal scroll */
     html, body, #root {
-      background-color: #051F20;
+      background-color: ${t.bg};
       height: 100%;
       min-height: 100%;
       margin: 0;
@@ -29,7 +36,14 @@ export function injectGlobalWebStyles(): void {
       max-width: 100vw;
     }
 
-    /* 5. Cursor pointer on pressables */
+    /* Light-mode overrides via color-scheme */
+    @media (prefers-color-scheme: light) {
+      html, body, #root {
+        background-color: ${tLight.bg};
+      }
+    }
+
+    /* Cursor pointer on pressables */
     [role="button"],
     button,
     [tabindex="0"],
@@ -47,14 +61,14 @@ export function injectGlobalWebStyles(): void {
       cursor: not-allowed !important;
     }
 
-    /* 5. Visible focus ring (rounded 2px sage) for keyboard users ONLY */
+    /* Visible focus ring for keyboard users ONLY */
     :focus-visible {
-      outline: 2px solid #8EB69B !important;
+      outline: 2px solid ${t.primary} !important;
       outline-offset: 2px !important;
       border-radius: 6px !important;
     }
 
-    /* Remove square white outline / highlight on mouse focus */
+    /* Remove square highlight on mouse focus */
     :focus:not(:focus-visible),
     button:focus:not(:focus-visible),
     [role="button"]:focus:not(:focus-visible),
@@ -64,7 +78,7 @@ export function injectGlobalWebStyles(): void {
       box-shadow: none !important;
     }
 
-    /* Tab bar items: clean state without square highlight */
+    /* Tab bar items: clean state */
     [data-tab-item] {
       outline: none !important;
       box-shadow: none !important;
@@ -84,17 +98,14 @@ export function injectGlobalWebStyles(): void {
       transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
     }
 
-    /* 5. Hover states (slight lift and brighter border) - MOUSE ONLY, NO TOUCH */
+    /* Hover states — MOUSE ONLY */
     @media (hover: hover) and (pointer: fine) {
-      /* Buttons: slight lift (-2px) and brighter border */
       [data-interactive="button"]:hover:not([disabled]):not([aria-disabled="true"]),
       [role="button"]:not([data-tab-item]):hover:not([disabled]):not([aria-disabled="true"]) {
         transform: translateY(-2px);
-        border-color: rgba(218, 241, 222, 0.35) !important;
-        box-shadow: 0 4px 14px rgba(142, 182, 155, 0.22);
+        box-shadow: 0 4px 14px rgba(0,0,0,0.20);
       }
 
-      /* Tab bar items do not get square card lifts/borders */
       [data-tab-item]:hover {
         transform: none !important;
         border-color: transparent !important;
@@ -105,23 +116,18 @@ export function injectGlobalWebStyles(): void {
         transform: scale(1.04) !important;
       }
 
-      /* Cards: slight lift (-2px) and brighter border */
       [data-interactive="card"]:hover,
       [data-interactive="card"]:hover > div {
         transform: translateY(-2px);
-        border-color: rgba(218, 241, 222, 0.28) !important;
-        box-shadow: 0 6px 18px rgba(142, 182, 155, 0.18);
+        box-shadow: 0 6px 18px rgba(0,0,0,0.18);
       }
 
-      /* Rows: slight lift (-1px) and brighter border */
       [data-interactive="row"]:hover {
         transform: translateY(-1px);
-        border-color: rgba(218, 241, 222, 0.24) !important;
-        background-color: rgba(22, 56, 50, 0.5) !important;
       }
     }
 
-    /* 6. Respect prefers-reduced-motion on web */
+    /* Respect prefers-reduced-motion */
     @media (prefers-reduced-motion: reduce) {
       *,
       *::before,

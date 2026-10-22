@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
-import { theme } from '../theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../theme/ThemeContext';
 
 export interface PageHeaderProps {
   title: string;
@@ -37,6 +37,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   subtitle,
 }) => {
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
 
   const handleBack = () => {
     if (onBack) {
@@ -57,7 +59,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             accessibilityLabel="Go back"
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <ArrowLeft color={theme.colors.text} size={20} strokeWidth={2.2} />
+            <ArrowLeft color={colors.text} size={20} strokeWidth={2.2} />
           </TouchableOpacity>
         )}
         <View style={styles.titleWrap}>
@@ -76,55 +78,56 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 20, // 20px side padding aligned with column content
-    paddingTop: 12,
-    paddingBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: 56,
-    width: '100%',
-  },
-  leftRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 12,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(218, 241, 222, 0.06)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.12)',
-    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
-  },
-  titleWrap: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  title: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 22,
-    color: theme.colors.text,
-    letterSpacing: -0.3,
-  },
-  subtitle: {
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    marginTop: 2,
-  },
-  rightAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-});
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
+    container: {
+      paddingHorizontal: 20, // 20px side padding aligned with column content
+      paddingTop: 12,
+      paddingBottom: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      minHeight: 56,
+      width: '100%',
+    },
+    leftRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+      marginRight: 12,
+    },
+    backButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: theme.colors.surfaceRaised,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+    },
+    titleWrap: {
+      flex: 1,
+      justifyContent: 'center',
+    },
+    title: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 22,
+      color: theme.colors.text,
+      letterSpacing: -0.3,
+    },
+    subtitle: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 13,
+      color: theme.colors.textSecondary,
+      marginTop: 2,
+    },
+    rightAction: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+  });
 
 export default PageHeader;

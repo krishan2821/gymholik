@@ -21,7 +21,7 @@ import {
   CheckCircle2,
 } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
-import { theme } from '../../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../../src/theme/ThemeContext';
 import { useAuthStore } from '../../../../src/store/useAuthStore';
 import {
   useCreateTrainer,
@@ -50,6 +50,8 @@ import { useBreakpoint } from '../../../../src/hooks/useBreakpoint';
 const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/;
 
 export default function AddTrainerScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const router = useRouter();
   const { role, user } = useAuthStore();
   const { data: gymSettings } = useGymSettings();
@@ -289,7 +291,7 @@ export default function AddTrainerScreen() {
               disabled={createTrainer.isPending}
               accessibilityRole="button"
             >
-              <Plus size={14} color={theme.colors.primary} style={styles.addTypeIcon} />
+              <Plus size={14} color={colors.primary} style={styles.addTypeIcon} />
               <Text style={styles.addTypeLinkText}>{TRAINERS.ADD_NEW_TYPE_LINK}</Text>
             </TouchableOpacity>
           </View>
@@ -298,7 +300,7 @@ export default function AddTrainerScreen() {
           {isTypesLoading ? (
             <ActivityIndicator
               size="small"
-              color={theme.colors.primary}
+              color={colors.primary}
               style={styles.typesLoader}
             />
           ) : isTypesError ? (
@@ -324,7 +326,7 @@ export default function AddTrainerScreen() {
                     {isSelected && (
                       <Check
                         size={14}
-                        color={theme.colors.textOnPrimary}
+                        color={colors.textOnPrimary}
                         style={styles.chipCheckIcon}
                       />
                     )}
@@ -357,7 +359,7 @@ export default function AddTrainerScreen() {
             accessibilityRole="button"
           >
             <View style={styles.assignBtnLeft}>
-              <Users size={18} color={theme.colors.primary} style={styles.assignIcon} />
+              <Users size={18} color={colors.primary} style={styles.assignIcon} />
               <Text style={styles.assignMembersBtnText}>
                 {selectedMemberIds.length > 0
                   ? TRAINERS.SELECTED_MEMBERS_COUNT(selectedMemberIds.length)
@@ -397,7 +399,7 @@ export default function AddTrainerScreen() {
                 onPress={() => setNewTypeModalVisible(false)}
                 disabled={createTrainerType.isPending}
               >
-                <X size={20} color={theme.colors.textMuted} />
+                <X size={20} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -449,16 +451,16 @@ export default function AddTrainerScreen() {
                 onPress={() => setMemberModalVisible(false)}
                 accessibilityRole="button"
               >
-                <X size={22} color={theme.colors.textMuted} />
+                <X size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.searchBar}>
-              <Search size={18} color={theme.colors.textMuted} style={styles.searchIcon} />
+              <Search size={18} color={colors.textSecondary} style={styles.searchIcon} />
               <TextInput
                 style={styles.searchInput}
                 placeholder={ASSIGN_MEMBERS.SEARCH_PLACEHOLDER}
-                placeholderTextColor={theme.colors.textMuted}
+                placeholderTextColor={colors.textSecondary}
                 value={memberSearch}
                 onChangeText={setMemberSearch}
               />
@@ -466,11 +468,11 @@ export default function AddTrainerScreen() {
 
             {isMembersLoading ? (
               <View style={styles.sheetLoader}>
-                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <ActivityIndicator size="large" color={colors.primary} />
               </View>
             ) : allMembers.length === 0 ? (
               <EmptyState
-                icon={<Users size={40} color={theme.colors.primary} />}
+                icon={<Users size={40} color={colors.primary} />}
                 title={ASSIGN_MEMBERS.NO_MEMBERS_FOUND}
               />
             ) : (
@@ -504,7 +506,7 @@ export default function AddTrainerScreen() {
                         ]}
                       >
                         {isSelected && (
-                          <Check size={14} color={theme.colors.textOnPrimary} />
+                          <Check size={14} color={colors.textOnPrimary} />
                         )}
                       </View>
                     </TouchableOpacity>
@@ -538,7 +540,7 @@ export default function AddTrainerScreen() {
         <View style={[styles.modalOverlay, !isPhone && styles.modalOverlayDesktop]}>
           <View style={[styles.bottomSheet, !isPhone && styles.bottomSheetDesktop]}>
             <View style={styles.successIconWrap}>
-              <CheckCircle2 size={44} color={theme.colors.primary} />
+              <CheckCircle2 size={44} color={colors.primary} />
             </View>
             <Text style={styles.successSheetTitle}>{TRAINERS.SUCCESS_SHEET_TITLE}</Text>
             <Text style={styles.successSheetDesc}>{TRAINERS.SUCCESS_SHEET_DESC}</Text>
@@ -546,7 +548,7 @@ export default function AddTrainerScreen() {
             <View style={styles.successActions}>
               <Button
                 title={TRAINERS.SHARE_WHATSAPP_BTN}
-                icon={<MessageCircle size={18} color={theme.colors.textOnPrimary} />}
+                icon={<MessageCircle size={18} color={colors.textOnPrimary} />}
                 onPress={handleShareOnWhatsApp}
                 variant="primary"
                 size="lg"
@@ -569,7 +571,7 @@ export default function AddTrainerScreen() {
 
 const STATES_RETRY_LABEL = 'Tap to retry loading types';
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: ThemeValue) => StyleSheet.create({
   container: {
     padding: theme.spacing.md,
     paddingBottom: 48,
@@ -596,7 +598,7 @@ const styles = StyleSheet.create({
   },
   helperText: {
     ...theme.typography.small,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginTop: 2,
     marginBottom: theme.spacing.sm,
   },
@@ -628,7 +630,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: theme.radius.full,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
   },
@@ -650,7 +652,7 @@ const styles = StyleSheet.create({
   },
   errorInlineText: {
     ...theme.typography.small,
-    color: theme.colors.error,
+    color: theme.colors.danger,
     marginTop: 6,
   },
   assignMembersButton: {
@@ -658,7 +660,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.lg,
@@ -686,7 +688,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: theme.colors.overlayEnd,
+    backgroundColor: theme.colors.scrim,
     justifyContent: 'flex-end',
   },
   modalOverlayDesktop: {
@@ -742,7 +744,7 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderRadius: theme.radius.lg,
     paddingHorizontal: theme.spacing.md,
     borderWidth: 1,
@@ -772,7 +774,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.sm,
     borderRadius: theme.radius.md,
     marginBottom: 6,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1,
     borderColor: theme.colors.borderLight,
   },
@@ -789,7 +791,7 @@ const styles = StyleSheet.create({
   },
   memberMeta: {
     ...theme.typography.small,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
   checkbox: {
     width: 22,

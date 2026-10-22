@@ -6,7 +6,7 @@ import { FloatingTabBar } from '../../src/components/FloatingTabBar';
 import { AppContainer } from '../../src/components/AppContainer';
 import { DesktopSidebar } from '../../src/components/DesktopSidebar';
 import { useBreakpoint } from '../../src/hooks/useBreakpoint';
-import { theme } from '../../src/theme/theme';
+import { useTheme } from '../../src/theme/ThemeContext';
 import {
   getHomeRouteForRole,
   getTabHrefForRole,
@@ -18,8 +18,8 @@ export default function TabLayout() {
   const router = useRouter();
   const segments = useSegments();
   const { isDesktop } = useBreakpoint();
+  const { colors } = useTheme();
 
-  // Read role strictly from authenticated user object in auth store
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
   const role = user?.role;
@@ -29,21 +29,16 @@ export default function TabLayout() {
     router.replace('/(auth)/login');
   };
 
-  // Deep-link guard: if user opens a route forbidden for their role, redirect to role's home
   useEffect(() => {
     if (!role) return;
-
-    // segments e.g. ['(tabs)'] or ['(tabs)', 'notes'] or ['(tabs)', 'payments', 'dues']
     const segs = segments as string[];
     const currentTab = segs[1] || 'index';
-
     if (!isRouteAllowedForRole(role, currentTab)) {
       const home = getHomeRouteForRole(role);
       router.replace(home as any);
     }
   }, [segments, role, router]);
 
-  // Prevent flash of wrong tabs: do not render tabs until authenticated user role is available
   if (!role) {
     return (
       <View
@@ -51,10 +46,10 @@ export default function TabLayout() {
           flex: 1,
           justifyContent: 'center',
           alignItems: 'center',
-          backgroundColor: theme.colors.background,
+          backgroundColor: colors.bg,
         }}
       >
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -63,68 +58,18 @@ export default function TabLayout() {
   const currentTabName = segs[1] || 'index';
 
   const renderScreens = () => [
-    <Tabs.Screen
-      key="index"
-      name="index"
-      options={{
-        title: getTabTitleForRole(role, 'index'),
-        href: getTabHrefForRole(role, 'index'),
-      }}
-    />,
-    <Tabs.Screen
-      key="members"
-      name="members"
-      options={{
-        title: getTabTitleForRole(role, 'members'),
-        href: getTabHrefForRole(role, 'members'),
-      }}
-    />,
-    <Tabs.Screen
-      key="attendance"
-      name="attendance"
-      options={{
-        title: getTabTitleForRole(role, 'attendance'),
-        href: getTabHrefForRole(role, 'attendance'),
-      }}
-    />,
-    <Tabs.Screen
-      key="notes"
-      name="notes"
-      options={{
-        title: getTabTitleForRole(role, 'notes'),
-        href: getTabHrefForRole(role, 'notes'),
-      }}
-    />,
-    <Tabs.Screen
-      key="profile"
-      name="profile"
-      options={{
-        title: getTabTitleForRole(role, 'profile'),
-        href: getTabHrefForRole(role, 'profile'),
-      }}
-    />,
-    <Tabs.Screen
-      key="payments"
-      name="payments"
-      options={{
-        title: getTabTitleForRole(role, 'payments'),
-        href: getTabHrefForRole(role, 'payments'),
-      }}
-    />,
-    <Tabs.Screen
-      key="more"
-      name="more"
-      options={{
-        title: getTabTitleForRole(role, 'more'),
-        href: getTabHrefForRole(role, 'more'),
-      }}
-    />,
+    <Tabs.Screen key="index" name="index" options={{ title: getTabTitleForRole(role, 'index'), href: getTabHrefForRole(role, 'index') }} />,
+    <Tabs.Screen key="members" name="members" options={{ title: getTabTitleForRole(role, 'members'), href: getTabHrefForRole(role, 'members') }} />,
+    <Tabs.Screen key="attendance" name="attendance" options={{ title: getTabTitleForRole(role, 'attendance'), href: getTabHrefForRole(role, 'attendance') }} />,
+    <Tabs.Screen key="notes" name="notes" options={{ title: getTabTitleForRole(role, 'notes'), href: getTabHrefForRole(role, 'notes') }} />,
+    <Tabs.Screen key="profile" name="profile" options={{ title: getTabTitleForRole(role, 'profile'), href: getTabHrefForRole(role, 'profile') }} />,
+    <Tabs.Screen key="payments" name="payments" options={{ title: getTabTitleForRole(role, 'payments'), href: getTabHrefForRole(role, 'payments') }} />,
+    <Tabs.Screen key="more" name="more" options={{ title: getTabTitleForRole(role, 'more'), href: getTabHrefForRole(role, 'more') }} />,
   ];
 
-  // ── Desktop Layout (Width >= 1024): Left 240px Sidebar + Centered Content ─
   if (isDesktop) {
     return (
-      <View style={styles.desktopRoot}>
+      <View style={[styles.desktopRoot, { backgroundColor: colors.bg }]}>
         <DesktopSidebar
           role={role}
           currentTab={currentTabName}
@@ -135,14 +80,12 @@ export default function TabLayout() {
           }}
           onSignOut={handleSignOut}
         />
-        <View style={styles.desktopMainContainer}>
+        <View style={[styles.desktopMainContainer, { backgroundColor: colors.bg }]}>
           <Tabs
             tabBar={() => null}
             screenOptions={{
               headerShown: false,
-              sceneStyle: {
-                backgroundColor: theme.colors.background,
-              },
+              sceneStyle: { backgroundColor: colors.bg },
             }}
           >
             {renderScreens()}
@@ -152,17 +95,14 @@ export default function TabLayout() {
     );
   }
 
-  // ── Mobile & Tablet Layout (Width < 1024): AppContainer + Floating Tab Bar ─
   return (
-    <View style={styles.mobileRoot}>
+    <View style={[styles.mobileRoot, { backgroundColor: colors.bg }]}>
       <AppContainer>
         <Tabs
           tabBar={(props) => <FloatingTabBar {...props} />}
           screenOptions={{
             headerShown: false,
-            sceneStyle: {
-              backgroundColor: theme.colors.background,
-            },
+            sceneStyle: { backgroundColor: colors.bg },
           }}
         >
           {renderScreens()}
@@ -178,17 +118,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     width: '100%',
     height: '100%',
-    backgroundColor: '#051F20',
   },
   desktopMainContainer: {
     flex: 1,
     height: '100%',
-    backgroundColor: '#051F20',
   },
   mobileRoot: {
     flex: 1,
     width: '100%',
     height: '100%',
-    backgroundColor: '#051F20',
   },
 });

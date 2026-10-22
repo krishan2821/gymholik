@@ -7,7 +7,7 @@ test('Responsive layout tokens', () => {
   assert.strictEqual(layout.maxWidth.column, 480);
   assert.strictEqual(layout.maxWidth.form, 420);
   assert.strictEqual(layout.maxWidth.content, 480);
-  assert.strictEqual(colors.background, '#051F20');
+  assert.ok(['#0B1020', '#14100E'].includes(colors.bg));
   assert.strictEqual(BREAKPOINTS.TABLET, 640);
   assert.strictEqual(BREAKPOINTS.DESKTOP, 1024);
 });
@@ -18,17 +18,17 @@ test('AppContainer responsive column rules', () => {
   const phoneBreakpoint = getBreakpoint(390);
   assert.strictEqual(phoneBreakpoint, 'phone');
 
-  // Tablet: 640 to 1023 -> 480px centered column with 1px border rgba(218,241,222,0.08)
+  // Tablet: 640 to 1023 -> 480px centered column
   const tabletBreakpoint = getBreakpoint(768);
   assert.strictEqual(tabletBreakpoint, 'tablet');
 
-  // Desktop: >= 1024 -> 480px centered column with 1px border rgba(218,241,222,0.08)
+  // Desktop: >= 1024 -> 480px centered column
   const desktopBreakpoint = getBreakpoint(1200);
   assert.strictEqual(desktopBreakpoint, 'desktop');
 
   // Subtle border spec
-  const subtleBorderColor = 'rgba(218, 241, 222, 0.08)';
-  assert.strictEqual(subtleBorderColor, 'rgba(218, 241, 222, 0.08)');
+  const subtleBorderColor = colors.border;
+  assert.strictEqual(subtleBorderColor, colors.border);
 });
 
 test('Card maxWidth token resolution', () => {

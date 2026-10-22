@@ -9,7 +9,10 @@ import {
   Platform,
 } from 'react-native';
 import { create } from 'zustand';
-import { theme } from '../theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../theme/ThemeContext';
+import { usePrefersReducedTransparency } from '../hooks/usePrefersReducedTransparency';
+import { canUseGlass } from '../utils/platformCapabilities';
+import { BlurView } from 'expo-blur';
 
 export interface ConfirmDialogProps {
   visible: boolean;
@@ -20,6 +23,7 @@ export interface ConfirmDialogProps {
   isDestructive?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  platformOverride?: 'ios26' | 'ios' | 'android' | 'web';
 }
 
 export interface ConfirmDialogOptions {
@@ -30,6 +34,7 @@ export interface ConfirmDialogOptions {
   isDestructive?: boolean;
   onConfirm: () => void;
   onCancel?: () => void;
+  platformOverride?: 'ios26' | 'ios' | 'android' | 'web';
 }
 
 interface ConfirmDialogState {
@@ -63,7 +68,13 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   isDestructive = false,
   onConfirm,
   onCancel,
+  platformOverride,
 }) => {
+  const { colors, fonts, radius } = useTheme();
+  const styles = useStyles(makeStyles);
+  const reducedTransparency = usePrefersReducedTransparency();
+  const isGlass = canUseGlass({ platformOverride, reduceTransparency: reducedTransparency });
+
   return (
     <Modal
       visible={visible}
@@ -72,31 +83,70 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       onRequestClose={onCancel}
     >
       <TouchableWithoutFeedback onPress={onCancel}>
-        <View style={styles.overlay}>
+        <View style={[styles.overlay, { backgroundColor: colors.scrim }]}>
           <TouchableWithoutFeedback>
-            <View style={styles.dialogCard}>
-              <Text style={styles.title}>{title}</Text>
-              {message ? <Text style={styles.message}>{message}</Text> : null}
+            <View
+              style={[
+                styles.dialogCard,
+                {
+                  borderRadius: radius.card,
+                  borderColor: isGlass ? colors.glassBorder : colors.border,
+                  backgroundColor: isGlass ? colors.glassTint : colors.surface,
+                },
+                Platform.OS === 'android' && { elevation: 12 },
+              ]}
+            >
+              {isGlass && (
+                <BlurView
+                  intensity={40}
+                  tint="dark"
+                  style={StyleSheet.absoluteFill}
+                />
+              )}
+              <Text style={[styles.title, { fontFamily: fonts.headingBold, color: colors.text }]}>
+                {title}
+              </Text>
+              {message ? (
+                <Text style={[styles.message, { fontFamily: fonts.bodyRegular, color: colors.textSecondary }]}>
+                  {message}
+                </Text>
+              ) : null}
               <View style={styles.buttonRow}>
                 <TouchableOpacity
-                  style={[styles.button, styles.cancelButton]}
+                  style={[
+                    styles.button,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
+                  ]}
                   onPress={onCancel}
                   activeOpacity={0.7}
+                  accessibilityRole="button"
                 >
-                  <Text style={styles.cancelText}>{cancelText}</Text>
+                  <Text style={[styles.cancelText, { fontFamily: fonts.headingMedium, color: colors.text }]}>
+                    {cancelText}
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[
                     styles.button,
-                    isDestructive ? styles.destructiveButton : styles.confirmButton,
+                    {
+                      backgroundColor: isDestructive ? colors.danger : colors.primary,
+                      borderColor: isDestructive ? colors.danger : colors.primary,
+                    },
                   ]}
                   onPress={onConfirm}
                   activeOpacity={0.7}
+                  accessibilityRole="button"
                 >
                   <Text
                     style={[
                       styles.confirmText,
-                      isDestructive ? styles.destructiveText : styles.primaryText,
+                      {
+                        fontFamily: fonts.headingBold,
+                        color: colors.textOnPrimary,
+                      },
                     ]}
                   >
                     {confirmText}
@@ -111,9 +161,6 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   );
 };
 
-/**
- * Global ConfirmDialog host rendered once at root layout.
- */
 export const GlobalConfirmDialog: React.FC = () => {
   const { isOpen, options, hide } = useConfirmDialogStore();
 
@@ -127,6 +174,7 @@ export const GlobalConfirmDialog: React.FC = () => {
       confirmText={options.confirmText}
       cancelText={options.cancelText}
       isDestructive={options.isDestructive}
+      platformOverride={options.platformOverride}
       onConfirm={() => {
         hide();
         options.onConfirm();
@@ -139,10 +187,10 @@ export const GlobalConfirmDialog: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -150,27 +198,26 @@ const styles = StyleSheet.create({
   dialogCard: {
     width: '100%',
     maxWidth: 420,
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.lg,
     padding: 24,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 10,
+    overflow: 'hidden',
+    ...(Platform.OS === 'ios'
+      ? {
+          shadowColor: theme.colors.shadow,
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.35,
+          shadowRadius: 16,
+        }
+      : {}),
   },
   title: {
-    ...theme.typography.h3,
-    color: theme.colors.text,
+    fontSize: 18,
     marginBottom: 8,
   },
   message: {
-    ...theme.typography.bodyMedium,
-    color: theme.colors.textSecondary,
-    marginBottom: 24,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 20,
   },
   buttonRow: {
     flexDirection: 'row',
@@ -178,35 +225,19 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   button: {
-    paddingVertical: 10,
     paddingHorizontal: 18,
-    borderRadius: theme.radius.md,
-    alignItems: 'center',
+    minHeight: 44,
+    borderRadius: 9999,
     justifyContent: 'center',
-    minWidth: 84,
-  },
-  cancelButton: {
-    backgroundColor: 'transparent',
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  confirmButton: {
-    backgroundColor: theme.colors.primary,
-  },
-  destructiveButton: {
-    backgroundColor: theme.colors.error,
   },
   cancelText: {
-    ...theme.typography.button,
-    color: theme.colors.textSecondary,
+    fontSize: 14,
   },
   confirmText: {
-    ...theme.typography.button,
-  },
-  primaryText: {
-    color: '#0D1912',
-  },
-  destructiveText: {
-    color: '#FFFFFF',
+    fontSize: 14,
   },
 });
+
+export default ConfirmDialog;

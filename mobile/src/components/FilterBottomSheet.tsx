@@ -8,21 +8,25 @@ import {
   TouchableWithoutFeedback,
   Platform,
 } from 'react-native';
-import { theme } from '../theme/theme';
 import { Check, X } from 'lucide-react-native';
+import { useTheme } from '../theme/ThemeContext';
+import { usePrefersReducedTransparency } from '../hooks/usePrefersReducedTransparency';
+import { canUseGlass } from '../utils/platformCapabilities';
+import { BlurView } from 'expo-blur';
 
 export interface FilterOption {
   label: string;
   value: string;
 }
 
-interface FilterBottomSheetProps {
+export interface FilterBottomSheetProps {
   visible: boolean;
   title: string;
   options: FilterOption[];
   selectedValue: string;
   onSelect: (val: string) => void;
   onClose: () => void;
+  platformOverride?: 'ios26' | 'ios' | 'android' | 'web';
 }
 
 export const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
@@ -32,23 +36,58 @@ export const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
   selectedValue,
   onSelect,
   onClose,
+  platformOverride,
 }) => {
+  const { colors, fonts, radius } = useTheme();
+  const reducedTransparency = usePrefersReducedTransparency();
+  const isGlass = canUseGlass({ platformOverride, reduceTransparency: reducedTransparency });
+
   if (!visible) return null;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.overlay}>
+        <View style={[styles.overlay, { backgroundColor: colors.scrim }]}>
           <TouchableWithoutFeedback>
-            <View style={styles.sheet}>
-              <View style={styles.header}>
-                <Text style={styles.title}>{title}</Text>
+            <View
+              style={[
+                styles.sheet,
+                {
+                  borderTopLeftRadius: radius.sheet, // 28 radius
+                  borderTopRightRadius: radius.sheet, // 28 radius
+                  borderTopWidth: 1,
+                  borderLeftWidth: 1,
+                  borderRightWidth: 1,
+                  borderColor: isGlass ? colors.glassBorder : colors.border,
+                  backgroundColor: isGlass ? colors.glassTint : colors.surface,
+                },
+              ]}
+            >
+              {isGlass && (
+                <BlurView
+                  intensity={40}
+                  tint="dark"
+                  style={StyleSheet.absoluteFill}
+                />
+              )}
+
+              {/* Drag handle */}
+              <View style={styles.handleContainer}>
+                <View style={[styles.dragHandle, { backgroundColor: colors.border }]} />
+              </View>
+
+              <View style={[styles.header, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.title, { fontFamily: fonts.headingBold, color: colors.text }]}>
+                  {title}
+                </Text>
                 <TouchableOpacity
                   onPress={onClose}
                   style={styles.closeBtn}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close"
                 >
-                  <X size={18} color={theme.colors.textMuted} />
+                  <X size={18} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
@@ -58,7 +97,10 @@ export const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
                   return (
                     <TouchableOpacity
                       key={opt.value}
-                      style={[styles.optionRow, isSelected && styles.optionRowActive]}
+                      style={[
+                        styles.optionRow,
+                        isSelected && { backgroundColor: colors.primarySoft },
+                      ]}
                       onPress={() => {
                         onSelect(opt.value);
                         onClose();
@@ -66,10 +108,18 @@ export const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
                       activeOpacity={0.7}
                       {...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {})}
                     >
-                      <Text style={[styles.optionLabel, isSelected && styles.optionLabelActive]}>
+                      <Text
+                        style={[
+                          styles.optionLabel,
+                          {
+                            fontFamily: isSelected ? fonts.headingBold : fonts.bodyRegular,
+                            color: isSelected ? colors.primary : colors.text,
+                          },
+                        ]}
+                      >
                         {opt.label}
                       </Text>
-                      {isSelected && <Check size={18} color={theme.colors.primary} />}
+                      {isSelected && <Check size={18} color={colors.primary} />}
                     </TouchableOpacity>
                   );
                 })}
@@ -85,39 +135,44 @@ export const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(5, 31, 32, 0.75)',
     justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
     alignItems: 'center',
     padding: Platform.OS === 'web' ? 16 : 0,
   },
   sheet: {
     width: '100%',
-    maxWidth: Platform.OS === 'web' ? 420 : '100%',
-    backgroundColor: '#0B2B26',
-    borderTopLeftRadius: Platform.OS === 'web' ? theme.radius.lg : theme.radius.xl,
-    borderTopRightRadius: Platform.OS === 'web' ? theme.radius.lg : theme.radius.xl,
-    borderRadius: Platform.OS === 'web' ? theme.radius.lg : undefined,
-    borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.16)',
-    paddingBottom: Platform.OS === 'ios' ? 32 : 16,
+    maxWidth: Platform.OS === 'web' ? 440 : '100%',
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
     overflow: 'hidden',
+  },
+  handleContainer: {
+    width: '100%',
+    alignItems: 'center',
+    paddingTop: 10,
+    paddingBottom: 6,
+  },
+  dragHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(218, 241, 222, 0.08)',
   },
   title: {
-    fontFamily: theme.fonts.headingBold,
     fontSize: 16,
-    color: theme.colors.text,
   },
   closeBtn: {
-    padding: 4,
+    padding: 6,
+    minHeight: 44,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   optionsList: {
     paddingVertical: 8,
@@ -127,18 +182,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 14,
-  },
-  optionRowActive: {
-    backgroundColor: 'rgba(142, 182, 155, 0.08)',
+    minHeight: 48,
   },
   optionLabel: {
-    fontFamily: theme.fonts.bodyRegular,
     fontSize: 15,
-    color: theme.colors.textMuted,
-  },
-  optionLabelActive: {
-    fontFamily: theme.fonts.bodyBold,
-    color: theme.colors.primary,
   },
 });
+
+export default FilterBottomSheet;

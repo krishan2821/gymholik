@@ -29,7 +29,7 @@ import {
   Calendar,
   NotebookPen,
 } from 'lucide-react-native';
-import { theme } from '../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../src/theme/ThemeContext';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import { useMembers, Member } from '../../src/api/members';
 import {
@@ -58,6 +58,8 @@ const NOTE_TYPES: { type: NoteType; label: string; icon: any; variant: BadgeVari
 export default function NotesScreen() {
   const router = useRouter();
   const { width: screenWidth } = useWindowDimensions();
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const rawInsets = useSafeAreaInsets();
   const insets = Platform.OS === 'web' ? { top: 0, right: 0, bottom: 0, left: 0 } : (rawInsets ?? { top: 0, right: 0, bottom: 0, left: 0 });
   const user = useAuthStore((state) => state.user);
@@ -211,7 +213,7 @@ export default function NotesScreen() {
   if (isLoadingMembers) {
     return (
       <Screen style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </Screen>
     );
   }
@@ -228,7 +230,7 @@ export default function NotesScreen() {
     return (
       <Screen style={styles.centered}>
         <EmptyState
-          icon={<NotebookPen size={40} color={theme.colors.primary} />}
+          icon={<NotebookPen size={40} color={colors.primary} />}
           title="No Assigned Members"
           message="No members assigned yet. Your gym owner will assign members to you."
         />
@@ -311,7 +313,7 @@ export default function NotesScreen() {
         <GlassCard style={styles.chartCard} contentStyle={styles.chartCardContent}>
           <View style={styles.chartHeader}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Scale size={18} color={theme.colors.primary} style={{ marginRight: 6 }} />
+              <Scale size={18} color={colors.primary} style={{ marginRight: 6 }} />
               <Text style={styles.chartTitle}>Weight Progress (kg)</Text>
             </View>
             {weightChartData.length > 0 && (
@@ -327,28 +329,28 @@ export default function NotesScreen() {
                 data={weightChartData}
                 width={Math.min(screenWidth, 480) - 64}
                 height={180}
-                color={theme.colors.primary}
+                color={colors.primary}
                 thickness={2.5}
                 curved
                 areaChart
-                startFillColor={theme.colors.primary + '33'}
-                endFillColor={theme.colors.primary + '02'}
+                startFillColor={colors.primary + '33'}
+                endFillColor={colors.primary + '02'}
                 startOpacity={0.4}
                 endOpacity={0.0}
                 initialSpacing={20}
                 endSpacing={20}
                 noOfSections={4}
                 yAxisColor="transparent"
-                xAxisColor={theme.colors.border}
-                yAxisTextStyle={{ color: theme.colors.textMuted, fontSize: 10 }}
-                xAxisLabelTextStyle={{ color: theme.colors.textMuted, fontSize: 10 }}
-                dataPointsColor={theme.colors.primary}
+                xAxisColor={colors.border}
+                yAxisTextStyle={{ color: colors.textSecondary, fontSize: 10 }}
+                xAxisLabelTextStyle={{ color: colors.textSecondary, fontSize: 10 }}
+                dataPointsColor={colors.primary}
                 dataPointsRadius={4}
                 textFontSize={10}
-                textColor={theme.colors.textMuted}
+                textColor={colors.textSecondary}
                 textShiftY={-8}
                 textShiftX={-10}
-                rulesColor="rgba(218, 241, 222, 0.06)"
+                rulesColor={colors.border}
                 rulesType="solid"
               />
             </View>
@@ -371,7 +373,7 @@ export default function NotesScreen() {
             </View>
           ) : (
             <View style={styles.chartEmptyBox}>
-              <Scale size={28} color={theme.colors.textMuted} style={{ marginBottom: 6 }} />
+              <Scale size={28} color={colors.textSecondary} style={{ marginBottom: 6 }} />
               <Text style={styles.chartEmptyText}>
                 No weight entries yet. Add progress notes with weight to track changes.
               </Text>
@@ -411,7 +413,7 @@ export default function NotesScreen() {
             })}
           </ScrollView>
           <LinearGradient
-            colors={['transparent', theme.colors.background]}
+            colors={['transparent', colors.bg]}
             start={{ x: 0, y: 0.5 }}
             end={{ x: 1, y: 0.5 }}
             style={[styles.fadeGradientRight, { pointerEvents: 'none' }]}
@@ -421,13 +423,13 @@ export default function NotesScreen() {
         {/* ── 4. Notes Timeline & Empty State ──────────────────────── */}
         {isLoadingNotes ? (
           <View style={{ padding: 32, alignItems: 'center' }}>
-            <ActivityIndicator size="small" color={theme.colors.primary} />
+            <ActivityIndicator size="small" color={colors.primary} />
           </View>
         ) : isNotesError ? (
           <ErrorState message="Failed to load notes" onRetry={() => refetchNotes()} />
         ) : filteredNotes.length === 0 ? (
           <EmptyState
-            icon={<NotebookPen size={36} color={theme.colors.primary} />}
+            icon={<NotebookPen size={36} color={colors.primary} />}
             message={`No notes yet. Add the first note for ${activeMember?.name || 'this member'}.`}
           />
         ) : (
@@ -451,7 +453,7 @@ export default function NotesScreen() {
                     )}
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Calendar size={13} color={theme.colors.textMuted} style={{ marginRight: 4 }} />
+                    <Calendar size={13} color={colors.textSecondary} style={{ marginRight: 4 }} />
                     <Text style={styles.noteDateText}>{createdDateStr}</Text>
                     {canEdit && (
                       <TouchableOpacity
@@ -461,7 +463,7 @@ export default function NotesScreen() {
                         accessibilityRole="button"
                         accessibilityLabel="Edit note"
                       >
-                        <Edit2 size={15} color={theme.colors.primary} />
+                        <Edit2 size={15} color={colors.primary} />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -474,7 +476,7 @@ export default function NotesScreen() {
                   <View style={styles.extraDetailsWrap}>
                     {typeof note.weightKg === 'number' && (
                       <View style={styles.metricPill}>
-                        <Scale size={13} color={theme.colors.primary} style={{ marginRight: 4 }} />
+                        <Scale size={13} color={colors.primary} style={{ marginRight: 4 }} />
                         <Text style={styles.metricPillText}>Weight: {note.weightKg} kg</Text>
                       </View>
                     )}
@@ -507,7 +509,7 @@ export default function NotesScreen() {
         accessibilityRole="button"
         accessibilityLabel="Add Note"
       >
-        <Plus size={26} color={theme.colors.textOnPrimary} strokeWidth={2.5} />
+        <Plus size={26} color={colors.textOnPrimary} strokeWidth={2.5} />
       </TouchableOpacity>
 
       {/* ── Add / Edit Note Modal ──────────────────────────────────── */}
@@ -527,7 +529,7 @@ export default function NotesScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Close"
               >
-                <X size={20} color={theme.colors.textMuted} />
+                <X size={20} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -547,7 +549,7 @@ export default function NotesScreen() {
                     >
                       <Icon
                         size={16}
-                        color={isSelected ? theme.colors.textOnPrimary : theme.colors.textMuted}
+                        color={isSelected ? colors.textOnPrimary : colors.textSecondary}
                         style={{ marginRight: 4 }}
                       />
                       <Text
@@ -568,14 +570,14 @@ export default function NotesScreen() {
               <TextInput
                 style={styles.textArea}
                 placeholder="Enter workout set, diet plan or progress observations..."
-                placeholderTextColor={theme.colors.textMuted}
+                placeholderTextColor={colors.textSecondary}
                 multiline
                 numberOfLines={4}
                 value={formText}
                 onChangeText={setFormText}
                 textAlignVertical="top"
-                cursorColor="#8EB69B"
-                selectionColor="#8EB69B"
+                cursorColor={colors.primary}
+                selectionColor={colors.primary}
               />
 
               {/* Optional Progress Metrics */}
@@ -583,12 +585,12 @@ export default function NotesScreen() {
               <TextInput
                 style={styles.textInput}
                 placeholder="e.g. 74.5"
-                placeholderTextColor={theme.colors.textMuted}
+                placeholderTextColor={colors.textSecondary}
                 keyboardType="numeric"
                 value={formWeight}
                 onChangeText={setFormWeight}
-                cursorColor="#8EB69B"
-                selectionColor="#8EB69B"
+                cursorColor={colors.primary}
+                selectionColor={colors.primary}
               />
 
               {/* Measurements */}
@@ -601,11 +603,11 @@ export default function NotesScreen() {
                   <TextInput
                     style={styles.measurementInput}
                     placeholder="38"
-                    placeholderTextColor={theme.colors.textMuted}
+                    placeholderTextColor={colors.textSecondary}
                     value={formChest}
                     onChangeText={setFormChest}
-                    cursorColor="#8EB69B"
-                    selectionColor="#8EB69B"
+                    cursorColor={colors.primary}
+                    selectionColor={colors.primary}
                   />
                 </View>
                 <View style={styles.measurementItem}>
@@ -613,11 +615,11 @@ export default function NotesScreen() {
                   <TextInput
                     style={styles.measurementInput}
                     placeholder="32"
-                    placeholderTextColor={theme.colors.textMuted}
+                    placeholderTextColor={colors.textSecondary}
                     value={formWaist}
                     onChangeText={setFormWaist}
-                    cursorColor="#8EB69B"
-                    selectionColor="#8EB69B"
+                    cursorColor={colors.primary}
+                    selectionColor={colors.primary}
                   />
                 </View>
                 <View style={styles.measurementItem}>
@@ -625,11 +627,11 @@ export default function NotesScreen() {
                   <TextInput
                     style={styles.measurementInput}
                     placeholder="36"
-                    placeholderTextColor={theme.colors.textMuted}
+                    placeholderTextColor={colors.textSecondary}
                     value={formHips}
                     onChangeText={setFormHips}
-                    cursorColor="#8EB69B"
-                    selectionColor="#8EB69B"
+                    cursorColor={colors.primary}
+                    selectionColor={colors.primary}
                   />
                 </View>
                 <View style={styles.measurementItem}>
@@ -637,11 +639,11 @@ export default function NotesScreen() {
                   <TextInput
                     style={styles.measurementInput}
                     placeholder="14"
-                    placeholderTextColor={theme.colors.textMuted}
+                    placeholderTextColor={colors.textSecondary}
                     value={formArms}
                     onChangeText={setFormArms}
-                    cursorColor="#8EB69B"
-                    selectionColor="#8EB69B"
+                    cursorColor={colors.primary}
+                    selectionColor={colors.primary}
                   />
                 </View>
               </View>
@@ -662,388 +664,389 @@ export default function NotesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: theme.spacing.md,
-  },
-  header: {
-    marginBottom: theme.spacing.md,
-  },
-  headerTitle: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 26,
-    color: theme.colors.text,
-  },
-  memberSelectorHeader: {
-    marginBottom: 8,
-  },
-  sectionHeading: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  memberChipsContainer: {
-    paddingBottom: 12,
-  },
-  memberChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.full,
-    paddingVertical: 5,
-    paddingHorizontal: 8,
-    marginRight: 8,
-  },
-  memberChipSelected: {
-    backgroundColor: 'rgba(142, 182, 155, 0.18)',
-    borderColor: theme.colors.primary,
-  },
-  memberChipName: {
-    ...theme.typography.body,
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    marginLeft: 8,
-    marginRight: 4,
-    maxWidth: 110,
-  },
-  memberChipNameSelected: {
-    color: theme.colors.text,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  memberHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginVertical: 10,
-  },
-  activeMemberTitle: {
-    ...theme.typography.h2,
-    color: theme.colors.text,
-  },
-  activeMemberSubtitle: {
-    ...theme.typography.small,
-    color: theme.colors.textMuted,
-    marginTop: 2,
-  },
-  chartCard: {
-    marginBottom: 16,
-  },
-  chartCardContent: {
-    padding: theme.spacing.md,
-  },
-  chartHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  chartTitle: {
-    ...theme.typography.h3,
-    color: theme.colors.text,
-  },
-  chartLatestText: {
-    ...theme.typography.caption,
-    color: theme.colors.primaryLight,
-  },
-  chartWrapper: {
-    alignItems: 'center',
-    marginVertical: 6,
-    overflow: 'hidden',
-  },
-  singlePointBox: {
-    height: 140,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    marginVertical: 6,
-  },
-  singlePointGridLine: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    height: 1,
-    backgroundColor: 'rgba(218, 241, 222, 0.08)',
-  },
-  singlePointMarker: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-  },
-  singlePointBadge: {
-    backgroundColor: theme.colors.raised,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: theme.radius.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-    marginBottom: 8,
-  },
-  singlePointBadgeText: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 12,
-    color: theme.colors.text,
-  },
-  singlePointHalo: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(142, 182, 155, 0.20)',
-    borderWidth: 1.5,
-    borderColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  singlePointDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: theme.colors.primary,
-  },
-  singlePointDateText: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    marginTop: 8,
-    fontSize: 11,
-  },
-  chartEmptyBox: {
-    height: 110,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.15)',
-    borderRadius: theme.radius.md,
-    paddingHorizontal: 20,
-  },
-  chartEmptyText: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-  },
-  filterWrapper: {
-    position: 'relative',
-    marginBottom: 10,
-  },
-  filterRow: {
-    paddingBottom: 4,
-    paddingRight: 24,
-  },
-  fadeGradientRight: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    width: 36,
-  },
-  filterChip: {
-    backgroundColor: theme.colors.surface,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: theme.radius.full,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginRight: 8,
-  },
-  filterChipActive: {
-    backgroundColor: 'rgba(142, 182, 155, 0.2)',
-    borderColor: theme.colors.primary,
-  },
-  filterChipText: {
-    ...theme.typography.small,
-    color: theme.colors.textMuted,
-  },
-  filterChipTextActive: {
-    color: theme.colors.primary,
-    fontFamily: theme.fonts.bodySemiBold,
-  },
-  noteCard: {
-    marginBottom: 12,
-  },
-  noteCardContent: {
-    padding: theme.spacing.md,
-  },
-  noteHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  noteTrainerText: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    marginLeft: 8,
-  },
-  noteDateText: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    marginRight: 8,
-  },
-  editBtn: {
-    padding: 4,
-  },
-  noteBodyText: {
-    ...theme.typography.body,
-    color: theme.colors.text,
-    lineHeight: 22,
-  },
-  extraDetailsWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 10,
-  },
-  metricPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.raised,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: theme.radius.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  metricPillText: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-  },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 99,
-    shadowColor: theme.colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(5, 31, 32, 0.85)',
-    justifyContent: 'flex-end',
-  },
-  modalOverlayWide: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.lg,
-  },
-  modalSheet: {
-    backgroundColor: theme.colors.surface,
-    borderTopLeftRadius: theme.radius.xl,
-    borderTopRightRadius: theme.radius.xl,
-    padding: theme.spacing.lg,
-    maxHeight: '85%',
-    width: '100%',
-  },
-  modalSheetWide: {
-    maxWidth: 440,
-    borderRadius: theme.radius.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  modalTitle: {
-    ...theme.typography.h2,
-    color: theme.colors.text,
-  },
-  modalBody: {
-    maxHeight: 520,
-  },
-  inputLabel: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    marginBottom: 6,
-    fontFamily: theme.fonts.headingMedium,
-  },
-  typeSelectorRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
-  },
-  typeOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.raised,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: theme.radius.md,
-  },
-  typeOptionSelected: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  typeOptionText: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-  },
-  typeOptionTextSelected: {
-    color: theme.colors.textOnPrimary,
-    fontFamily: theme.fonts.headingBold,
-  },
-  textArea: {
-    backgroundColor: theme.colors.raised,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.md,
-    padding: 12,
-    color: theme.colors.text,
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 14,
-    minHeight: 90,
-  },
-  textInput: {
-    backgroundColor: theme.colors.raised,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.md,
-    padding: 12,
-    color: theme.colors.text,
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 14,
-  },
-  measurementsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  measurementItem: {
-    width: '48%',
-  },
-  measurementSubLabel: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    marginBottom: 4,
-    fontSize: 11,
-  },
-  measurementInput: {
-    backgroundColor: theme.colors.raised,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.md,
-    padding: 10,
-    color: theme.colors.text,
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 14,
-  },
-});
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
+    centered: {
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    scroll: {
+      flex: 1,
+    },
+    scrollContent: {
+      padding: theme.spacing.md,
+    },
+    header: {
+      marginBottom: theme.spacing.md,
+    },
+    headerTitle: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 26,
+      color: theme.colors.text,
+    },
+    memberSelectorHeader: {
+      marginBottom: 8,
+    },
+    sectionHeading: {
+      ...theme.typography.caption,
+      color: theme.colors.textMuted,
+      letterSpacing: 0.5,
+      textTransform: 'uppercase',
+    },
+    memberChipsContainer: {
+      paddingBottom: 12,
+    },
+    memberChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.radius.full,
+      paddingVertical: 5,
+      paddingHorizontal: 8,
+      marginRight: 8,
+    },
+    memberChipSelected: {
+      backgroundColor: theme.colors.primarySoft,
+      borderColor: theme.colors.primary,
+    },
+    memberChipName: {
+      ...theme.typography.body,
+      fontSize: 13,
+      color: theme.colors.textMuted,
+      marginLeft: 8,
+      marginRight: 4,
+      maxWidth: 110,
+    },
+    memberChipNameSelected: {
+      color: theme.colors.text,
+      fontFamily: theme.fonts.bodySemiBold,
+    },
+    memberHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginVertical: 10,
+    },
+    activeMemberTitle: {
+      ...theme.typography.h2,
+      color: theme.colors.text,
+    },
+    activeMemberSubtitle: {
+      ...theme.typography.small,
+      color: theme.colors.textMuted,
+      marginTop: 2,
+    },
+    chartCard: {
+      marginBottom: 16,
+    },
+    chartCardContent: {
+      padding: theme.spacing.md,
+    },
+    chartHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    chartTitle: {
+      ...theme.typography.h3,
+      color: theme.colors.text,
+    },
+    chartLatestText: {
+      ...theme.typography.caption,
+      color: theme.colors.primary,
+    },
+    chartWrapper: {
+      alignItems: 'center',
+      marginVertical: 6,
+      overflow: 'hidden',
+    },
+    singlePointBox: {
+      height: 140,
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
+      marginVertical: 6,
+    },
+    singlePointGridLine: {
+      position: 'absolute',
+      left: 20,
+      right: 20,
+      height: 1,
+      backgroundColor: theme.colors.surfaceRaised,
+    },
+    singlePointMarker: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 2,
+    },
+    singlePointBadge: {
+      backgroundColor: theme.colors.surfaceRaised,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: theme.radius.sm,
+      borderWidth: 1,
+      borderColor: theme.colors.primary,
+      marginBottom: 8,
+    },
+    singlePointBadgeText: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 12,
+      color: theme.colors.text,
+    },
+    singlePointHalo: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: theme.colors.primarySoft,
+      borderWidth: 1.5,
+      borderColor: theme.colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    singlePointDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: theme.colors.primary,
+    },
+    singlePointDateText: {
+      ...theme.typography.caption,
+      color: theme.colors.textMuted,
+      marginTop: 8,
+      fontSize: 11,
+    },
+    chartEmptyBox: {
+      height: 110,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.primarySoft,
+      borderRadius: theme.radius.md,
+      paddingHorizontal: 20,
+    },
+    chartEmptyText: {
+      ...theme.typography.caption,
+      color: theme.colors.textMuted,
+      textAlign: 'center',
+    },
+    filterWrapper: {
+      position: 'relative',
+      marginBottom: 10,
+    },
+    filterRow: {
+      paddingBottom: 4,
+      paddingRight: 24,
+    },
+    fadeGradientRight: {
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      width: 36,
+    },
+    filterChip: {
+      backgroundColor: theme.colors.surface,
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: theme.radius.full,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      marginRight: 8,
+    },
+    filterChipActive: {
+      backgroundColor: theme.colors.primarySoft,
+      borderColor: theme.colors.primary,
+    },
+    filterChipText: {
+      ...theme.typography.small,
+      color: theme.colors.textMuted,
+    },
+    filterChipTextActive: {
+      color: theme.colors.primary,
+      fontFamily: theme.fonts.bodySemiBold,
+    },
+    noteCard: {
+      marginBottom: 12,
+    },
+    noteCardContent: {
+      padding: theme.spacing.md,
+    },
+    noteHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    noteTrainerText: {
+      ...theme.typography.caption,
+      color: theme.colors.textMuted,
+      marginLeft: 8,
+    },
+    noteDateText: {
+      ...theme.typography.caption,
+      color: theme.colors.textMuted,
+      marginRight: 8,
+    },
+    editBtn: {
+      padding: 4,
+    },
+    noteBodyText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      lineHeight: 22,
+    },
+    extraDetailsWrap: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginTop: 10,
+    },
+    metricPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.surfaceRaised,
+      paddingVertical: 4,
+      paddingHorizontal: 8,
+      borderRadius: theme.radius.sm,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    metricPillText: {
+      ...theme.typography.caption,
+      color: theme.colors.textMuted,
+    },
+    fab: {
+      position: 'absolute',
+      right: 20,
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: theme.colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 99,
+      shadowColor: theme.colors.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.45,
+      shadowRadius: 10,
+      elevation: 8,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: theme.colors.scrim,
+      justifyContent: 'flex-end',
+    },
+    modalOverlayWide: {
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: theme.spacing.lg,
+    },
+    modalSheet: {
+      backgroundColor: theme.colors.surface,
+      borderTopLeftRadius: theme.radius.xl,
+      borderTopRightRadius: theme.radius.xl,
+      padding: theme.spacing.lg,
+      maxHeight: '85%',
+      width: '100%',
+    },
+    modalSheetWide: {
+      maxWidth: 440,
+      borderRadius: theme.radius.xl,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 16,
+    },
+    modalTitle: {
+      ...theme.typography.h2,
+      color: theme.colors.text,
+    },
+    modalBody: {
+      maxHeight: 520,
+    },
+    inputLabel: {
+      ...theme.typography.caption,
+      color: theme.colors.textMuted,
+      marginBottom: 6,
+      fontFamily: theme.fonts.headingMedium,
+    },
+    typeSelectorRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 16,
+    },
+    typeOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.surfaceRaised,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: theme.radius.md,
+    },
+    typeOptionSelected: {
+      backgroundColor: theme.colors.primary,
+      borderColor: theme.colors.primary,
+    },
+    typeOptionText: {
+      ...theme.typography.caption,
+      color: theme.colors.textMuted,
+    },
+    typeOptionTextSelected: {
+      color: theme.colors.textOnPrimary,
+      fontFamily: theme.fonts.headingBold,
+    },
+    textArea: {
+      backgroundColor: theme.colors.surfaceRaised,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.radius.md,
+      padding: 12,
+      color: theme.colors.text,
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 14,
+      minHeight: 90,
+    },
+    textInput: {
+      backgroundColor: theme.colors.surfaceRaised,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.radius.md,
+      padding: 12,
+      color: theme.colors.text,
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 14,
+    },
+    measurementsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    measurementItem: {
+      width: '48%',
+    },
+    measurementSubLabel: {
+      ...theme.typography.caption,
+      color: theme.colors.textMuted,
+      marginBottom: 4,
+      fontSize: 11,
+    },
+    measurementInput: {
+      backgroundColor: theme.colors.surfaceRaised,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.radius.md,
+      padding: 10,
+      color: theme.colors.text,
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 14,
+    },
+  });

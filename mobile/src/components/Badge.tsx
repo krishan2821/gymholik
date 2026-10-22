@@ -1,25 +1,20 @@
 import React from 'react';
 import { StyleSheet, Text, View, StyleProp, ViewStyle, TextStyle } from 'react-native';
-import { theme } from '../theme/theme';
+import {
+  CheckCircle2,
+  Calendar,
+  AlertTriangle,
+  XCircle,
+  AlertCircle,
+  Check,
+  Info,
+} from 'lucide-react-native';
+import { useTheme } from '../theme/ThemeContext';
+import { StatusType, getStatusBadgeVariant } from '../utils/statusBadges';
 
-export type BadgeVariant =
-  | 'success'
-  | 'warning'
-  | 'error'
-  | 'info'
-  | 'neutral'
-  | 'active'
-  | 'upcoming'
-  | 'expired';
-
-export function getStatusBadgeVariant(status?: string | null): BadgeVariant {
-  if (!status) return 'neutral';
-  const s = status.toUpperCase();
-  if (s === 'ACTIVE') return 'active';
-  if (s === 'UPCOMING') return 'upcoming';
-  if (s === 'EXPIRED') return 'expired';
-  return 'neutral';
-}
+export type { StatusType };
+export { getStatusBadgeVariant };
+export type BadgeVariant = StatusType;
 
 export interface BadgeProps {
   label: string;
@@ -27,84 +22,122 @@ export interface BadgeProps {
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
   size?: 'sm' | 'md';
+  icon?: React.ReactNode;
 }
 
 export const Badge: React.FC<BadgeProps> = ({
   label,
-  variant = 'neutral',
+  variant,
   style,
   textStyle,
   size = 'md',
+  icon: customIcon,
 }) => {
-  const getColors = () => {
-    switch (variant) {
+  const { colors, fonts, radius } = useTheme();
+
+  // Normalize variant from prop or label
+  const resolvedVariant = variant || getStatusBadgeVariant(label);
+  const isSmall = size === 'sm';
+  const iconSize = isSmall ? 12 : 14;
+
+  // Resolve chip token colors and icon
+  const getBadgeConfig = () => {
+    switch (resolvedVariant) {
       case 'active':
+        return {
+          bg: colors.chipSuccessBg,
+          text: colors.chipSuccessText,
+          icon: <CheckCircle2 size={iconSize} color={colors.chipSuccessText} />,
+        };
+      case 'paid':
+        return {
+          bg: colors.chipSuccessBg,
+          text: colors.chipSuccessText,
+          icon: <Check size={iconSize} color={colors.chipSuccessText} />,
+        };
       case 'success':
         return {
-          bg: 'rgba(142, 182, 155, 0.18)',
-          border: 'rgba(142, 182, 155, 0.40)',
-          text: theme.colors.primary, // Sage
+          bg: colors.chipSuccessBg,
+          text: colors.chipSuccessText,
+          icon: <CheckCircle2 size={iconSize} color={colors.chipSuccessText} />,
         };
       case 'upcoming':
         return {
-          bg: theme.colors.cyanBg || 'rgba(78, 205, 196, 0.15)',
-          border: theme.colors.cyanBorder || 'rgba(78, 205, 196, 0.40)',
-          text: theme.colors.cyan || '#4ECDC4', // Cyan
-        };
-      case 'expired':
-      case 'error':
-        return {
-          bg: 'rgba(255, 107, 107, 0.18)',
-          border: 'rgba(255, 107, 107, 0.40)',
-          text: theme.colors.coral, // Coral
-        };
-      case 'warning':
-        return {
-          bg: 'rgba(245, 181, 68, 0.18)',
-          border: 'rgba(245, 181, 68, 0.40)',
-          text: theme.colors.warning,
+          bg: colors.chipInfoBg,
+          text: colors.chipInfoText,
+          icon: <Calendar size={iconSize} color={colors.chipInfoText} />,
         };
       case 'info':
         return {
-          bg: 'rgba(142, 182, 155, 0.12)',
-          border: theme.colors.border,
-          text: theme.colors.text,
+          bg: colors.chipInfoBg,
+          text: colors.chipInfoText,
+          icon: <Info size={iconSize} color={colors.chipInfoText} />,
+        };
+      case 'expiring':
+        return {
+          bg: colors.chipWarningBg,
+          text: colors.chipWarningText,
+          icon: <AlertTriangle size={iconSize} color={colors.chipWarningText} />,
+        };
+      case 'due':
+        return {
+          bg: colors.chipWarningBg,
+          text: colors.chipWarningText,
+          icon: <AlertCircle size={iconSize} color={colors.chipWarningText} />,
+        };
+      case 'warning':
+        return {
+          bg: colors.chipWarningBg,
+          text: colors.chipWarningText,
+          icon: <AlertTriangle size={iconSize} color={colors.chipWarningText} />,
+        };
+      case 'expired':
+      case 'danger':
+      case 'error':
+        return {
+          bg: colors.chipDangerBg,
+          text: colors.chipDangerText,
+          icon: <XCircle size={iconSize} color={colors.chipDangerText} />,
         };
       case 'neutral':
       default:
         return {
-          bg: theme.colors.raised,
-          border: theme.colors.border,
-          text: theme.colors.textMuted,
+          bg: colors.surfaceRaised,
+          text: colors.textSecondary,
+          icon: <Info size={iconSize} color={colors.textSecondary} />,
         };
     }
   };
 
-  const colors = getColors();
-  const isSmall = size === 'sm';
+  const config = getBadgeConfig();
+  const icon = customIcon !== undefined ? customIcon : config.icon;
 
   return (
     <View
       style={[
         styles.badge,
         {
-          backgroundColor: colors.bg,
+          backgroundColor: config.bg,
           borderColor: colors.border,
-          paddingVertical: isSmall ? 2 : 4,
+          borderRadius: radius.chip,
+          paddingVertical: isSmall ? 3 : 5,
           paddingHorizontal: isSmall ? 8 : 12,
         },
         style,
       ]}
     >
+      {icon ? <View style={{ marginRight: isSmall ? 4 : 6 }}>{icon}</View> : null}
       <Text
         style={[
-          styles.text,
+          styles.label,
           {
-            color: colors.text,
+            fontFamily: fonts.headingBold,
+            color: config.text,
             fontSize: isSmall ? 11 : 12,
           },
           textStyle,
         ]}
+        numberOfLines={1}
       >
         {label}
       </Text>
@@ -114,16 +147,14 @@ export const Badge: React.FC<BadgeProps> = ({
 
 const styles = StyleSheet.create({
   badge: {
-    borderRadius: theme.radius.full,
-    borderWidth: 1,
-    alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    alignSelf: 'flex-start',
   },
-  text: {
-    fontFamily: theme.fonts.headingSemiBold,
-    fontWeight: '600',
+  label: {
+    fontWeight: '700',
     letterSpacing: 0.3,
   },
 });

@@ -17,8 +17,10 @@ import {
   Keyboard,
 } from 'react-native';
 import { ChevronDown, Check, Search, X, Edit3 } from 'lucide-react-native';
-import { theme } from '../theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../theme/ThemeContext';
 import { COMMON, REGISTER } from '../constants/strings';
+import { canUseGlass } from '../utils/platformCapabilities';
+import { BlurView } from 'expo-blur';
 
 export interface SearchableSelectOption {
   readonly label: string;
@@ -52,6 +54,8 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   helperText,
   containerStyle,
 }) => {
+  const { colors, isDark } = useTheme();
+  const styles = useStyles(makeStyles);
   const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [reduceMotion, setReduceMotion] = useState(false);
@@ -160,7 +164,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
         >
           {selectedLabel || placeholder}
         </Text>
-        <ChevronDown size={20} color={theme.colors.primary} />
+        <ChevronDown size={20} color={colors.primary} />
       </TouchableOpacity>
 
       {error ? (
@@ -183,7 +187,22 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 style={styles.sheetWrapper}
               >
-                <View style={styles.sheetContainer}>
+                <View
+                  style={[
+                    styles.sheetContainer,
+                    {
+                      backgroundColor: canUseGlass() ? colors.glassTint : colors.surfaceRaised,
+                      borderColor: canUseGlass() ? colors.glassBorder : colors.border,
+                    },
+                  ]}
+                >
+                  {canUseGlass() && (
+                    <BlurView
+                      intensity={40}
+                      tint={isDark ? 'dark' : 'light'}
+                      style={StyleSheet.absoluteFill}
+                    />
+                  )}
                   {/* Drag Handle (top radius 28) */}
                   <View style={styles.handleContainer}>
                     <View style={styles.handle} />
@@ -199,20 +218,22 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                       style={styles.closeButton}
                       accessibilityLabel={COMMON.CLOSE}
                     >
-                      <X size={20} color={theme.colors.textMuted} />
+                      <X size={20} color={colors.textSecondary} />
                     </TouchableOpacity>
                   </View>
 
                   {/* Search Box */}
                   <View style={styles.searchBox}>
-                    <Search size={18} color={theme.colors.textMuted} style={styles.searchIcon} />
+                    <Search size={18} color={colors.textSecondary} style={styles.searchIcon} />
                     <TextInput
                       ref={searchInputRef}
                       style={styles.searchInput}
                       value={searchQuery}
                       onChangeText={setSearchQuery}
                       placeholder={REGISTER.SEARCHABLE_SELECT.SEARCH_PLACEHOLDER}
-                      placeholderTextColor={theme.colors.textMuted}
+                      placeholderTextColor={colors.textSecondary}
+                      cursorColor={colors.primary}
+                      selectionColor={colors.primary}
                       autoCorrect={false}
                       autoCapitalize="none"
                       clearButtonMode="while-editing"
@@ -223,7 +244,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                         onPress={() => setSearchQuery('')}
                         style={styles.clearSearchBtn}
                       >
-                        <X size={16} color={theme.colors.textMuted} />
+                        <X size={16} color={colors.textSecondary} />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -232,14 +253,16 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                   {allowOther && showOtherInput && (
                     <View style={styles.otherInputContainer}>
                       <View style={styles.otherInputWrapper}>
-                        <Edit3 size={16} color={theme.colors.primary} style={styles.otherIcon} />
+                        <Edit3 size={16} color={colors.primary} style={styles.otherIcon} />
                         <TextInput
                           ref={otherInputRef}
                           style={styles.otherTextInput}
                           value={otherText}
                           onChangeText={setOtherText}
                           placeholder={otherPlaceholder}
-                          placeholderTextColor={theme.colors.textMuted}
+                          placeholderTextColor={colors.textSecondary}
+                          cursorColor={colors.primary}
+                          selectionColor={colors.primary}
                           returnKeyType="done"
                           onSubmitEditing={handleConfirmOther}
                         />
@@ -289,7 +312,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                           </Text>
                           {isSelected && (
                             <View style={styles.tickWrapper}>
-                              <Check size={18} color={theme.colors.primary} />
+                              <Check size={18} color={colors.primary} />
                             </View>
                           )}
                         </TouchableOpacity>
@@ -316,7 +339,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                           </Text>
                           {isOtherSelected && (
                             <View style={styles.tickWrapper}>
-                              <Check size={18} color={theme.colors.primary} />
+                              <Check size={18} color={colors.primary} />
                             </View>
                           )}
                         </TouchableOpacity>
@@ -333,213 +356,214 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  root: {
-    marginVertical: theme.spacing.sm,
-  },
-  label: {
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: 13,
-    lineHeight: 18,
-    color: theme.colors.textMuted,
-    marginBottom: theme.spacing.xs + 2,
-  },
-  trigger: {
-    minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.md,
-    paddingHorizontal: theme.spacing.md,
-  },
-  triggerError: {
-    borderColor: theme.colors.error,
-  },
-  triggerDisabled: {
-    opacity: 0.5,
-  },
-  triggerText: {
-    flex: 1,
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 15,
-    lineHeight: 20,
-    color: theme.colors.text,
-    marginRight: theme.spacing.sm,
-  },
-  placeholderText: {
-    color: theme.colors.textMuted,
-  },
-  errorText: {
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 12,
-    lineHeight: 16,
-    color: theme.colors.error,
-    marginTop: theme.spacing.xs,
-  },
-  helperText: {
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 12,
-    lineHeight: 16,
-    color: theme.colors.textMuted,
-    marginTop: theme.spacing.xs,
-  },
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(5, 31, 32, 0.78)',
-    justifyContent: 'flex-end',
-  },
-  sheetWrapper: {
-    width: '100%',
-    maxHeight: '85%',
-  },
-  sheetContainer: {
-    backgroundColor: theme.colors.surface,
-    borderTopLeftRadius: 28, // Required 28px top radius
-    borderTopRightRadius: 28, // Required 28px top radius
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
-    maxHeight: '100%',
-  },
-  handleContainer: {
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  handle: {
-    width: 38,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(218, 241, 222, 0.28)',
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.md,
-    paddingBottom: theme.spacing.sm,
-  },
-  sheetTitle: {
-    flex: 1,
-    fontFamily: theme.fonts.headingSemiBold,
-    fontSize: 17,
-    lineHeight: 22,
-    color: theme.colors.text,
-  },
-  closeButton: {
-    padding: theme.spacing.xs,
-  },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.raised,
-    marginHorizontal: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-    borderRadius: theme.radius.md,
-    paddingHorizontal: theme.spacing.sm + 4,
-    height: 42,
-    borderWidth: 1,
-    borderColor: theme.colors.borderLight,
-  },
-  searchIcon: {
-    marginRight: theme.spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 14,
-    color: theme.colors.text,
-    paddingVertical: 0,
-  },
-  clearSearchBtn: {
-    padding: theme.spacing.xs,
-  },
-  otherInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-    gap: theme.spacing.sm,
-  },
-  otherInputWrapper: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.raised,
-    borderRadius: theme.radius.md,
-    paddingHorizontal: theme.spacing.sm + 4,
-    height: 42,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-  },
-  otherIcon: {
-    marginRight: theme.spacing.xs + 2,
-  },
-  otherTextInput: {
-    flex: 1,
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 14,
-    color: theme.colors.text,
-    paddingVertical: 0,
-  },
-  otherConfirmBtn: {
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radius.md,
-    paddingHorizontal: theme.spacing.md,
-    height: 42,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  otherConfirmBtnDisabled: {
-    opacity: 0.5,
-  },
-  otherConfirmBtnText: {
-    fontFamily: theme.fonts.headingSemiBold,
-    fontSize: 13,
-    color: theme.colors.textOnPrimary,
-  },
-  listContent: {
-    paddingHorizontal: theme.spacing.md,
-  },
-  // 44px rows as required
-  row: {
-    height: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.borderLight,
-    paddingHorizontal: theme.spacing.xs,
-  },
-  rowSelected: {
-    backgroundColor: 'rgba(142, 182, 155, 0.08)',
-  },
-  rowText: {
-    flex: 1,
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 15,
-    lineHeight: 20,
-    color: theme.colors.text,
-  },
-  rowTextSelected: {
-    fontFamily: theme.fonts.headingSemiBold,
-    color: theme.colors.primary,
-  },
-  otherLabelText: {
-    fontStyle: 'italic',
-  },
-  tickWrapper: {
-    marginLeft: theme.spacing.sm,
-  },
-  emptyContainer: {
-    paddingVertical: theme.spacing.lg,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 14,
-    color: theme.colors.textMuted,
-  },
-});
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
+    root: {
+      marginVertical: theme.spacing.sm,
+    },
+    label: {
+      fontFamily: theme.fonts.bodyMedium,
+      fontSize: 13,
+      lineHeight: 18,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.xs + 2,
+    },
+    trigger: {
+      minHeight: 52,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.radius.md,
+      paddingHorizontal: theme.spacing.md,
+    },
+    triggerError: {
+      borderColor: theme.colors.danger,
+    },
+    triggerDisabled: {
+      opacity: 0.5,
+    },
+    triggerText: {
+      flex: 1,
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 15,
+      lineHeight: 20,
+      color: theme.colors.text,
+      marginRight: theme.spacing.sm,
+    },
+    placeholderText: {
+      color: theme.colors.textSecondary,
+    },
+    errorText: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 12,
+      lineHeight: 16,
+      color: theme.colors.danger,
+      marginTop: theme.spacing.xs,
+    },
+    helperText: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 12,
+      lineHeight: 16,
+      color: theme.colors.textSecondary,
+      marginTop: theme.spacing.xs,
+    },
+    backdrop: {
+      flex: 1,
+      backgroundColor: theme.colors.scrim,
+      justifyContent: 'flex-end',
+    },
+    sheetWrapper: {
+      width: '100%',
+      maxHeight: '85%',
+    },
+    sheetContainer: {
+      backgroundColor: theme.colors.surface,
+      borderTopLeftRadius: 28, // Required 28px top radius
+      borderTopRightRadius: 28, // Required 28px top radius
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+      maxHeight: '100%',
+    },
+    handleContainer: {
+      alignItems: 'center',
+      paddingVertical: 10,
+    },
+    handle: {
+      width: 38,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: theme.colors.surfaceRaised,
+    },
+    sheetHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: theme.spacing.md,
+      paddingBottom: theme.spacing.sm,
+    },
+    sheetTitle: {
+      flex: 1,
+      fontFamily: theme.fonts.headingSemiBold,
+      fontSize: 17,
+      lineHeight: 22,
+      color: theme.colors.text,
+    },
+    closeButton: {
+      padding: theme.spacing.xs,
+    },
+    searchBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.surfaceRaised,
+      marginHorizontal: theme.spacing.md,
+      marginBottom: theme.spacing.sm,
+      borderRadius: theme.radius.md,
+      paddingHorizontal: theme.spacing.sm + 4,
+      height: 42,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    searchIcon: {
+      marginRight: theme.spacing.sm,
+    },
+    searchInput: {
+      flex: 1,
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 14,
+      color: theme.colors.text,
+      paddingVertical: 0,
+    },
+    clearSearchBtn: {
+      padding: theme.spacing.xs,
+    },
+    otherInputContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginHorizontal: theme.spacing.md,
+      marginBottom: theme.spacing.sm,
+      gap: theme.spacing.sm,
+    },
+    otherInputWrapper: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.surfaceRaised,
+      borderRadius: theme.radius.md,
+      paddingHorizontal: theme.spacing.sm + 4,
+      height: 42,
+      borderWidth: 1,
+      borderColor: theme.colors.primary,
+    },
+    otherIcon: {
+      marginRight: theme.spacing.xs + 2,
+    },
+    otherTextInput: {
+      flex: 1,
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 14,
+      color: theme.colors.text,
+      paddingVertical: 0,
+    },
+    otherConfirmBtn: {
+      backgroundColor: theme.colors.primary,
+      borderRadius: theme.radius.md,
+      paddingHorizontal: theme.spacing.md,
+      height: 42,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    otherConfirmBtnDisabled: {
+      opacity: 0.5,
+    },
+    otherConfirmBtnText: {
+      fontFamily: theme.fonts.headingSemiBold,
+      fontSize: 13,
+      color: theme.colors.textOnPrimary,
+    },
+    listContent: {
+      paddingHorizontal: theme.spacing.md,
+    },
+    // 44px rows as required
+    row: {
+      height: 44,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.colors.border,
+      paddingHorizontal: theme.spacing.xs,
+    },
+    rowSelected: {
+      backgroundColor: theme.colors.primarySoft,
+    },
+    rowText: {
+      flex: 1,
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 15,
+      lineHeight: 20,
+      color: theme.colors.text,
+    },
+    rowTextSelected: {
+      fontFamily: theme.fonts.headingSemiBold,
+      color: theme.colors.primary,
+    },
+    otherLabelText: {
+      fontStyle: 'italic',
+    },
+    tickWrapper: {
+      marginLeft: theme.spacing.sm,
+    },
+    emptyContainer: {
+      paddingVertical: theme.spacing.lg,
+      alignItems: 'center',
+    },
+    emptyText: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+    },
+  });

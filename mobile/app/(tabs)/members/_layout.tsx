@@ -2,29 +2,31 @@ import React from 'react';
 import { Stack, useRouter } from 'expo-router';
 import { TouchableOpacity, StyleSheet } from 'react-native';
 import { ArrowLeft, X } from 'lucide-react-native';
-import { theme } from '../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import { MEMBERS, MEMBER_PROFILE, RENEW } from '../../../src/constants/strings';
 import { safeBack } from '../../../src/utils/navigation';
 
 export default function MembersLayout() {
   const router = useRouter();
+  const { colors, fonts } = useTheme();
+  const styles = useStyles(makeStyles);
 
   return (
     <Stack
       screenOptions={{
         headerStyle: {
-          backgroundColor: theme.colors.background,
+          backgroundColor: colors.bg,
         },
         headerShadowVisible: false,
-        headerTintColor: theme.colors.text,
+        headerTintColor: colors.text,
         headerBackVisible: false,
         headerTitleStyle: {
-          fontFamily: theme.fonts.headingBold,
+          fontFamily: fonts.headingBold,
           fontSize: 18,
-          color: theme.colors.text,
+          color: colors.text,
         },
         contentStyle: {
-          backgroundColor: theme.colors.background,
+          backgroundColor: colors.bg,
         },
         animation: 'slide_from_right',
         headerLeft: () => (
@@ -35,7 +37,7 @@ export default function MembersLayout() {
             accessibilityLabel="Go back"
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <ArrowLeft color={theme.colors.text} size={20} />
+            <ArrowLeft color={colors.text} size={20} />
           </TouchableOpacity>
         ),
       }}
@@ -51,6 +53,7 @@ export default function MembersLayout() {
         name="add"
         options={{
           title: MEMBERS.ADD_MEMBER,
+          headerShown: false,
           presentation: 'card',
         }}
       />
@@ -65,6 +68,7 @@ export default function MembersLayout() {
         name="[id]/renew"
         options={{
           title: RENEW.SCREEN_TITLE,
+          headerShown: false,
           presentation: 'card',
         }}
       />
@@ -72,16 +76,17 @@ export default function MembersLayout() {
   );
 }
 
-const styles = StyleSheet.create({
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(11, 43, 38, 0.75)',
-    borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-});
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
+    backBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 10,
+    },
+  });

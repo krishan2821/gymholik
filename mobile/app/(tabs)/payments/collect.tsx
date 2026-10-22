@@ -36,7 +36,7 @@ import {
 } from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
 
-import { theme } from '../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import { Screen } from '../../../src/components/Screen';
 import { PageHeader } from '../../../src/components/PageHeader';
 import { GlassCard } from '../../../src/components/GlassCard';
@@ -76,6 +76,8 @@ import { safeOpenURL } from '../../../src/utils/safeLinking';
 import { safeBack } from '../../../src/utils/navigation';
 
 export default function CollectPaymentScreen() {
+  const { colors, fonts } = useTheme();
+  const styles = useStyles(makeStyles);
   const router = useRouter();
   const params = useLocalSearchParams<{
     memberId?: string;
@@ -592,7 +594,7 @@ export default function CollectPaymentScreen() {
               },
             ]}
           >
-            <CheckCircle color={theme.colors.primary} size={64} strokeWidth={2.4} />
+            <CheckCircle color={colors.primary} size={64} strokeWidth={2.4} />
           </Animated.View>
 
           <Text style={styles.successTitle}>{COLLECT.SUCCESS_TITLE}</Text>
@@ -603,7 +605,7 @@ export default function CollectPaymentScreen() {
             <Text
               style={[
                 styles.successBalanceText,
-                successPayment.remainingDuePaise === 0 && { color: theme.colors.primary },
+                successPayment.remainingDuePaise === 0 && { color: colors.primary },
               ]}
             >
               {successPayment.remainingDuePaise === 0
@@ -615,7 +617,7 @@ export default function CollectPaymentScreen() {
           <View style={styles.successActionsColumn}>
             <Button
               title={COLLECT.SHARE_RECEIPT}
-              icon={<Share2 size={18} color={theme.colors.textOnPrimary} />}
+              icon={<Share2 size={18} color={colors.textOnPrimary} />}
               onPress={handleShareReceipt}
               loading={isSharingReceipt}
               variant="primary"
@@ -626,7 +628,7 @@ export default function CollectPaymentScreen() {
             {canSendWhatsApp && (
               <Button
                 title={COLLECT.SEND_ON_WHATSAPP}
-                icon={<Send size={18} color={theme.colors.text} />}
+                icon={<Send size={18} color={colors.text} />}
                 onPress={handleSendWhatsApp}
                 variant="secondary"
                 size="md"
@@ -690,27 +692,27 @@ export default function CollectPaymentScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Close"
               >
-                <X color={theme.colors.text} size={22} />
+                <X color={colors.text} size={22} />
               </TouchableOpacity>
             )}
           </View>
 
           {/* Search Box */}
           <View style={styles.searchBar}>
-            <Search color={theme.colors.primary} size={18} />
+            <Search color={colors.primary} size={18} />
             <TextInput
               style={styles.searchInput}
               placeholder={COLLECT.SELECT_MEMBER_PLACEHOLDER}
-              placeholderTextColor={theme.colors.textMuted}
+              placeholderTextColor={colors.textSecondary}
               value={memberSearchTerm}
               onChangeText={setMemberSearchTerm}
-              cursorColor="#8EB69B"
-              selectionColor="rgba(142, 182, 155, 0.3)"
+              cursorColor={colors.primary}
+              selectionColor={colors.primarySoft}
               autoFocus
             />
             {memberSearchTerm ? (
               <TouchableOpacity onPress={() => setMemberSearchTerm('')}>
-                <X color={theme.colors.textMuted} size={16} />
+                <X color={colors.textSecondary} size={16} />
               </TouchableOpacity>
             ) : null}
           </View>
@@ -718,7 +720,7 @@ export default function CollectPaymentScreen() {
           {/* Member List */}
           {loadingSearch ? (
             <View style={{ padding: 24, alignItems: 'center' }}>
-              <ActivityIndicator color={theme.colors.primary} size="large" />
+              <ActivityIndicator color={colors.primary} size="large" />
             </View>
           ) : (
             <FlatList
@@ -791,12 +793,12 @@ export default function CollectPaymentScreen() {
               style={styles.iconBtn}
               accessibilityRole="button"
             >
-              <X color={theme.colors.text} size={20} />
+              <X color={colors.text} size={20} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.discountAlertBanner}>
-            <AlertTriangle size={16} color={theme.colors.warning} style={{ marginRight: 8 }} />
+            <AlertTriangle size={16} color={colors.warning} style={{ marginRight: 8 }} />
             <Text style={styles.discountAlertText}>{COLLECT.DISCOUNT_CANNOT_BE_UNDONE}</Text>
           </View>
 
@@ -807,7 +809,7 @@ export default function CollectPaymentScreen() {
               style={styles.textInput}
               keyboardType="number-pad"
               placeholder="0"
-              placeholderTextColor={theme.colors.textMuted}
+              placeholderTextColor={colors.textSecondary}
               value={discountAmountStr}
               onChangeText={(t) => setDiscountAmountStr(formatNumericTyping(t))}
             />
@@ -817,7 +819,7 @@ export default function CollectPaymentScreen() {
           <TextInput
             style={[styles.textInputMulti, { minHeight: 64 }]}
             placeholder={COLLECT.DISCOUNT_REASON_PLACEHOLDER}
-            placeholderTextColor={theme.colors.textMuted}
+            placeholderTextColor={colors.textSecondary}
             value={discountReason}
             onChangeText={setDiscountReason}
             multiline
@@ -869,7 +871,7 @@ export default function CollectPaymentScreen() {
           style={{ flex: 1 }}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: chosenMembership ? 88 + insets.bottom : 32 },
+            { paddingBottom: chosenMembership ? 140 + insets.bottom : 40 },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -877,14 +879,14 @@ export default function CollectPaymentScreen() {
           {/* Error Banner */}
           {errorMessage && (
             <View style={styles.errorBanner}>
-              <AlertTriangle color={theme.colors.error} size={20} style={{ marginRight: 10 }} />
+              <AlertTriangle color={colors.danger} size={20} style={{ marginRight: 10 }} />
               <Text style={styles.errorBannerText}>{errorMessage}</Text>
               <TouchableOpacity
                 onPress={handleRetrySubmit}
                 style={styles.retryBtn}
                 accessibilityRole="button"
               >
-                <RefreshCw size={14} color={theme.colors.text} style={{ marginRight: 4 }} />
+                <RefreshCw size={14} color={colors.text} style={{ marginRight: 4 }} />
                 <Text style={styles.retryBtnText}>Retry</Text>
               </TouchableOpacity>
             </View>
@@ -918,7 +920,7 @@ export default function CollectPaymentScreen() {
                 onPress={() => setShowMemberPicker(true)}
                 accessibilityRole="button"
               >
-                <Search color={theme.colors.primary} size={22} style={{ marginRight: 10 }} />
+                <Search color={colors.primary} size={22} style={{ marginRight: 10 }} />
                 <Text style={styles.selectMemberPromptText}>Tap to search and select a member</Text>
               </TouchableOpacity>
             </GlassCard>
@@ -972,7 +974,7 @@ export default function CollectPaymentScreen() {
                         {m.duePaise > 0 ? (
                           <Text style={styles.chooserDue}>{formatMoney(m.duePaise)}</Text>
                         ) : (
-                          <Text style={[styles.chooserDue, { color: theme.colors.textMuted, fontSize: 13 }]}>
+                          <Text style={[styles.chooserDue, { color: colors.textSecondary, fontSize: 13 }]}>
                             No due
                           </Text>
                         )}
@@ -1003,7 +1005,7 @@ export default function CollectPaymentScreen() {
                   onPress={() => setShowDiscountModal(true)}
                   accessibilityRole="button"
                 >
-                  <Tag size={13} color={theme.colors.primary} style={{ marginRight: 4 }} />
+                  <Tag size={13} color={colors.primary} style={{ marginRight: 4 }} />
                   <Text style={styles.discountActionText}>{COLLECT.APPLY_DISCOUNT}</Text>
                 </TouchableOpacity>
               )}
@@ -1019,7 +1021,7 @@ export default function CollectPaymentScreen() {
               {chosenMembership.discountPaise > 0 && (
                 <View style={styles.breakdownItem}>
                   <Text style={styles.breakdownLabel}>{COLLECT.DISCOUNT}</Text>
-                  <Text style={[styles.breakdownValue, { color: theme.colors.primary }]}>
+                  <Text style={[styles.breakdownValue, { color: colors.primary }]}>
                     -{formatMoney(chosenMembership.discountPaise)}
                   </Text>
                 </View>
@@ -1035,7 +1037,7 @@ export default function CollectPaymentScreen() {
                     styles.breakdownValue,
                     {
                       color:
-                        chosenMembership.duePaise > 0 ? theme.colors.error : theme.colors.text,
+                        chosenMembership.duePaise > 0 ? colors.danger : colors.text,
                     },
                   ]}
                 >
@@ -1057,7 +1059,7 @@ export default function CollectPaymentScreen() {
                 style={styles.amountInput}
                 keyboardType="number-pad"
                 placeholder="0"
-                placeholderTextColor={theme.colors.textMuted}
+                placeholderTextColor={colors.textSecondary}
                 value={rawAmountText}
                 onChangeText={handleAmountChange}
               />
@@ -1162,7 +1164,7 @@ export default function CollectPaymentScreen() {
                       onPress={() => setShowUpiQr(!showUpiQr)}
                       accessibilityRole="button"
                     >
-                      <QrCode size={18} color={theme.colors.primary} style={{ marginRight: 8 }} />
+                      <QrCode size={18} color={colors.primary} style={{ marginRight: 8 }} />
                       <Text style={styles.showQrBtnText}>
                         {showUpiQr ? COLLECT.HIDE_UPI_QR : COLLECT.SHOW_UPI_QR}
                       </Text>
@@ -1175,8 +1177,8 @@ export default function CollectPaymentScreen() {
                           <QRCode
                             value={upiPayLink || 'upi://pay'}
                             size={160}
-                            color="#051F20"
-                            backgroundColor="#FFFFFF"
+                            color={colors.qrForeground}
+                            backgroundColor={colors.qrBackground}
                           />
                         </View>
                         <Text style={styles.qrAmountText}>{formatMoney(inputAmountPaise)}</Text>
@@ -1213,7 +1215,7 @@ export default function CollectPaymentScreen() {
                 <TextInput
                   style={styles.textInputRegular}
                   placeholder={COLLECT.UPI_REF_PLACEHOLDER}
-                  placeholderTextColor={theme.colors.textMuted}
+                  placeholderTextColor={colors.textSecondary}
                   value={referenceNo}
                   onChangeText={setReferenceNo}
                   maxLength={40}
@@ -1228,7 +1230,7 @@ export default function CollectPaymentScreen() {
                 <TextInput
                   style={styles.textInputRegular}
                   placeholder={COLLECT.CARD_REF_PLACEHOLDER}
-                  placeholderTextColor={theme.colors.textMuted}
+                  placeholderTextColor={colors.textSecondary}
                   value={referenceNo}
                   onChangeText={setReferenceNo}
                   maxLength={40}
@@ -1245,7 +1247,7 @@ export default function CollectPaymentScreen() {
             <TextInput
               style={styles.textInputRegular}
               placeholder={COLLECT.NOTE_PLACEHOLDER}
-              placeholderTextColor={theme.colors.textMuted}
+              placeholderTextColor={colors.textSecondary}
               value={note}
               onChangeText={setNote}
               maxLength={140}
@@ -1257,7 +1259,7 @@ export default function CollectPaymentScreen() {
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                   <Text style={styles.label}>{COLLECT.PAYMENT_DATE_LABEL}</Text>
                   {dateChip === 'today' && (
-                    <Text style={{ fontSize: 12, color: theme.colors.textMuted, fontFamily: theme.fonts.bodyRegular }}>
+                    <Text style={{ fontSize: 12, color: colors.textSecondary, fontFamily: fonts.bodyRegular }}>
                       Today, {formatDate(getTodayISTDateString())}
                     </Text>
                   )}
@@ -1310,13 +1312,13 @@ export default function CollectPaymentScreen() {
                 {dateChip === 'other' && (
                   <View style={{ marginTop: 8 }}>
                     <View style={styles.inputWithIcon}>
-                      <Calendar size={16} color={theme.colors.textMuted} style={{ marginRight: 8 }} />
+                      <Calendar size={16} color={colors.textSecondary} style={{ marginRight: 8 }} />
                       <TextInput
                         style={styles.dateInput}
                         value={customPastDate}
                         onChangeText={setCustomPastDate}
                         placeholder="YYYY-MM-DD"
-                        placeholderTextColor={theme.colors.textMuted}
+                        placeholderTextColor={colors.textSecondary}
                         maxLength={10}
                       />
                     </View>
@@ -1415,7 +1417,7 @@ export default function CollectPaymentScreen() {
                     {(promiseDateChip === 'custom' || !promiseDateChip) && (
                       <View style={{ marginTop: 8 }}>
                         <View style={styles.inputWithIcon}>
-                          <Clock size={16} color={theme.colors.textMuted} style={{ marginRight: 8 }} />
+                          <Clock size={16} color={colors.textSecondary} style={{ marginRight: 8 }} />
                           <TextInput
                             style={styles.dateInput}
                             value={promiseDate}
@@ -1424,7 +1426,7 @@ export default function CollectPaymentScreen() {
                               setPromiseDateChip('custom');
                             }}
                             placeholder="YYYY-MM-DD"
-                            placeholderTextColor={theme.colors.textMuted}
+                            placeholderTextColor={colors.textSecondary}
                             maxLength={10}
                           />
                         </View>
@@ -1485,7 +1487,9 @@ function formatNumericTyping(val: string): string {
 // ─────────────────────────────────────────────────────────────────────────────
 // STYLES
 // ─────────────────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const makeStyles = (theme: ThemeValue) => {
+  const { colors } = theme;
+  return StyleSheet.create({
   mainContainer: {
     flex: 1,
   },
@@ -1509,38 +1513,38 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: theme.fonts.bodySemiBold,
     fontSize: 13,
-    color: theme.colors.textMuted,
+    color: colors.textSecondary,
     marginBottom: 8,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 107, 107, 0.15)',
+    backgroundColor: colors.chipDangerBg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.4)',
+    borderColor: colors.danger,
     borderRadius: theme.radius.md,
     padding: 12,
     marginBottom: 16,
   },
   errorBannerText: {
     flex: 1,
-    fontFamily: theme.fonts.bodyRegular,
+    fontFamily: fonts.bodyRegular,
     fontSize: 13,
-    color: theme.colors.error,
+    color: colors.danger,
   },
   retryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 6,
     paddingHorizontal: 10,
-    backgroundColor: 'rgba(218, 241, 222, 0.12)',
+    backgroundColor: colors.surfaceRaised,
     borderRadius: theme.radius.sm,
     minHeight: 36,
   },
   retryBtnText: {
     fontFamily: theme.fonts.bodySemiBold,
     fontSize: 12,
-    color: theme.colors.text,
+    color: colors.text,
   },
   memberHeaderRow: {
     flexDirection: 'row',
@@ -1553,12 +1557,12 @@ const styles = StyleSheet.create({
   memberName: {
     fontFamily: theme.fonts.headingSemiBold,
     fontSize: 16,
-    color: theme.colors.text,
+    color: colors.text,
   },
   memberSub: {
-    fontFamily: theme.fonts.bodyRegular,
+    fontFamily: fonts.bodyRegular,
     fontSize: 13,
-    color: theme.colors.textMuted,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   changeMemberBtn: {
@@ -1571,7 +1575,7 @@ const styles = StyleSheet.create({
   changeMemberText: {
     fontFamily: theme.fonts.bodySemiBold,
     fontSize: 13,
-    color: theme.colors.primary,
+    color: colors.primary,
   },
   selectMemberPrompt: {
     flexDirection: 'row',
@@ -1583,12 +1587,12 @@ const styles = StyleSheet.create({
   selectMemberPromptText: {
     fontFamily: theme.fonts.bodyMedium,
     fontSize: 14,
-    color: theme.colors.primary,
+    color: colors.primary,
   },
   sectionTitle: {
     fontFamily: theme.fonts.headingMedium,
     fontSize: 14,
-    color: theme.colors.text,
+    color: colors.text,
     marginBottom: 10,
   },
   chooserHeaderRow: {
@@ -1601,12 +1605,12 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: theme.radius.sm,
-    backgroundColor: 'rgba(218, 241, 222, 0.08)',
+    backgroundColor: colors.surfaceRaised,
   },
   showAllToggleText: {
     fontFamily: theme.fonts.bodySemiBold,
     fontSize: 12,
-    color: theme.colors.primary,
+    color: colors.primary,
   },
   chooserList: {
     gap: 8,
@@ -1614,32 +1618,33 @@ const styles = StyleSheet.create({
   chooserItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(218, 241, 222, 0.04)',
+    backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.1)',
+    borderColor: colors.border,
     borderRadius: theme.radius.md,
     padding: 12,
     minHeight: 48,
   },
   chooserItemActive: {
-    borderColor: theme.colors.primary,
-    backgroundColor: 'rgba(142, 182, 155, 0.12)',
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
   chooserPlan: {
     fontFamily: theme.fonts.bodySemiBold,
     fontSize: 14,
-    color: theme.colors.text,
+    color: colors.text,
   },
   chooserExpiry: {
-    fontFamily: theme.fonts.bodyRegular,
+    fontFamily: fonts.bodyRegular,
     fontSize: 11,
-    color: theme.colors.textMuted,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   chooserDue: {
     fontFamily: theme.fonts.headingSemiBold,
     fontSize: 14,
-    color: theme.colors.text,
+    color: colors.text,
+    fontVariant: ['tabular-nums'],
   },
   summaryHeaderRow: {
     flexDirection: 'row',
@@ -1650,18 +1655,18 @@ const styles = StyleSheet.create({
   summaryPlanName: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 16,
-    color: theme.colors.text,
+    color: colors.text,
   },
   summaryExpiry: {
-    fontFamily: theme.fonts.bodyRegular,
+    fontFamily: fonts.bodyRegular,
     fontSize: 12,
-    color: theme.colors.textMuted,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   discountActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(142, 182, 155, 0.15)',
+    backgroundColor: colors.primarySoft,
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: theme.radius.full,
@@ -1670,35 +1675,36 @@ const styles = StyleSheet.create({
   discountActionText: {
     fontFamily: theme.fonts.bodySemiBold,
     fontSize: 12,
-    color: theme.colors.primary,
+    color: colors.primary,
   },
   breakdownRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.08)',
+    borderColor: colors.border,
     paddingTop: 12,
   },
   breakdownItem: {
     alignItems: 'center',
   },
   breakdownLabel: {
-    fontFamily: theme.fonts.bodyRegular,
+    fontFamily: fonts.bodyRegular,
     fontSize: 11,
-    color: theme.colors.textMuted,
+    color: colors.textSecondary,
     marginBottom: 4,
   },
   breakdownValue: {
     fontFamily: theme.fonts.bodyBold,
     fontSize: 14,
-    color: theme.colors.text,
+    color: colors.text,
+    fontVariant: ['tabular-nums'],
   },
   amountInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(5, 31, 32, 0.6)',
+    backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.2)',
+    borderColor: colors.border,
     borderRadius: theme.radius.md,
     paddingHorizontal: 14,
     minHeight: 56,
@@ -1706,14 +1712,14 @@ const styles = StyleSheet.create({
   amountPrefix: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 24,
-    color: theme.colors.primary,
+    color: colors.textSecondary,
     marginRight: 8,
   },
   amountInput: {
     flex: 1,
     fontFamily: theme.fonts.headingBold,
     fontSize: 24,
-    color: theme.colors.text,
+    color: colors.text,
     paddingVertical: 8,
   },
   chipsRow: {
@@ -1725,42 +1731,42 @@ const styles = StyleSheet.create({
   amountChip: {
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: 'rgba(218, 241, 222, 0.06)',
+    backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.12)',
+    borderColor: colors.border,
     borderRadius: theme.radius.full,
     minHeight: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
   amountChipActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   amountChipText: {
     fontFamily: theme.fonts.bodyMedium,
     fontSize: 12,
-    color: theme.colors.text,
+    color: colors.text,
   },
   amountChipTextActive: {
-    color: theme.colors.textOnPrimary,
+    color: colors.textOnPrimary,
     fontFamily: theme.fonts.bodyBold,
   },
   liveBalanceContainer: {
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.08)',
+    borderColor: colors.border,
   },
   liveBalanceText: {
     fontFamily: theme.fonts.bodyMedium,
     fontSize: 13,
-    color: theme.colors.textMuted,
+    color: colors.textSecondary,
   },
   inlineErrorText: {
-    fontFamily: theme.fonts.bodyRegular,
+    fontFamily: fonts.bodyRegular,
     fontSize: 12,
-    color: theme.colors.error,
+    color: colors.danger,
     marginTop: 6,
   },
   modeButtonsRow: {
@@ -1771,23 +1777,23 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 52,
     borderRadius: theme.radius.md,
-    backgroundColor: 'rgba(218, 241, 222, 0.06)',
+    backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.12)',
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
   largeModeBtnSelected: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   largeModeBtnText: {
     fontFamily: theme.fonts.headingMedium,
     fontSize: 14,
-    color: theme.colors.text,
+    color: colors.text,
   },
   largeModeBtnTextSelected: {
-    color: theme.colors.textOnPrimary,
+    color: colors.textOnPrimary,
     fontFamily: theme.fonts.headingBold,
   },
   modeSubContainer: {
@@ -1798,7 +1804,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-    backgroundColor: 'rgba(142, 182, 155, 0.12)',
+    backgroundColor: colors.primarySoft,
     borderRadius: theme.radius.md,
     minHeight: 46,
     marginBottom: 8,
@@ -1806,12 +1812,12 @@ const styles = StyleSheet.create({
   showQrBtnText: {
     fontFamily: theme.fonts.bodySemiBold,
     fontSize: 13,
-    color: theme.colors.primary,
+    color: colors.primary,
   },
   qrFullCard: {
-    backgroundColor: '#072728',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.18)',
+    borderColor: colors.border,
     borderRadius: theme.radius.lg,
     padding: 16,
     alignItems: 'center',
@@ -1820,61 +1826,61 @@ const styles = StyleSheet.create({
   qrCardTitle: {
     fontFamily: theme.fonts.headingMedium,
     fontSize: 14,
-    color: theme.colors.text,
+    color: colors.text,
     marginBottom: 12,
   },
   qrCodeBox: {
     padding: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: theme.radius.md,
     marginBottom: 10,
   },
   qrAmountText: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 20,
-    color: theme.colors.text,
+    color: colors.text,
     marginTop: 4,
   },
   qrUpiIdText: {
     fontFamily: theme.fonts.bodyMedium,
     fontSize: 13,
-    color: theme.colors.textMuted,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   qrWarningText: {
-    fontFamily: theme.fonts.bodyRegular,
+    fontFamily: fonts.bodyRegular,
     fontSize: 11,
-    color: theme.colors.warning,
+    color: colors.warning,
     textAlign: 'center',
     marginTop: 8,
     marginBottom: 4,
   },
   noUpiBanner: {
     padding: 12,
-    backgroundColor: 'rgba(218, 241, 222, 0.04)',
+    backgroundColor: colors.surfaceRaised,
     borderRadius: theme.radius.md,
     marginBottom: 8,
   },
   noUpiText: {
-    fontFamily: theme.fonts.bodyRegular,
+    fontFamily: fonts.bodyRegular,
     fontSize: 12,
-    color: theme.colors.textMuted,
+    color: colors.textSecondary,
   },
   settingsLinkText: {
     fontFamily: theme.fonts.bodySemiBold,
     fontSize: 12,
-    color: theme.colors.primary,
+    color: colors.primary,
     marginTop: 4,
   },
   textInputRegular: {
     height: 48,
-    backgroundColor: 'rgba(5, 31, 32, 0.6)',
+    backgroundColor: colors.scrim,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.16)',
+    borderColor: colors.border,
     borderRadius: theme.radius.md,
     paddingHorizontal: 12,
-    color: theme.colors.text,
-    fontFamily: theme.fonts.bodyRegular,
+    color: colors.text,
+    fontFamily: fonts.bodyRegular,
     fontSize: 14,
   },
   ownerOptionRow: {
@@ -1884,16 +1890,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     height: 48,
-    backgroundColor: 'rgba(5, 31, 32, 0.6)',
+    backgroundColor: colors.scrim,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.16)',
+    borderColor: colors.border,
     borderRadius: theme.radius.md,
     paddingHorizontal: 10,
   },
   dateInput: {
     flex: 1,
-    color: theme.colors.text,
-    fontFamily: theme.fonts.bodyRegular,
+    color: colors.text,
+    fontFamily: fonts.bodyRegular,
     fontSize: 13,
   },
   submitContainer: {
@@ -1903,24 +1909,24 @@ const styles = StyleSheet.create({
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(5, 31, 32, 0.85)',
+    backgroundColor: colors.scrim,
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#072728',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: theme.radius.lg,
     borderTopRightRadius: theme.radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.16)',
+    borderColor: colors.border,
     maxHeight: '85%',
     minHeight: '55%',
     padding: 16,
   },
   modalContentSmall: {
-    backgroundColor: '#072728',
+    backgroundColor: colors.surface,
     borderRadius: theme.radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.16)',
+    borderColor: colors.border,
     padding: 20,
     margin: 20,
     alignSelf: 'center',
@@ -1936,7 +1942,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontFamily: theme.fonts.headingSemiBold,
     fontSize: 16,
-    color: theme.colors.text,
+    color: colors.text,
   },
   iconBtn: {
     width: 44,
@@ -1948,9 +1954,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     height: 46,
-    backgroundColor: 'rgba(5, 31, 32, 0.6)',
+    backgroundColor: colors.scrim,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.16)',
+    borderColor: colors.border,
     borderRadius: theme.radius.md,
     paddingHorizontal: 12,
     marginBottom: 8,
@@ -1958,8 +1964,8 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     marginLeft: 8,
-    color: theme.colors.text,
-    fontFamily: theme.fonts.bodyRegular,
+    color: colors.text,
+    fontFamily: fonts.bodyRegular,
     fontSize: 14,
   },
   memberRow: {
@@ -1968,7 +1974,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 8,
     borderBottomWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.06)',
+    borderColor: colors.border,
     minHeight: 56,
   },
   memberInfoCol: {
@@ -1978,19 +1984,19 @@ const styles = StyleSheet.create({
   memberRowName: {
     fontFamily: theme.fonts.bodySemiBold,
     fontSize: 15,
-    color: theme.colors.text,
+    color: colors.text,
   },
   memberRowSub: {
-    fontFamily: theme.fonts.bodyRegular,
+    fontFamily: fonts.bodyRegular,
     fontSize: 12,
-    color: theme.colors.textMuted,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   memberRowDueCol: {
     alignItems: 'flex-end',
   },
   dueBadge: {
-    backgroundColor: 'rgba(255, 107, 107, 0.18)',
+    backgroundColor: colors.chipDangerBg,
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: theme.radius.sm,
@@ -1998,53 +2004,54 @@ const styles = StyleSheet.create({
   dueBadgeText: {
     fontFamily: theme.fonts.bodyBold,
     fontSize: 12,
-    color: theme.colors.error,
+    color: colors.chipDangerText,
+    fontVariant: ['tabular-nums'],
   },
   noDueText: {
-    fontFamily: theme.fonts.bodyRegular,
+    fontFamily: fonts.bodyRegular,
     fontSize: 12,
-    color: theme.colors.textMuted,
+    color: colors.textSecondary,
   },
   emptyContainer: {
     padding: 32,
     alignItems: 'center',
   },
   emptyText: {
-    fontFamily: theme.fonts.bodyRegular,
+    fontFamily: fonts.bodyRegular,
     fontSize: 14,
-    color: theme.colors.textMuted,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     height: 48,
-    backgroundColor: 'rgba(5, 31, 32, 0.6)',
+    backgroundColor: colors.scrim,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.16)',
+    borderColor: colors.border,
     borderRadius: theme.radius.md,
     paddingHorizontal: 12,
   },
   inputPrefix: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 18,
-    color: theme.colors.primary,
+    color: colors.primary,
     marginRight: 6,
   },
   textInput: {
     flex: 1,
-    color: theme.colors.text,
+    color: colors.text,
     fontFamily: theme.fonts.headingSemiBold,
     fontSize: 16,
   },
   textInputMulti: {
-    backgroundColor: 'rgba(5, 31, 32, 0.6)',
+    backgroundColor: colors.scrim,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.16)',
+    borderColor: colors.border,
     borderRadius: theme.radius.md,
     padding: 10,
-    color: theme.colors.text,
-    fontFamily: theme.fonts.bodyRegular,
+    color: colors.text,
+    fontFamily: fonts.bodyRegular,
     fontSize: 13,
   },
   modalFooterRow: {
@@ -2053,9 +2060,9 @@ const styles = StyleSheet.create({
   },
   // Success Card Styles
   successCard: {
-    backgroundColor: '#072728',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.18)',
+    borderColor: colors.border,
     borderRadius: theme.radius.lg,
     padding: 24,
     alignItems: 'center',
@@ -2066,7 +2073,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(142, 182, 155, 0.12)',
+    backgroundColor: colors.primarySoft,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -2074,32 +2081,32 @@ const styles = StyleSheet.create({
   successTitle: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 20,
-    color: theme.colors.text,
+    color: colors.text,
     marginBottom: 8,
   },
   successAmount: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 32,
-    color: theme.colors.primary,
+    color: colors.primary,
     marginBottom: 6,
   },
   successReceipt: {
-    fontFamily: theme.fonts.bodyRegular,
+    fontFamily: fonts.bodyRegular,
     fontSize: 13,
-    color: theme.colors.textMuted,
+    color: colors.textSecondary,
     marginBottom: 12,
   },
   successBalanceBadge: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: 'rgba(218, 241, 222, 0.08)',
+    backgroundColor: colors.surfaceRaised,
     borderRadius: theme.radius.full,
     marginBottom: 24,
   },
   successBalanceText: {
     fontFamily: theme.fonts.bodySemiBold,
     fontSize: 13,
-    color: theme.colors.text,
+    color: colors.text,
   },
   successActionsColumn: {
     width: '100%',
@@ -2115,9 +2122,9 @@ const styles = StyleSheet.create({
   discountAlertBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 107, 107, 0.12)',
+    backgroundColor: colors.chipDangerBg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.3)',
+    borderColor: colors.danger,
     borderRadius: theme.radius.md,
     padding: 10,
     marginBottom: 16,
@@ -2125,7 +2132,7 @@ const styles = StyleSheet.create({
   discountAlertText: {
     fontFamily: theme.fonts.bodyMedium,
     fontSize: 13,
-    color: theme.colors.error,
+    color: colors.danger,
   },
   chipsRowSmall: {
     flexDirection: 'row',
@@ -2136,26 +2143,26 @@ const styles = StyleSheet.create({
   smallChip: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: 'rgba(218, 241, 222, 0.06)',
+    backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.14)',
+    borderColor: colors.border,
     borderRadius: theme.radius.full,
     minHeight: 36,
     justifyContent: 'center',
     alignItems: 'center',
   },
   smallChipActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   smallChipText: {
     fontFamily: theme.fonts.bodyMedium,
     fontSize: 12,
-    color: theme.colors.text,
+    color: colors.text,
   },
   smallChipTextActive: {
     fontFamily: theme.fonts.bodyBold,
-    color: theme.colors.textOnPrimary,
+    color: colors.textOnPrimary,
   },
   promiseHeaderRow: {
     flexDirection: 'row',
@@ -2164,41 +2171,46 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   promiseRuleText: {
-    fontFamily: theme.fonts.bodyRegular,
+    fontFamily: fonts.bodyRegular,
     fontSize: 11,
-    color: theme.colors.textMuted,
+    color: colors.textSecondary,
   },
   dateHelperText: {
-    fontFamily: theme.fonts.bodyRegular,
+    fontFamily: fonts.bodyRegular,
     fontSize: 11,
-    color: theme.colors.textMuted,
+    color: colors.textSecondary,
     marginTop: 4,
     marginLeft: 2,
   },
   stickyBottomBar: {
     paddingHorizontal: 20,
     paddingTop: 12,
-    backgroundColor: '#051F20',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(218, 241, 222, 0.1)',
+    backgroundColor: colors.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 8,
   },
   radioCircle: {
     width: 20,
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: 'rgba(218, 241, 222, 0.3)',
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
   radioCircleActive: {
-    borderColor: theme.colors.primary,
+    borderColor: colors.primary,
   },
   radioInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: colors.primary,
   },
   dragHandleWrap: {
     alignItems: 'center',
@@ -2208,19 +2220,21 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(218, 241, 222, 0.3)',
+    backgroundColor: colors.surfaceRaised,
   },
   dueBadgeCoral: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    backgroundColor: 'rgba(255, 107, 107, 0.15)',
+    backgroundColor: colors.chipDangerBg,
     borderRadius: theme.radius.sm,
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.3)',
+    borderColor: colors.danger,
   },
   dueBadgeCoralText: {
     fontFamily: theme.fonts.bodySemiBold,
     fontSize: 12,
-    color: theme.colors.error,
+    color: colors.chipDangerText,
+    fontVariant: ['tabular-nums'],
   },
-});
+  });
+};

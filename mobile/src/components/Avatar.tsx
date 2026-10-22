@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View, Text, Image, StyleProp, ViewStyle } from 'react-native';
-import { theme } from '../theme/theme';
+import { useTheme } from '../theme/ThemeContext';
 
 export type AvatarStatus = 'active' | 'expiring' | 'expired' | 'none';
 export type AvatarSize = 'sm' | 'md' | 'lg' | 'xl';
@@ -20,6 +20,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   size = 'md',
   style,
 }) => {
+  const { colors, fonts, radius } = useTheme();
   const [imageError, setImageError] = React.useState(false);
 
   React.useEffect(() => {
@@ -60,9 +61,9 @@ export const Avatar: React.FC<AvatarProps> = ({
   }[size];
 
   const ringColorBy = {
-    active: theme.colors.primary,
-    expiring: theme.colors.warning,
-    expired: theme.colors.error,
+    active: colors.chipSuccessText,
+    expiring: colors.chipWarningText,
+    expired: colors.chipDangerText,
     none: 'transparent',
   }[status];
 
@@ -89,6 +90,8 @@ export const Avatar: React.FC<AvatarProps> = ({
             width: dimensionBy,
             height: dimensionBy,
             borderRadius: dimensionBy / 2,
+            backgroundColor: colors.primarySoft, // initials on primarySoft
+            borderColor: colors.border,
           },
         ]}
       >
@@ -105,6 +108,8 @@ export const Avatar: React.FC<AvatarProps> = ({
               styles.initials,
               {
                 fontSize: fontSizeBy,
+                fontFamily: fonts.headingBold,
+                color: colors.primary, // initials tinted with primary
               },
             ]}
           >
@@ -118,26 +123,22 @@ export const Avatar: React.FC<AvatarProps> = ({
 
 const styles = StyleSheet.create({
   outerContainer: {
-    borderRadius: theme.radius.full,
+    borderRadius: 9999,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
   },
   innerContainer: {
-    backgroundColor: 'rgba(142, 182, 155, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
     borderWidth: 1.5,
-    borderColor: 'rgba(142, 182, 155, 0.35)',
   },
   image: {
     width: '100%',
     height: '100%',
   },
   initials: {
-    fontFamily: theme.fonts.headingBold,
-    color: theme.colors.primary,
     letterSpacing: 0.5,
     textAlign: 'center',
   },

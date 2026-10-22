@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { X, Receipt, Share2, User, RotateCcw, AlertTriangle, ShieldCheck } from 'lucide-react-native';
-import { theme } from '../theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../theme/ThemeContext';
 import { GlassCard } from './GlassCard';
 import { Button } from './Button';
 import { Badge } from './Badge';
@@ -24,6 +24,8 @@ import {
 } from '../api/payments';
 import { showConfirmDialog } from './ConfirmDialog';
 import Toast from 'react-native-toast-message';
+import { canUseGlass } from '../utils/platformCapabilities';
+import { BlurView } from 'expo-blur';
 
 interface PaymentDetailSheetProps {
   paymentId: string | null;
@@ -38,6 +40,8 @@ export const PaymentDetailSheet: React.FC<PaymentDetailSheetProps> = ({
   onClose,
   onViewMember,
 }) => {
+  const { colors, isDark } = useTheme();
+  const styles = useStyles(makeStyles);
   const { data: detail, isLoading, isError } = usePaymentDetail(paymentId);
   const reverseMutation = useReversePayment();
 
@@ -75,6 +79,8 @@ export const PaymentDetailSheet: React.FC<PaymentDetailSheetProps> = ({
   const isReversal = detail?.type === 'REVERSAL';
   const isAlreadyReversed = Boolean(detail?.reversedByPaymentId);
 
+  const isGlass = canUseGlass();
+
   return (
     <Modal
       visible={Boolean(paymentId)}
@@ -83,11 +89,31 @@ export const PaymentDetailSheet: React.FC<PaymentDetailSheetProps> = ({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={styles.sheetContainer}>
+        <View
+          style={[
+            styles.sheetContainer,
+            {
+              backgroundColor: isGlass ? colors.glassTint : colors.surface,
+              borderColor: isGlass ? colors.glassBorder : colors.border,
+            },
+          ]}
+        >
+          {isGlass && (
+            <BlurView
+              intensity={40}
+              tint={isDark ? 'dark' : 'light'}
+              style={StyleSheet.absoluteFill}
+            />
+          )}
+          {/* Drag Handle */}
+          <View style={styles.handleContainer}>
+            <View style={styles.dragHandle} />
+          </View>
+
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerTitleRow}>
-              <Receipt size={20} color={theme.colors.primary} />
+              <Receipt size={20} color={colors.primary} />
               <Text style={styles.headerTitle}>
                 {isReversal ? 'Reversal Details' : 'Payment Details'}
               </Text>
@@ -99,14 +125,14 @@ export const PaymentDetailSheet: React.FC<PaymentDetailSheetProps> = ({
               accessibilityLabel="Close"
               {...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {})}
             >
-              <X size={20} color={theme.colors.textMuted} />
+              <X size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
           {/* Body Content */}
           {isLoading ? (
             <View style={styles.loadingWrap}>
-              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <ActivityIndicator size="large" color={colors.primary} />
               <Text style={styles.loadingText}>Loading details...</Text>
             </View>
           ) : isError || !detail ? (
@@ -205,7 +231,7 @@ export const PaymentDetailSheet: React.FC<PaymentDetailSheetProps> = ({
                   {detail.membershipSummary.discountPaise > 0 && (
                     <View style={styles.infoRow}>
                       <Text style={styles.infoLabel}>Discount Applied</Text>
-                      <Text style={[styles.infoValue, { color: theme.colors.warning }]}>
+                      <Text style={[styles.infoValue, { color: colors.warning }]}>
                         -{formatMoney(detail.membershipSummary.discountPaise)}
                       </Text>
                     </View>
@@ -213,14 +239,14 @@ export const PaymentDetailSheet: React.FC<PaymentDetailSheetProps> = ({
 
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Total Paid</Text>
-                    <Text style={[styles.infoValue, { color: theme.colors.primary }]}>
+                    <Text style={[styles.infoValue, { color: colors.primary }]}>
                       {formatMoney(detail.membershipSummary.paidPaise)}
                     </Text>
                   </View>
 
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Balance Due</Text>
-                    <Text style={[styles.infoValue, detail.membershipSummary.duePaise > 0 ? { color: '#FF6B6B' } : {}]}>
+                    <Text style={[styles.infoValue, detail.membershipSummary.duePaise > 0 ? { color: colors.danger } : {}]}>
                       {formatMoney(detail.membershipSummary.duePaise)}
                     </Text>
                   </View>
@@ -231,7 +257,7 @@ export const PaymentDetailSheet: React.FC<PaymentDetailSheetProps> = ({
               <View style={styles.actionsContainer}>
                 <Button
                   title="Share Receipt"
-                  icon={<Share2 size={16} color="#051F20" />}
+                  icon={<Share2 size={16} color={colors.textOnPrimary} />}
                   variant="primary"
                   size="md"
                   onPress={() => downloadAndShareReceipt(detail.id, detail.receiptNo)}
@@ -240,7 +266,7 @@ export const PaymentDetailSheet: React.FC<PaymentDetailSheetProps> = ({
 
                 <Button
                   title="View Member"
-                  icon={<User size={16} color="#DAF1DE" />}
+                  icon={<User size={16} color={colors.text} />}
                   variant="secondary"
                   size="md"
                   onPress={() => {
@@ -253,7 +279,7 @@ export const PaymentDetailSheet: React.FC<PaymentDetailSheetProps> = ({
                 {isOwner && !isReversal && !isAlreadyReversed && (
                   <Button
                     title="Reverse Payment"
-                    icon={<RotateCcw size={16} color="#FF6B6B" />}
+                    icon={<RotateCcw size={16} color={colors.danger} />}
                     variant="ghost"
                     size="md"
                     onPress={handleOpenReverse}
@@ -270,11 +296,11 @@ export const PaymentDetailSheet: React.FC<PaymentDetailSheetProps> = ({
               <View style={styles.reverseSheetCard}>
                 <View style={styles.reverseHeader}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <AlertTriangle size={18} color={theme.colors.error} style={{ marginRight: 8 }} />
+                    <AlertTriangle size={18} color={colors.danger} style={{ marginRight: 8 }} />
                     <Text style={styles.reverseTitle}>Reverse Payment</Text>
                   </View>
                   <TouchableOpacity onPress={() => setShowReverseSheet(false)}>
-                    <X size={18} color={theme.colors.textMuted} />
+                    <X size={18} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
 
@@ -304,7 +330,7 @@ export const PaymentDetailSheet: React.FC<PaymentDetailSheetProps> = ({
                 <TextInput
                   style={styles.noteInput}
                   placeholder="Enter reason details (5-300 characters)..."
-                  placeholderTextColor={theme.colors.textMuted}
+                  placeholderTextColor={colors.textSecondary}
                   value={reverseNote}
                   onChangeText={setReverseNote}
                   multiline
@@ -337,10 +363,11 @@ export const PaymentDetailSheet: React.FC<PaymentDetailSheetProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(5, 31, 32, 0.85)',
+    backgroundColor: theme.colors.scrim,
     justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
     alignItems: 'center',
     padding: Platform.OS === 'web' ? 16 : 0,
@@ -349,13 +376,25 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: Platform.OS === 'web' ? 480 : '100%',
     maxHeight: '90%',
-    backgroundColor: '#0B2B26',
-    borderTopLeftRadius: Platform.OS === 'web' ? theme.radius.lg : theme.radius.xl,
-    borderTopRightRadius: Platform.OS === 'web' ? theme.radius.lg : theme.radius.xl,
-    borderRadius: Platform.OS === 'web' ? theme.radius.lg : undefined,
+    backgroundColor: theme.colors.surface,
+    borderTopLeftRadius: theme.radius.sheet, // 28 radius
+    borderTopRightRadius: theme.radius.sheet, // 28 radius
+    borderRadius: Platform.OS === 'web' ? theme.radius.sheet : undefined,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.16)',
+    borderColor: theme.colors.border,
     overflow: 'hidden',
+  },
+  handleContainer: {
+    width: '100%',
+    alignItems: 'center',
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  dragHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: theme.colors.border,
   },
   header: {
     flexDirection: 'row',
@@ -364,7 +403,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(218, 241, 222, 0.08)',
+    borderBottomColor: theme.colors.border,
   },
   headerTitleRow: {
     flexDirection: 'row',
@@ -388,13 +427,13 @@ const styles = StyleSheet.create({
   loadingText: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 14,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginTop: 12,
   },
   errorText: {
     fontFamily: theme.fonts.bodyMedium,
     fontSize: 14,
-    color: theme.colors.error,
+    color: theme.colors.danger,
     marginBottom: 16,
   },
   scroll: {
@@ -408,7 +447,7 @@ const styles = StyleSheet.create({
   receiptNo: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 13,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: 4,
   },
   amountText: {
@@ -418,7 +457,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   amountReversal: {
-    color: '#FF6B6B',
+    color: theme.colors.danger,
   },
   badgeRow: {
     flexDirection: 'row',
@@ -427,17 +466,17 @@ const styles = StyleSheet.create({
   },
   reversalNotice: {
     marginTop: 10,
-    backgroundColor: 'rgba(255, 107, 107, 0.12)',
+    backgroundColor: theme.colors.chipDangerBg,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: theme.radius.sm,
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.25)',
+    borderColor: theme.colors.danger,
   },
   reversalNoticeText: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 12,
-    color: '#FF6B6B',
+    color: theme.colors.danger,
   },
   card: {
     marginBottom: 14,
@@ -450,7 +489,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.headingSemiBold,
     fontSize: 11,
     letterSpacing: 0.8,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: 10,
   },
   infoRow: {
@@ -458,12 +497,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(218, 241, 222, 0.04)',
+    borderBottomColor: theme.colors.border,
   },
   infoLabel: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 13,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     flex: 1,
   },
   infoValue: {
@@ -482,21 +521,21 @@ const styles = StyleSheet.create({
   },
   reverseBtn: {
     borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.3)',
+    borderColor: theme.colors.danger,
   },
   reverseSheetOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(5, 31, 32, 0.95)',
+    backgroundColor: theme.colors.scrim,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
   },
   reverseSheetCard: {
     width: '100%',
-    backgroundColor: '#163832',
+    backgroundColor: theme.colors.surfaceRaised,
     borderRadius: theme.radius.md,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.18)',
+    borderColor: theme.colors.border,
     padding: 16,
   },
   reverseHeader: {
@@ -513,7 +552,7 @@ const styles = StyleSheet.create({
   reverseSubtitle: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 12,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: 14,
   },
   reasonChipsRow: {
@@ -526,28 +565,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: theme.radius.sm,
-    backgroundColor: 'rgba(218, 241, 222, 0.06)',
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.12)',
+    borderColor: theme.colors.border,
   },
   reasonChipActive: {
-    backgroundColor: 'rgba(255, 107, 107, 0.18)',
-    borderColor: '#FF6B6B',
+    backgroundColor: theme.colors.chipDangerBg,
+    borderColor: theme.colors.danger,
   },
   reasonChipText: {
     fontFamily: theme.fonts.bodyMedium,
     fontSize: 11,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
   reasonChipTextActive: {
-    color: '#FF6B6B',
+    color: theme.colors.danger,
     fontFamily: theme.fonts.bodyBold,
   },
   noteInput: {
-    backgroundColor: 'rgba(5, 31, 32, 0.6)',
+    backgroundColor: theme.colors.scrim,
     borderRadius: theme.radius.sm,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.12)',
+    borderColor: theme.colors.border,
     padding: 10,
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 13,

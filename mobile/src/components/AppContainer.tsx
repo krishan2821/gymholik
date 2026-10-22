@@ -1,9 +1,9 @@
 import React, { createContext, useContext } from 'react';
 import { StyleSheet, View, Image, StyleProp, ViewStyle, Platform } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useBreakpoint } from '../hooks/useBreakpoint';
-
-const bgGymAsset = require('../../assets/images/bg-gym.webp');
+import { useTheme } from '../theme/ThemeContext';
+import { useAppearanceStore } from '../theme/useAppearance';
+import { BRAND } from '../theme';
 
 export const AppContainerContext = createContext<boolean>(false);
 
@@ -14,12 +14,13 @@ export interface AppContainerProps {
 }
 
 /**
- * AppContainer component used by the shared Screen component and authenticated layout.
- * - On tablet and desktop: centres app content in a column with max width 480 px on the
- *   full-height dark background (#051F20), with a subtle 1px border rgba(218,241,222,0.08)
- *   on both sides.
- * - On phone: full width.
- * - Prevents double-nesting via AppContainerContext.
+ * AppContainer — wraps authenticated screens.
+ *
+ * On tablet/desktop: centres content in a 480px column on the full-height bg.
+ * On phone: full width.
+ *
+ * Background is a pre-rendered soft gradient WebP per brand × mode —
+ * no runtime blur.
  */
 export const AppContainer: React.FC<AppContainerProps> = ({
   children,
@@ -28,28 +29,40 @@ export const AppContainer: React.FC<AppContainerProps> = ({
 }) => {
   const { isPhone } = useBreakpoint();
   const alreadyInContainer = useContext(AppContainerContext);
+  const { colors, layout } = useTheme();
+  const resolvedMode = useAppearanceStore((s) => s.resolvedMode);
+
+  // Brand × mode gradient WebP
+  const bgAsset = getBgAsset(BRAND, resolvedMode);
 
   if (alreadyInContainer || isPhone) {
-    return <View style={[styles.innerRoot, style]}>{children}</View>;
+    return <View style={[{ flex: 1, width: '100%' }, style]}>{children}</View>;
   }
 
   return (
     <AppContainerContext.Provider value={true}>
-      <View style={[styles.outer, style]}>
+      <View style={[styles.outer, { backgroundColor: colors.bg }, style]}>
         {Platform.OS === 'web' && (
           <View style={styles.backdropWrap} pointerEvents="none">
             <Image
-              source={bgGymAsset}
+              source={bgAsset}
               style={styles.outerBgImage}
               resizeMode="cover"
             />
-            {/* 0.92 Dark green overlay */}
-            <View style={styles.overlay} />
-            {/* Radial sage glow */}
-            <View style={styles.radialGlow} />
           </View>
         )}
-        <View style={[styles.column, styles.columnWide, columnStyle]}>
+        <View
+          style={[
+            styles.column,
+            {
+              maxWidth: layout.maxWidth.column,
+              backgroundColor: colors.bg,
+              borderColor: colors.border,
+            },
+            Platform.OS === 'web' && styles.columnWebShadow,
+            columnStyle,
+          ]}
+        >
           {children}
         </View>
       </View>
@@ -57,12 +70,24 @@ export const AppContainer: React.FC<AppContainerProps> = ({
   );
 };
 
+function getBgAsset(brand: string, mode: string) {
+  if (brand === 'ember' && mode === 'light') {
+    return require('../../assets/images/bg-ember-light.webp');
+  }
+  if (brand === 'ember') {
+    return require('../../assets/images/bg-ember-dark.webp');
+  }
+  if (mode === 'light') {
+    return require('../../assets/images/bg-cobalt-light.webp');
+  }
+  return require('../../assets/images/bg-cobalt-dark.webp');
+}
+
 const styles = StyleSheet.create({
   outer: {
     flex: 1,
     width: '100%',
     height: '100%',
-    backgroundColor: '#051F20',
     alignItems: 'center',
     overflow: 'hidden',
     ...(Platform.OS === 'web'
@@ -75,52 +100,29 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     overflow: 'hidden',
   },
-  overlay: {
+  outerBgImage: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(5, 31, 32, 0.92)',
-  },
-  radialGlow: {
-    ...StyleSheet.absoluteFill,
+    width: '100%',
+    height: '100%',
     ...(Platform.OS === 'web'
       ? ({
-          backgroundImage:
-            'radial-gradient(circle at 50% 30%, rgba(142, 182, 155, 0.16) 0%, rgba(5, 31, 32, 0) 68%)',
+          objectPosition: 'top center',
+          objectFit: 'cover',
         } as any)
       : {}),
-  },
-  innerRoot: {
-    flex: 1,
-    width: '100%',
   },
   column: {
     flex: 1,
     width: '100%',
     position: 'relative',
-    backgroundColor: '#072728',
     overflow: 'hidden',
-  },
-  columnWide: {
-    maxWidth: 480,
     borderLeftWidth: 1,
     borderRightWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.08)',
-    ...(Platform.OS === 'web'
-      ? ({
-          boxShadow: '0 0 36px rgba(0, 0, 0, 0.6), 0 0 10px rgba(0, 0, 0, 0.4)',
-        } as any)
-      : {}),
   },
-  outerBgImage: {
-    ...StyleSheet.absoluteFill,
-    width: '100%',
-    height: '100%',
-    opacity: 0.35,
+  columnWebShadow: {
     ...(Platform.OS === 'web'
       ? ({
-          objectPosition: 'top center',
-          objectFit: 'cover',
-          filter: 'blur(8px)',
-          transform: [{ scale: 1.05 }],
+          boxShadow: '0 0 36px rgba(0,0,0,0.4)',
         } as any)
       : {}),
   },

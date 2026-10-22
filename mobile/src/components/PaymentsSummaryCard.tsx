@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   Platform,
   Animated,
 } from 'react-native';
-import { theme } from '../theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../theme/ThemeContext';
 import { GlassCard } from './GlassCard';
 import { Skeleton } from './Skeleton';
 import { formatMoney } from '../utils/formatters';
@@ -26,6 +26,8 @@ export const PaymentsSummaryCard: React.FC<SummaryCardProps> = ({
   isLoading,
   onViewDues,
 }) => {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const reducedMotion = usePrefersReducedMotion();
   const targetCollected = summary?.collectedPaise ?? 0;
   const [displayCollected, setDisplayCollected] = useState(targetCollected);
@@ -97,9 +99,9 @@ export const PaymentsSummaryCard: React.FC<SummaryCardProps> = ({
         {hasPreviousCollection && percentChange !== null && percentChange !== undefined ? (
           <View style={[styles.chip, isUp ? styles.chipUp : styles.chipDown]}>
             {isUp ? (
-              <ArrowUpRight size={13} color="#8EB69B" />
+              <ArrowUpRight size={13} color={colors.primary} />
             ) : (
-              <ArrowDownRight size={13} color="#FF6B6B" />
+              <ArrowDownRight size={13} color={colors.danger} />
             )}
             <Text style={[styles.chipText, isUp ? styles.chipTextUp : styles.chipTextDown]}>
               {percentChange >= 0
@@ -125,7 +127,7 @@ export const PaymentsSummaryCard: React.FC<SummaryCardProps> = ({
               <View
                 style={[
                   styles.barSegment,
-                  { width: `${cashPct}%`, backgroundColor: theme.colors.primary },
+                  { width: `${cashPct}%`, backgroundColor: colors.primary },
                   cashPct === 100 && styles.barSingle,
                 ]}
               />
@@ -134,7 +136,7 @@ export const PaymentsSummaryCard: React.FC<SummaryCardProps> = ({
               <View
                 style={[
                   styles.barSegment,
-                  { width: `${upiPct}%`, backgroundColor: '#38A169' },
+                  { width: `${upiPct}%`, backgroundColor: colors.success },
                   upiPct === 100 && styles.barSingle,
                 ]}
               />
@@ -143,29 +145,29 @@ export const PaymentsSummaryCard: React.FC<SummaryCardProps> = ({
               <View
                 style={[
                   styles.barSegment,
-                  { width: `${cardPct}%`, backgroundColor: theme.colors.warning },
+                  { width: `${cardPct}%`, backgroundColor: colors.warning },
                   cardPct === 100 && styles.barSingle,
                 ]}
               />
             )}
           </>
         ) : (
-          <View style={[styles.barSegment, { width: '100%', backgroundColor: 'rgba(218, 241, 222, 0.12)' }]} />
+          <View style={[styles.barSegment, { width: '100%', backgroundColor: colors.surfaceRaised }]} />
         )}
       </View>
 
       {/* Legend with percentages */}
       <View style={styles.legendRow}>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: theme.colors.primary }]} />
+          <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
           <Text style={styles.legendLabel}>Cash ({Math.round(cashPct)}%)</Text>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: '#38A169' }]} />
+          <View style={[styles.legendDot, { backgroundColor: colors.success }]} />
           <Text style={styles.legendLabel}>UPI ({Math.round(upiPct)}%)</Text>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: theme.colors.warning }]} />
+          <View style={[styles.legendDot, { backgroundColor: colors.warning }]} />
           <Text style={styles.legendLabel}>Card ({Math.round(cardPct)}%)</Text>
         </View>
       </View>
@@ -187,7 +189,7 @@ export const PaymentsSummaryCard: React.FC<SummaryCardProps> = ({
           {...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {})}
         >
           <Text style={styles.duesBtnText}>Dues</Text>
-          <ChevronRight size={14} color="#DAF1DE" />
+          <ChevronRight size={14} color={colors.text} />
         </TouchableOpacity>
       </View>
     </GlassCard>
@@ -203,6 +205,9 @@ export const StaffSummaryCard: React.FC<StaffSummaryCardProps> = ({
   collectedPaise,
   isLoading,
 }) => {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
+
   if (isLoading) {
     return (
       <GlassCard style={styles.card} contentStyle={styles.cardInner}>
@@ -220,138 +225,143 @@ export const StaffSummaryCard: React.FC<StaffSummaryCardProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  card: {
-    marginHorizontal: 20,
-    marginBottom: 16,
-    borderRadius: theme.radius.lg,
-  },
-  cardInner: {
-    padding: 16,
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  label: {
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: 13,
-    color: theme.colors.textMuted,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: theme.radius.full,
-  },
-  chipUp: {
-    backgroundColor: 'rgba(142, 182, 155, 0.16)',
-  },
-  chipDown: {
-    backgroundColor: 'rgba(255, 107, 107, 0.16)',
-  },
-  chipNew: {
-    backgroundColor: 'rgba(142, 182, 155, 0.16)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: theme.radius.full,
-  },
-  chipText: {
-    fontFamily: theme.fonts.bodyBold,
-    fontSize: 11,
-    marginLeft: 2,
-  },
-  chipTextUp: {
-    color: '#8EB69B',
-  },
-  chipTextDown: {
-    color: '#FF6B6B',
-  },
-  chipTextNew: {
-    fontFamily: theme.fonts.bodyBold,
-    fontSize: 11,
-    color: '#8EB69B',
-  },
-  bigAmount: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 30,
-    lineHeight: 36,
-    color: theme.colors.text,
-    marginBottom: 14,
-  },
-  splitBar: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(218, 241, 222, 0.08)',
-    flexDirection: 'row',
-    overflow: 'hidden',
-    marginBottom: 10,
-  },
-  barSegment: {
-    height: '100%',
-  },
-  barSingle: {
-    borderRadius: 4,
-  },
-  legendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  legendDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    marginRight: 6,
-  },
-  legendLabel: {
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 11,
-    color: theme.colors.textMuted,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(218, 241, 222, 0.08)',
-    marginBottom: 12,
-  },
-  duesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  duesText: {
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    flex: 1,
-    marginRight: 8,
-  },
-  coralText: {
-    color: '#FF6B6B',
-    fontFamily: theme.fonts.bodyBold,
-  },
-  duesBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(218, 241, 222, 0.08)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: theme.radius.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.14)',
-  },
-  duesBtnText: {
-    fontFamily: theme.fonts.bodyBold,
-    fontSize: 12,
-    color: theme.colors.text,
-    marginRight: 2,
-  },
-});
+const makeStyles = (theme: ThemeValue) => {
+  const colors = theme.colors;
+  return StyleSheet.create({
+    card: {
+      marginHorizontal: 20,
+      marginBottom: 16,
+      borderRadius: theme.radius.lg,
+    },
+    cardInner: {
+      padding: 16,
+    },
+    topRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 6,
+    },
+    label: {
+      fontFamily: theme.fonts.bodyMedium,
+      fontSize: 13,
+      color: colors.textSecondary,
+    },
+    chip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: theme.radius.full,
+    },
+    chipUp: {
+      backgroundColor: colors.primarySoft,
+    },
+    chipDown: {
+      backgroundColor: colors.chipDangerBg,
+    },
+    chipNew: {
+      backgroundColor: colors.primarySoft,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: theme.radius.full,
+    },
+    chipText: {
+      fontFamily: theme.fonts.bodyBold,
+      fontSize: 11,
+      marginLeft: 2,
+    },
+    chipTextUp: {
+      color: colors.primary,
+    },
+    chipTextDown: {
+      color: colors.danger,
+    },
+    chipTextNew: {
+      fontFamily: theme.fonts.bodyBold,
+      fontSize: 11,
+      color: colors.primary,
+    },
+    bigAmount: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 30,
+      lineHeight: 36,
+      color: colors.text,
+      marginBottom: 14,
+      fontVariant: ['tabular-nums'],
+    },
+    splitBar: {
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.surfaceRaised,
+      flexDirection: 'row',
+      overflow: 'hidden',
+      marginBottom: 10,
+    },
+    barSegment: {
+      height: '100%',
+    },
+    barSingle: {
+      borderRadius: 4,
+    },
+    legendRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 14,
+    },
+    legendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    legendDot: {
+      width: 7,
+      height: 7,
+      borderRadius: 3.5,
+      marginRight: 6,
+    },
+    legendLabel: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 11,
+      color: colors.textSecondary,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginBottom: 12,
+    },
+    duesRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    duesText: {
+      fontFamily: theme.fonts.bodyMedium,
+      fontSize: 13,
+      color: colors.textSecondary,
+      flex: 1,
+      marginRight: 8,
+    },
+    coralText: {
+      color: colors.danger,
+      fontFamily: theme.fonts.bodyBold,
+      fontVariant: ['tabular-nums'],
+    },
+    duesBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surfaceRaised,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: theme.radius.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    duesBtnText: {
+      fontFamily: theme.fonts.bodyBold,
+      fontSize: 12,
+      color: colors.text,
+      marginRight: 2,
+    },
+  });
+};

@@ -48,7 +48,7 @@ import QRCode from 'react-native-qrcode-svg';
 import ViewShot from 'react-native-view-shot';
 import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import { useBreakpoint } from '../../../src/hooks/useBreakpoint';
-import { theme } from '../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import { useMember } from '../../../src/api/members';
 import { usePayments, PaymentItem } from '../../../src/api/payments';
 import { PaymentDetailSheet } from '../../../src/components/PaymentDetailSheet';
@@ -98,6 +98,8 @@ function formatCheckInTime(time: any): string {
 }
 
 export default function MemberDetailScreen() {
+  const { colors, fonts } = useTheme();
+  const styles = useStyles(makeStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { role, userId } = useAuthStore();
@@ -219,23 +221,23 @@ export default function MemberDetailScreen() {
             canvas.width = 300;
             canvas.height = 360;
             if (ctx) {
-              ctx.fillStyle = '#051F20';
+              ctx.fillStyle = colors.bg;
               ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-              ctx.fillStyle = '#DAF1DE';
+              ctx.fillStyle = colors.text;
               ctx.font = 'bold 16px sans-serif';
               ctx.textAlign = 'center';
               ctx.fillText('Gymholik Fitness', canvas.width / 2, 34);
 
-              ctx.fillStyle = '#DAF1DE';
+              ctx.fillStyle = colors.text;
               ctx.fillRect(40, 50, 220, 220);
               ctx.drawImage(img, 45, 55, 210, 210);
 
-              ctx.fillStyle = '#DAF1DE';
+              ctx.fillStyle = colors.text;
               ctx.font = 'bold 16px sans-serif';
               ctx.fillText(member?.name || 'Member', canvas.width / 2, 300);
 
-              ctx.fillStyle = '#8EB69B';
+              ctx.fillStyle = colors.primary;
               ctx.font = '13px monospace';
               ctx.fillText(member?.memberCode || '', canvas.width / 2, 326);
 
@@ -273,7 +275,7 @@ export default function MemberDetailScreen() {
   if (isLoading) {
     return (
       <Screen style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </Screen>
     );
   }
@@ -399,7 +401,7 @@ export default function MemberDetailScreen() {
             <Text style={styles.memberCode}>{memberCode}</Text>
             {!masked && !isTrainer ? (
               <TouchableOpacity onPress={callPhone} style={styles.phoneRow} accessibilityRole="button">
-                <Phone color={theme.colors.primary} size={15} style={{ marginRight: 6 }} />
+                <Phone color={colors.primary} size={15} style={{ marginRight: 6 }} />
                 <MaskedPhone phone={phone} textStyle={styles.phone} showTooltipOnPress={false} />
               </TouchableOpacity>
             ) : (
@@ -415,26 +417,26 @@ export default function MemberDetailScreen() {
           <View style={styles.actionRow}>
             {!masked && (
               <TouchableOpacity style={styles.actionBtn} onPress={openWhatsApp} accessibilityRole="button">
-                <View style={[styles.actionIconBox, { backgroundColor: 'rgba(142, 182, 155, 0.15)' }]}>
-                  <MessageCircle color={theme.colors.primary} size={20} />
+                <View style={[styles.actionIconBox, { backgroundColor: colors.primarySoft }]}>
+                  <MessageCircle color={colors.primary} size={20} />
                 </View>
                 <Text style={styles.actionText}>WhatsApp</Text>
               </TouchableOpacity>
             )}
 
             <TouchableOpacity style={styles.actionBtn} accessibilityRole="button">
-              <View style={[styles.actionIconBox, { backgroundColor: theme.colors.raised }]}>
-                <Edit color={theme.colors.text} size={20} />
+              <View style={[styles.actionIconBox, { backgroundColor: colors.surfaceRaised }]}>
+                <Edit color={colors.text} size={20} />
               </View>
               <Text style={styles.actionText}>{COMMON.EDIT}</Text>
             </TouchableOpacity>
 
             {isOwner && (
               <TouchableOpacity style={styles.actionBtn} onPress={handleDelete} accessibilityRole="button">
-                <View style={[styles.actionIconBox, { backgroundColor: 'rgba(255, 107, 107, 0.15)' }]}>
-                  <Trash2 color={theme.colors.error} size={20} />
+                <View style={[styles.actionIconBox, { backgroundColor: colors.chipDangerBg }]}>
+                  <Trash2 color={colors.danger} size={20} />
                 </View>
-                <Text style={[styles.actionText, { color: theme.colors.error }]}>
+                <Text style={[styles.actionText, { color: colors.danger }]}>
                   {COMMON.DELETE}
                 </Text>
               </TouchableOpacity>
@@ -463,7 +465,7 @@ export default function MemberDetailScreen() {
                     <Text
                       style={[
                         styles.planDatesSubtext,
-                        { color: theme.colors.cyan || '#4ECDC4', marginTop: 2, fontFamily: theme.fonts.bodySemiBold },
+                        { color: colors.accent, marginTop: 2, fontFamily: fonts.bodySemiBold },
                       ]}
                     >
                       Renewed till {formatDate(member?.currentExpiry)}
@@ -485,7 +487,7 @@ export default function MemberDetailScreen() {
                     {(currentMembership.discountPaise || 0) > 0 && (
                       <View style={styles.detailBox}>
                         <Text style={styles.detailLabel}>Discount</Text>
-                        <Text style={[styles.detailValue, { color: theme.colors.primary }]}>
+                        <Text style={[styles.detailValue, { color: colors.primary }]}>
                           -{formatMoney(currentMembership.discountPaise)}
                         </Text>
                       </View>
@@ -496,20 +498,27 @@ export default function MemberDetailScreen() {
                     </View>
                     <View style={styles.detailBox}>
                       <Text style={styles.detailLabel}>Due Amount</Text>
-                      <Text
-                        style={[
-                          styles.detailValue,
-                          currentMembership.duePaise > 0 && { color: theme.colors.error },
-                        ]}
-                      >
-                        {formatMoney(currentMembership.duePaise)}
-                      </Text>
+                      {currentMembership.duePaise > 0 ? (
+                        <Badge
+                          label={`Due ${formatMoney(currentMembership.duePaise)}`}
+                          variant="due"
+                          size="sm"
+                          style={{ marginTop: 2 }}
+                        />
+                      ) : (
+                        <Badge
+                          label="Paid in Full"
+                          variant="paid"
+                          size="sm"
+                          style={{ marginTop: 2 }}
+                        />
+                      )}
                     </View>
                   </View>
 
                   {currentMembership.promisedDate && (
                     <View style={styles.promisedDateRow}>
-                      <Clock size={13} color={theme.colors.warning} style={{ marginRight: 6 }} />
+                      <Clock size={13} color={colors.warning} style={{ marginRight: 6 }} />
                       <Text style={styles.promisedDateText}>
                         Promised date: {currentMembership.promisedDate}
                       </Text>
@@ -526,7 +535,7 @@ export default function MemberDetailScreen() {
                   <View style={{ flex: 1, marginRight: 8 }}>
                     <Button
                       title={MEMBER_PROFILE.COLLECT}
-                      icon={<Wallet color={theme.colors.textOnPrimary} size={18} />}
+                      icon={<Wallet color={colors.textOnPrimary} size={18} />}
                       onPress={() =>
                         router.push({
                           pathname: '/(tabs)/payments/collect',
@@ -543,18 +552,18 @@ export default function MemberDetailScreen() {
                   <View style={{ flex: 1 }}>
                     <Button
                       title={MEMBER_PROFILE.RENEW}
-                      icon={<RefreshCw color={theme.colors.textOnPrimary} size={18} />}
+                      icon={<RefreshCw color={colors.textOnPrimary} size={18} />}
                       onPress={() => router.push(`/(tabs)/members/${id}/renew`)}
                       size="sm"
                     />
                   </View>
                 </View>
 
-                <View style={{ marginTop: theme.spacing.md }}>
+                <View style={{ marginTop: 16 }}>
                   <Button
                     title="Show QR Card"
                     variant="secondary"
-                    icon={<QrCode color={theme.colors.text} size={18} />}
+                    icon={<QrCode color={colors.text} size={18} />}
                     onPress={() => setShowQRModal(true)}
                     size="sm"
                   />
@@ -568,7 +577,7 @@ export default function MemberDetailScreen() {
             <Text
               style={[
                 styles.planDatesSubtext,
-                { color: theme.colors.cyan || '#4ECDC4', marginTop: 4, fontFamily: theme.fonts.bodySemiBold },
+                { color: colors.accent, marginTop: 4, fontFamily: fonts.bodySemiBold },
               ]}
             >
               Renewed till {formatDate(member?.currentExpiry)}
@@ -580,7 +589,7 @@ export default function MemberDetailScreen() {
               <View style={{ marginTop: 16 }}>
                 <Button
                   title={MEMBER_PROFILE.RENEW}
-                  icon={<RefreshCw color={theme.colors.textOnPrimary} size={18} />}
+                  icon={<RefreshCw color={colors.textOnPrimary} size={18} />}
                   onPress={() => router.push(`/(tabs)/members/${id}/renew`)}
                   size="sm"
                 />
@@ -594,7 +603,7 @@ export default function MemberDetailScreen() {
               <View style={{ marginTop: 16 }}>
                 <Button
                   title={MEMBER_PROFILE.RENEW}
-                  icon={<RefreshCw color={theme.colors.textOnPrimary} size={18} />}
+                  icon={<RefreshCw color={colors.textOnPrimary} size={18} />}
                   onPress={() => router.push(`/(tabs)/members/${id}/renew`)}
                   size="sm"
                 />
@@ -609,7 +618,7 @@ export default function MemberDetailScreen() {
         <GlassCard style={styles.sectionCard} contentStyle={styles.sectionInner}>
           <View style={styles.sectionHeaderRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Receipt size={18} color={theme.colors.primary} style={{ marginRight: 8 }} />
+              <Receipt size={18} color={colors.primary} style={{ marginRight: 8 }} />
               <Text style={styles.sectionTitle}>Payments</Text>
             </View>
             <Badge
@@ -620,7 +629,7 @@ export default function MemberDetailScreen() {
           </View>
 
           {isLoadingPayments ? (
-            <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 12 }} />
+            <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: 12 }} />
           ) : !memberPayments.length ? (
             <Text style={styles.emptyAttendanceText}>No payment records found for this member.</Text>
           ) : (
@@ -650,7 +659,7 @@ export default function MemberDetailScreen() {
                       <Text
                         style={[
                           styles.paymentAmountText,
-                          isReversal ? { color: '#FF6B6B' } : { color: theme.colors.primary },
+                          isReversal ? { color: colors.danger } : { color: colors.primary },
                         ]}
                       >
                         {isReversal ? '-' : '+'}{formatMoney(Math.abs(payment.amountPaise))}
@@ -670,7 +679,7 @@ export default function MemberDetailScreen() {
       <GlassCard style={styles.sectionCard} contentStyle={styles.sectionInner}>
         <View style={styles.sectionHeaderRow}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <CalendarDays size={18} color={theme.colors.primary} style={{ marginRight: 8 }} />
+            <CalendarDays size={18} color={colors.primary} style={{ marginRight: 8 }} />
             <Text style={styles.sectionTitle}>Last 30 Days Attendance</Text>
           </View>
           <Badge
@@ -681,7 +690,7 @@ export default function MemberDetailScreen() {
         </View>
 
         {isLoadingAttendance ? (
-          <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 12 }} />
+          <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: 12 }} />
         ) : attendanceHistory.length === 0 ? (
           <Text style={styles.emptyAttendanceText}>No check-ins recorded in the last 30 days.</Text>
         ) : (
@@ -714,7 +723,7 @@ export default function MemberDetailScreen() {
       <GlassCard style={styles.sectionCard} contentStyle={styles.sectionInner}>
         <View style={styles.sectionHeaderRow}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Dumbbell size={18} color={theme.colors.primary} style={{ marginRight: 8 }} />
+            <Dumbbell size={18} color={colors.primary} style={{ marginRight: 8 }} />
             <Text style={styles.sectionTitle}>Notes Timeline</Text>
           </View>
           <TouchableOpacity
@@ -723,13 +732,13 @@ export default function MemberDetailScreen() {
             accessibilityRole="button"
             accessibilityLabel="Add Note"
           >
-            <Plus size={14} color={theme.colors.textOnPrimary} />
+            <Plus size={14} color={colors.textOnPrimary} />
             <Text style={styles.addNoteSmallBtnText}>Add Note</Text>
           </TouchableOpacity>
         </View>
 
         {isLoadingNotes ? (
-          <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 12 }} />
+          <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: 12 }} />
         ) : memberNotes.length === 0 ? (
           <Text style={styles.emptyAttendanceText}>No notes recorded yet for this member.</Text>
         ) : (
@@ -753,7 +762,7 @@ export default function MemberDetailScreen() {
                           style={{ marginLeft: 8 }}
                           accessibilityLabel="Edit note"
                         >
-                          <Edit2 size={14} color={theme.colors.primary} />
+                          <Edit2 size={14} color={colors.primary} />
                         </TouchableOpacity>
                       )}
                     </View>
@@ -784,7 +793,7 @@ export default function MemberDetailScreen() {
         <GlassCard style={styles.sectionCard} contentStyle={styles.sectionInner}>
           <View style={styles.trainerHeaderRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Dumbbell size={18} color={theme.colors.primary} style={{ marginRight: 8 }} />
+              <Dumbbell size={18} color={colors.primary} style={{ marginRight: 8 }} />
               <Text style={styles.sectionTitle}>Assigned Trainer</Text>
             </View>
             <Badge
@@ -825,7 +834,7 @@ export default function MemberDetailScreen() {
                   accessibilityRole="button"
                   disabled={endAssignmentMutation.isPending || assignMemberMutation.isPending}
                 >
-                  <ArrowRightLeft size={14} color={theme.colors.primary} style={{ marginRight: 4 }} />
+                  <ArrowRightLeft size={14} color={colors.primary} style={{ marginRight: 4 }} />
                   <Text style={styles.trainerChangeBtnText}>Change Trainer</Text>
                 </TouchableOpacity>
 
@@ -835,7 +844,7 @@ export default function MemberDetailScreen() {
                   accessibilityRole="button"
                   disabled={endAssignmentMutation.isPending || assignMemberMutation.isPending}
                 >
-                  <UserX size={14} color={theme.colors.error} style={{ marginRight: 4 }} />
+                  <UserX size={14} color={colors.danger} style={{ marginRight: 4 }} />
                   <Text style={styles.trainerUnassignBtnText}>Unassign</Text>
                 </TouchableOpacity>
               </View>
@@ -861,11 +870,11 @@ export default function MemberDetailScreen() {
         <GlassCard style={styles.sectionCard} contentStyle={styles.sectionInner}>
           <Text style={styles.sectionTitle}>History</Text>
           <TouchableOpacity style={styles.menuItem} accessibilityRole="button">
-            <CalendarDays color={theme.colors.primary} size={22} />
+            <CalendarDays color={colors.primary} size={22} />
             <Text style={styles.menuText}>Attendance Record</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.menuItem} accessibilityRole="button">
-            <CreditCard color={theme.colors.primary} size={22} />
+            <CreditCard color={colors.primary} size={22} />
             <Text style={styles.menuText}>Payment History</Text>
           </TouchableOpacity>
         </GlassCard>
@@ -882,7 +891,7 @@ export default function MemberDetailScreen() {
               onPress={() => setShowQRModal(false)}
               accessibilityLabel="Close"
             >
-              <X color={theme.colors.textMuted} size={22} />
+              <X color={colors.textSecondary} size={22} />
             </TouchableOpacity>
 
             <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 0.9 }} style={styles.qrCard}>
@@ -891,22 +900,22 @@ export default function MemberDetailScreen() {
                 <QRCode
                   value={member.memberCode}
                   size={190}
-                  color="#051F20"
-                  backgroundColor="#DAF1DE"
+                  color={colors.textOnPrimary}
+                  backgroundColor={colors.text}
                 />
               </View>
               <Text style={styles.qrMemberName}>{member.name}</Text>
               <Text style={styles.qrCodeText}>{member.memberCode}</Text>
             </ViewShot>
 
-            <View style={{ marginTop: theme.spacing.lg }}>
+            <View style={{ marginTop: 20 }}>
               <Button
                 title={Platform.OS === 'web' ? 'Download QR Card' : 'Share on WhatsApp'}
                 icon={
                   Platform.OS === 'web' ? (
-                    <Download color={theme.colors.textOnPrimary} size={18} />
+                    <Download color={colors.textOnPrimary} size={18} />
                   ) : (
-                    <Share2 color={theme.colors.textOnPrimary} size={18} />
+                    <Share2 color={colors.textOnPrimary} size={18} />
                   )
                 }
                 onPress={handleShareQR}
@@ -934,7 +943,7 @@ export default function MemberDetailScreen() {
                 onPress={() => setTrainerPickerVisible(false)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <X size={20} color={theme.colors.textMuted} />
+                <X size={20} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -996,7 +1005,7 @@ export default function MemberDetailScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Close"
               >
-                <X size={20} color={theme.colors.textMuted} />
+                <X size={20} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -1028,7 +1037,7 @@ export default function MemberDetailScreen() {
               <TextInput
                 style={styles.noteTextArea}
                 placeholder="Enter workout instructions, diet notes or progress notes..."
-                placeholderTextColor={theme.colors.textMuted}
+                placeholderTextColor={colors.textSecondary}
                 multiline
                 numberOfLines={4}
                 value={noteText}
@@ -1040,7 +1049,7 @@ export default function MemberDetailScreen() {
               <TextInput
                 style={styles.noteInput}
                 placeholder="e.g. 72.5"
-                placeholderTextColor={theme.colors.textMuted}
+                placeholderTextColor={colors.textSecondary}
                 keyboardType="numeric"
                 value={noteWeight}
                 onChangeText={setNoteWeight}
@@ -1053,7 +1062,7 @@ export default function MemberDetailScreen() {
                   <TextInput
                     style={styles.noteInput}
                     placeholder="38"
-                    placeholderTextColor={theme.colors.textMuted}
+                    placeholderTextColor={colors.textSecondary}
                     value={noteChest}
                     onChangeText={setNoteChest}
                   />
@@ -1063,7 +1072,7 @@ export default function MemberDetailScreen() {
                   <TextInput
                     style={styles.noteInput}
                     placeholder="32"
-                    placeholderTextColor={theme.colors.textMuted}
+                    placeholderTextColor={colors.textSecondary}
                     value={noteWaist}
                     onChangeText={setNoteWaist}
                   />
@@ -1073,7 +1082,7 @@ export default function MemberDetailScreen() {
                   <TextInput
                     style={styles.noteInput}
                     placeholder="36"
-                    placeholderTextColor={theme.colors.textMuted}
+                    placeholderTextColor={colors.textSecondary}
                     value={noteHips}
                     onChangeText={setNoteHips}
                   />
@@ -1083,7 +1092,7 @@ export default function MemberDetailScreen() {
                   <TextInput
                     style={styles.noteInput}
                     placeholder="14"
-                    placeholderTextColor={theme.colors.textMuted}
+                    placeholderTextColor={colors.textSecondary}
                     value={noteArms}
                     onChangeText={setNoteArms}
                   />
@@ -1122,6 +1131,8 @@ function DaysLeftProgressRing({
   startDate: string;
   expiryDate: string;
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const size = 80;
   const strokeWidth = 6.5;
   const radius = (size - strokeWidth) / 2;
@@ -1141,10 +1152,10 @@ function DaysLeftProgressRing({
 
   const color =
     daysRemaining === 0
-      ? theme.colors.error
+      ? colors.danger
       : daysRemaining <= 5
-      ? theme.colors.warning
-      : theme.colors.primary;
+      ? colors.warning
+      : colors.primary;
 
   return (
     <View style={styles.daysRingWrapper}>
@@ -1153,7 +1164,7 @@ function DaysLeftProgressRing({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="rgba(218, 241, 222, 0.12)"
+          stroke={colors.border}
           strokeWidth={strokeWidth}
           fill="none"
         />
@@ -1226,7 +1237,7 @@ function getMembershipStatus(currentMembership: any, member?: any): {
   return { badgeVariant: 'active', avatarStatus: 'active', text: 'Active' };
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: ThemeValue) => StyleSheet.create({
   daysRingWrapper: {
     width: 80,
     height: 80,
@@ -1246,7 +1257,7 @@ const styles = StyleSheet.create({
   daysRingLabel: {
     fontFamily: theme.fonts.headingMedium,
     fontSize: 9,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     letterSpacing: 0.5,
   },
   planHeaderRow: {
@@ -1261,7 +1272,7 @@ const styles = StyleSheet.create({
   },
   planDatesSubtext: {
     ...theme.typography.small,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
   centered: {
     justifyContent: 'center',
@@ -1291,7 +1302,7 @@ const styles = StyleSheet.create({
   },
   memberCode: {
     ...theme.typography.small,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: 4,
   },
   phoneRow: {
@@ -1345,7 +1356,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   planCard: {
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderRadius: theme.radius.lg,
     padding: theme.spacing.md,
     borderWidth: 1,
@@ -1365,12 +1376,13 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: 2,
   },
   detailValue: {
     ...theme.typography.bodyMedium,
     color: theme.colors.text,
+    fontVariant: ['tabular-nums'],
   },
   divider: {
     height: 1,
@@ -1383,7 +1395,7 @@ const styles = StyleSheet.create({
   },
   noMembershipText: {
     ...theme.typography.body,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     paddingVertical: 12,
   },
@@ -1401,7 +1413,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(5, 31, 32, 0.85)',
+    backgroundColor: theme.colors.scrim,
     justifyContent: 'center',
     alignItems: 'center',
     padding: theme.spacing.lg,
@@ -1451,7 +1463,7 @@ const styles = StyleSheet.create({
   },
   qrCodeText: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginTop: 2,
     letterSpacing: 2,
   },
@@ -1462,7 +1474,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   trainerBox: {
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderRadius: theme.radius.md,
     padding: theme.spacing.md,
   },
@@ -1477,7 +1489,7 @@ const styles = StyleSheet.create({
   },
   trainerSubText: {
     ...theme.typography.small,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginTop: 2,
   },
   trainerActionButtonsRow: {
@@ -1509,11 +1521,11 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: theme.radius.sm,
-    backgroundColor: 'rgba(255, 107, 107, 0.15)',
+    backgroundColor: theme.colors.chipDangerBg,
   },
   trainerUnassignBtnText: {
     ...theme.typography.small,
-    color: theme.colors.error,
+    color: theme.colors.danger,
     fontFamily: theme.fonts.headingMedium,
   },
   trainerEmptyBox: {
@@ -1522,7 +1534,7 @@ const styles = StyleSheet.create({
   },
   trainerEmptyText: {
     ...theme.typography.body,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: theme.spacing.sm,
   },
   assignTrainerBtn: {
@@ -1561,7 +1573,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: theme.spacing.md,
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: theme.colors.borderLight,
@@ -1580,7 +1592,7 @@ const styles = StyleSheet.create({
   },
   noTrainersText: {
     ...theme.typography.body,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     paddingVertical: 20,
   },
@@ -1606,7 +1618,7 @@ const styles = StyleSheet.create({
   },
   emptyAttendanceText: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     fontStyle: 'italic',
     marginVertical: 6,
   },
@@ -1619,7 +1631,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(218, 241, 222, 0.06)',
+    borderBottomColor: theme.colors.border,
   },
   attendanceDateText: {
     ...theme.typography.body,
@@ -1629,12 +1641,12 @@ const styles = StyleSheet.create({
   },
   attendanceTimeText: {
     ...theme.typography.small,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginTop: 2,
   },
   moreAttendanceText: {
     ...theme.typography.caption,
-    color: theme.colors.primaryLight,
+    color: theme.colors.primary,
     textAlign: 'center',
     marginTop: 8,
   },
@@ -1642,7 +1654,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   timelineNoteItem: {
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderRadius: theme.radius.md,
     padding: theme.spacing.md,
     marginBottom: 8,
@@ -1657,7 +1669,7 @@ const styles = StyleSheet.create({
   },
   noteDateText: {
     ...theme.typography.small,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
   noteText: {
     ...theme.typography.body,
@@ -1673,8 +1685,8 @@ const styles = StyleSheet.create({
   },
   noteMetricPill: {
     ...theme.typography.small,
-    color: theme.colors.primaryLight,
-    backgroundColor: 'rgba(142, 182, 155, 0.1)',
+    color: theme.colors.primary,
+    backgroundColor: theme.colors.primarySoft,
     paddingVertical: 2,
     paddingHorizontal: 6,
     borderRadius: theme.radius.xs,
@@ -1695,7 +1707,7 @@ const styles = StyleSheet.create({
   },
   modalInputLabel: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: 6,
   },
   noteTypeSelectorRow: {
@@ -1705,7 +1717,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   noteTypeChip: {
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1,
     borderColor: theme.colors.border,
     paddingVertical: 6,
@@ -1718,14 +1730,14 @@ const styles = StyleSheet.create({
   },
   noteTypeChipText: {
     ...theme.typography.small,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
   noteTypeChipTextSelected: {
     color: theme.colors.textOnPrimary,
     fontFamily: theme.fonts.bodySemiBold,
   },
   noteTextArea: {
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.md,
@@ -1736,7 +1748,7 @@ const styles = StyleSheet.create({
     minHeight: 84,
   },
   noteInput: {
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.md,
@@ -1756,7 +1768,7 @@ const styles = StyleSheet.create({
   },
   measurementSubLabel: {
     ...theme.typography.small,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: 4,
   },
   promisedDateRow: {
@@ -1765,7 +1777,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(218, 241, 222, 0.08)',
+    borderTopColor: theme.colors.border,
   },
   promisedDateText: {
     fontFamily: theme.fonts.bodyMedium,
@@ -1780,9 +1792,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'rgba(218, 241, 222, 0.04)',
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.08)',
+    borderColor: theme.colors.border,
     borderRadius: theme.radius.md,
     padding: 12,
     minHeight: 48,
@@ -1795,12 +1807,13 @@ const styles = StyleSheet.create({
   paymentSubText: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 12,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginTop: 2,
   },
   paymentAmountText: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 14,
+    fontVariant: ['tabular-nums'],
   },
   paymentActionHint: {
     fontFamily: theme.fonts.bodyRegular,

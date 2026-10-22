@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -28,17 +28,18 @@ import {
 import { sendOtp, verifyOtp, classifyError, ApiError } from '../../src/api';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import { getHomeRouteForRole } from '../../src/navigation/tabsByRole';
-import { theme } from '../../src/theme/theme';
+import { BRAND, getBgAsset } from '../../src/theme';
+import { useTheme, useStyles, ThemeValue } from '../../src/theme/ThemeContext';
+import { useAppearanceStore } from '../../src/theme/useAppearance';
 import { Screen } from '../../src/components/Screen';
 import { GlassCard } from '../../src/components/GlassCard';
+import { GlassSurface } from '../../src/components/GlassSurface';
 import { GymholikLogo } from '../../src/components/GymholikLogo';
 import { Input } from '../../src/components/Input';
 import { Button } from '../../src/components/Button';
 import { useBreakpoint } from '../../src/hooks/useBreakpoint';
 import { LOGIN, VALIDATION } from '../../src/constants/strings';
 import { shouldRenderDevOtp } from '../../src/utils/devOtp';
-
-const bgGymAsset = require('../../assets/images/bg-gym.webp');
 
 const INDIAN_PHONE_REGEX = /^[6-9]\d{9}$/;
 const OTP_LENGTH = 6;
@@ -98,6 +99,10 @@ export default function OtpLoginScreen() {
   const clearRegistrationSession = useAuthStore((s) => s.clearRegistrationSession);
   const { isPhone, isTablet, isDesktop } = useBreakpoint();
   const { width: windowWidth } = useWindowDimensions();
+  const { colors, fonts, radius, layout } = useTheme();
+  const styles = useStyles(makeStyles);
+  const resolvedMode = useAppearanceStore((s) => s.resolvedMode);
+  const bgAsset = getBgAsset(BRAND, resolvedMode);
   const isNarrowPhone = windowWidth < 340;
   const digitFontSize = isNarrowPhone ? 18 : 24;
 
@@ -474,19 +479,12 @@ export default function OtpLoginScreen() {
 
   // ── Shared Login Form Card ────────────────────────────────────────────────
   const renderLoginForm = (cardMaxWidth: number) => (
-    <GlassCard
+    <GlassSurface
       style={[
         styles.glassCard,
         {
           maxWidth: cardMaxWidth,
           width: '100%',
-          ...(Platform.OS === 'web'
-            ? ({
-                transition: reduceMotion
-                  ? 'none'
-                  : 'max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
-              } as any)
-            : {}),
         },
       ]}
       contentStyle={styles.cardInner}
@@ -524,7 +522,7 @@ export default function OtpLoginScreen() {
               accessibilityRole="button"
               accessibilityLabel={LOGIN.CHANGE_NUMBER}
             >
-              <Pencil size={13} color={theme.colors.primary} />
+              <Pencil size={13} color={colors.primary} />
               <Text style={styles.changeNumberText}>
                 {isNarrowPhone ? 'Change' : LOGIN.CHANGE_NUMBER}
               </Text>
@@ -538,7 +536,7 @@ export default function OtpLoginScreen() {
         <View style={styles.stateTransitionContainer}>
           {bannerError && (
             <View style={styles.errorBanner} accessibilityRole="alert">
-              <AlertCircle color={theme.colors.error} size={18} />
+              <AlertCircle color={colors.chipDangerText} size={18} />
               <Text style={styles.errorBannerText}>{bannerError}</Text>
             </View>
           )}
@@ -570,7 +568,7 @@ export default function OtpLoginScreen() {
         >
           <View style={styles.otpHeaderRow}>
             <Text style={styles.otpSectionLabel}>{LOGIN.OTP_SECTION_LABEL}</Text>
-            {shouldRenderDevOtp(__DEV__) && (
+            {Boolean(__DEV__) && (
               <TouchableOpacity
                 onPress={() => {
                   handleOtpChange('123456');
@@ -692,7 +690,7 @@ export default function OtpLoginScreen() {
           {/* Coral Error Banner above Verify & Proceed */}
           {bannerError && (
             <View style={styles.errorBanner} accessibilityRole="alert">
-              <AlertCircle color={theme.colors.error} size={18} />
+              <AlertCircle color={colors.chipDangerText} size={18} />
               <Text style={styles.errorBannerText}>{bannerError}</Text>
             </View>
           )}
@@ -709,7 +707,7 @@ export default function OtpLoginScreen() {
           </View>
         </Animated.View>
       )}
-    </GlassCard>
+    </GlassSurface>
   );
 
   // ═════════════════════════════════════════════════════════════════════════════
@@ -721,15 +719,15 @@ export default function OtpLoginScreen() {
         {/* Left Panel: 55%, gym photo with green gradient overlay & features */}
         <View style={styles.desktopLeftPanel}>
           <Image
-            source={bgGymAsset}
+            source={bgAsset}
             style={styles.desktopHeroImage}
             resizeMode="cover"
           />
           <LinearGradient
             colors={[
-              'rgba(5, 31, 32, 0.90)',
-              'rgba(5, 31, 32, 0.70)',
-              'rgba(5, 31, 32, 0.95)',
+              colors.scrim,
+              colors.scrim,
+              colors.scrim,
             ]}
             locations={[0, 0.45, 1]}
             style={StyleSheet.absoluteFill}
@@ -754,7 +752,7 @@ export default function OtpLoginScreen() {
               <View style={styles.featuresList}>
                 <View style={styles.featureRow}>
                   <View style={styles.featureIconBadge}>
-                    <Receipt color="#8EB69B" size={22} strokeWidth={2.2} />
+                    <Receipt color={colors.primary} size={22} strokeWidth={2.2} />
                   </View>
                   <View style={styles.featureTextCol}>
                     <Text style={styles.featureTitle}>Fees and dues</Text>
@@ -766,7 +764,7 @@ export default function OtpLoginScreen() {
 
                 <View style={styles.featureRow}>
                   <View style={styles.featureIconBadge}>
-                    <QrCode color="#8EB69B" size={22} strokeWidth={2.2} />
+                    <QrCode color={colors.primary} size={22} strokeWidth={2.2} />
                   </View>
                   <View style={styles.featureTextCol}>
                     <Text style={styles.featureTitle}>Attendance and QR</Text>
@@ -778,7 +776,7 @@ export default function OtpLoginScreen() {
 
                 <View style={styles.featureRow}>
                   <View style={styles.featureIconBadge}>
-                    <ShieldCheck color="#8EB69B" size={22} strokeWidth={2.2} />
+                    <ShieldCheck color={colors.primary} size={22} strokeWidth={2.2} />
                   </View>
                   <View style={styles.featureTextCol}>
                     <Text style={styles.featureTitle}>Trainers with privacy</Text>
@@ -797,14 +795,14 @@ export default function OtpLoginScreen() {
           </View>
         </View>
 
-        {/* Right Panel: 45%, solid #051F20, vertically centered form */}
+        {/* Right Panel: 45%, solid background, vertically centered form */}
         <View style={styles.desktopRightPanel}>
           <ScrollView
             contentContainerStyle={styles.desktopRightScroll}
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.desktopRightInner}>
-              <GymholikLogo size={48} style={styles.desktopRightLogo} />
+              <GymholikLogo size={48} style={styles.desktopRightLogo} variant="primary" />
               <Text style={styles.title}>{currentTitle}</Text>
               <Text style={styles.subtitle}>{currentSubtitle}</Text>
 
@@ -824,15 +822,15 @@ export default function OtpLoginScreen() {
     return (
       <View style={styles.tabletRoot}>
         <Image
-          source={bgGymAsset}
+          source={bgAsset}
           style={styles.tabletHeroImage}
           resizeMode="cover"
         />
         <LinearGradient
           colors={[
-            'rgba(5, 31, 32, 0.92)',
-            'rgba(5, 31, 32, 0.85)',
-            'rgba(5, 31, 32, 0.96)',
+            colors.scrim,
+            colors.scrim,
+            colors.scrim,
           ]}
           locations={[0, 0.45, 1]}
           style={StyleSheet.absoluteFill}
@@ -845,7 +843,7 @@ export default function OtpLoginScreen() {
         >
           <View style={styles.tabletCardWrapper}>
             <View style={styles.headerSection}>
-              <GymholikLogo size={56} style={styles.logo} />
+              <GymholikLogo size={56} style={styles.logo} variant="primary" />
               <Text style={styles.title}>{currentTitle}</Text>
               <Text style={styles.subtitle}>{currentSubtitle}</Text>
             </View>
@@ -880,6 +878,7 @@ export default function OtpLoginScreen() {
         <GymholikLogo
           size={otpSent ? (isNarrowPhone ? 40 : 48) : isNarrowPhone ? 56 : 68}
           style={[styles.logo, otpSent && { marginBottom: 8 }]}
+          variant="primary"
         />
         <Text style={styles.title}>{currentTitle}</Text>
         <Text style={[styles.subtitle, otpSent && { marginBottom: 12 }]}>
@@ -888,439 +887,443 @@ export default function OtpLoginScreen() {
       </View>
 
       {/* Main Glass Card */}
-      {renderLoginForm(theme.layout.maxWidth.form)}
+      {renderLoginForm(layout.maxWidth.form)}
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  // ── Desktop Layout Styles (>= 1024) ────────────────────────────────────────
-  desktopRoot: {
-    flex: 1,
-    flexDirection: 'row',
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#051F20',
-    overflow: 'hidden',
-  },
-  desktopLeftPanel: {
-    width: '55%',
-    height: '100%',
-    position: 'relative',
-    overflow: 'hidden',
-    backgroundColor: '#051F20',
-  },
-  desktopHeroImage: {
-    ...StyleSheet.absoluteFill,
-    width: '100%',
-    height: '100%',
-    ...(Platform.OS === 'web'
-      ? ({
-          objectPosition: 'top',
-          objectFit: 'cover',
-        } as any)
-      : {}),
-  },
-  desktopLeftContent: {
-    flex: 1,
-    paddingHorizontal: 56,
-    paddingVertical: 44,
-    justifyContent: 'space-between',
-    zIndex: 1,
-  },
-  brandLockup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  brandName: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#DAF1DE',
-    letterSpacing: 0.5,
-  },
-  heroSection: {
-    maxWidth: 520,
-    marginTop: 'auto',
-    marginBottom: 'auto',
-    paddingVertical: 20,
-  },
-  heroHeadline: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 40,
-    lineHeight: 48,
-    fontWeight: '800',
-    color: '#DAF1DE',
-    marginBottom: 12,
-  },
-  heroSubheadline: {
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 18,
-    lineHeight: 26,
-    color: 'rgba(218, 241, 222, 0.80)',
-    marginBottom: 32,
-  },
-  featuresList: {
-    gap: 18,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  featureIconBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: 'rgba(142, 182, 155, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(142, 182, 155, 0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  featureTextCol: {
-    flex: 1,
-  },
-  featureTitle: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#DAF1DE',
-    marginBottom: 2,
-  },
-  featureDesc: {
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 13,
-    lineHeight: 18,
-    color: 'rgba(218, 241, 222, 0.65)',
-  },
-  creditRow: {
-    paddingTop: 12,
-  },
-  creditText: {
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 12,
-    color: 'rgba(218, 241, 222, 0.40)',
-  },
-  desktopRightPanel: {
-    width: '45%',
-    height: '100%',
-    backgroundColor: '#051F20',
-  },
-  desktopRightScroll: {
-    flexGrow: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 36,
-  },
-  desktopRightInner: {
-    width: '100%',
-    maxWidth: 420,
-    alignItems: 'center',
-  },
-  desktopRightLogo: {
-    marginBottom: theme.spacing.md,
-  },
+const makeStyles = (theme: ThemeValue) => {
+  const colors = theme.colors;
+  return StyleSheet.create({
+    // ── Desktop Layout Styles (>= 1024) ────────────────────────────────────────
+    desktopRoot: {
+      flex: 1,
+      flexDirection: 'row',
+      width: '100%',
+      height: '100%',
+      backgroundColor: colors.bg,
+      overflow: 'hidden',
+    },
+    desktopLeftPanel: {
+      width: '55%',
+      height: '100%',
+      position: 'relative',
+      overflow: 'hidden',
+      backgroundColor: colors.bg,
+    },
+    desktopHeroImage: {
+      ...StyleSheet.absoluteFill,
+      width: '100%',
+      height: '100%',
+      ...(Platform.OS === 'web'
+        ? ({
+            objectPosition: 'top',
+            objectFit: 'cover',
+          } as any)
+        : {}),
+    },
+    desktopLeftContent: {
+      flex: 1,
+      paddingHorizontal: 56,
+      paddingVertical: 44,
+      justifyContent: 'space-between',
+      zIndex: 1,
+    },
+    brandLockup: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    brandName: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 24,
+      fontWeight: '800',
+      color: colors.text,
+      letterSpacing: 0.5,
+    },
+    heroSection: {
+      maxWidth: 520,
+      marginTop: 'auto',
+      marginBottom: 'auto',
+      paddingVertical: 20,
+    },
+    heroHeadline: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 40,
+      lineHeight: 48,
+      fontWeight: '800',
+      color: colors.text,
+      marginBottom: 12,
+    },
+    heroSubheadline: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 18,
+      lineHeight: 26,
+      color: colors.textSecondary,
+      marginBottom: 32,
+    },
+    featuresList: {
+      gap: 18,
+    },
+    featureRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+    },
+    featureIconBadge: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: colors.primarySoft,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    featureTextCol: {
+      flex: 1,
+    },
+    featureTitle: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 2,
+    },
+    featureDesc: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 13,
+      lineHeight: 18,
+      color: colors.textSecondary,
+    },
+    creditRow: {
+      paddingTop: 12,
+    },
+    creditText: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+    desktopRightPanel: {
+      width: '45%',
+      height: '100%',
+      backgroundColor: colors.bg,
+    },
+    desktopRightScroll: {
+      flexGrow: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 36,
+    },
+    desktopRightInner: {
+      width: '100%',
+      maxWidth: 420,
+      alignItems: 'center',
+    },
+    desktopRightLogo: {
+      marginBottom: theme.spacing.md,
+    },
 
-  // ── Tablet Layout Styles (640 - 1023) ──────────────────────────────────────
-  tabletRoot: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#051F20',
-    position: 'relative',
-  },
-  tabletHeroImage: {
-    ...StyleSheet.absoluteFill,
-    width: '100%',
-    height: '100%',
-    ...(Platform.OS === 'web'
-      ? ({
-          objectPosition: 'top',
-          objectFit: 'cover',
-        } as any)
-      : {}),
-  },
-  tabletScrollContent: {
-    flexGrow: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 48,
-  },
-  tabletCardWrapper: {
-    width: '100%',
-    maxWidth: 440,
-    alignItems: 'center',
-  },
+    // ── Tablet Layout Styles (640 - 1023) ──────────────────────────────────────
+    tabletRoot: {
+      flex: 1,
+      width: '100%',
+      height: '100%',
+      backgroundColor: colors.bg,
+      position: 'relative',
+    },
+    tabletHeroImage: {
+      ...StyleSheet.absoluteFill,
+      width: '100%',
+      height: '100%',
+      ...(Platform.OS === 'web'
+        ? ({
+            objectPosition: 'top',
+            objectFit: 'cover',
+          } as any)
+        : {}),
+    },
+    tabletScrollContent: {
+      flexGrow: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+      paddingVertical: 48,
+    },
+    tabletCardWrapper: {
+      width: '100%',
+      maxWidth: 440,
+      alignItems: 'center',
+    },
 
-  // ── Phone Layout Styles (< 640) ───────────────────────────────────────────
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.xxl,
-    justifyContent: 'center',
-  },
-  headerSection: {
-    alignItems: 'center',
-    marginBottom: theme.spacing.xl,
-    width: '100%',
-  },
-  logo: {
-    marginBottom: theme.spacing.md,
-  },
-  title: {
-    ...theme.typography.h1,
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  subtitle: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  glassCard: {
-    marginBottom: theme.spacing.md,
-    alignSelf: 'center',
-  },
-  cardInner: {
-    padding: 24,
-  },
-  stateTransitionContainer: {
-    width: '100%',
-  },
-  phoneContainer: {
-    width: '100%',
-    marginBottom: 24,
-  },
-  phoneContainerReadOnly: {
-    width: '100%',
-    marginBottom: 16,
-  },
-  changeNumberBtn: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    flexShrink: 0,
-    borderRadius: theme.radius.full,
-    backgroundColor: 'rgba(142, 182, 155, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(142, 182, 155, 0.28)',
-    justifyContent: 'center',
-  },
-  changeNumberText: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 12,
-    fontWeight: '700',
-    color: theme.colors.primary,
-  },
-  primaryButtonWrapper: {
-    width: '100%',
-    marginTop: 0,
-  },
-  staffHelperText: {
-    ...theme.typography.small,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-    marginTop: theme.spacing.md,
-    lineHeight: 18,
-  },
+    // ── Phone Layout Styles (< 640) ───────────────────────────────────────────
+    scrollContent: {
+      flexGrow: 1,
+      paddingHorizontal: theme.spacing.lg,
+      paddingBottom: theme.spacing.xxl,
+      justifyContent: 'center',
+    },
+    headerSection: {
+      alignItems: 'center',
+      marginBottom: theme.spacing.xl,
+      width: '100%',
+    },
+    logo: {
+      marginBottom: theme.spacing.md,
+    },
+    title: {
+      ...theme.typography.h1,
+      color: colors.text,
+      textAlign: 'center',
+      marginBottom: 6,
+    },
+    subtitle: {
+      ...theme.typography.body,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: theme.spacing.lg,
+    },
+    glassCard: {
+      marginBottom: theme.spacing.md,
+      alignSelf: 'center',
+    },
+    cardInner: {
+      padding: 24,
+    },
+    stateTransitionContainer: {
+      width: '100%',
+    },
+    phoneContainer: {
+      width: '100%',
+      marginBottom: 24,
+    },
+    phoneContainerReadOnly: {
+      width: '100%',
+      marginBottom: 16,
+    },
+    changeNumberBtn: {
+      minHeight: 44,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 10,
+      flexShrink: 0,
+      borderRadius: theme.radius.full,
+      backgroundColor: colors.primarySoft,
+      borderWidth: 1,
+      borderColor: colors.border,
+      justifyContent: 'center',
+    },
+    changeNumberText: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    primaryButtonWrapper: {
+      width: '100%',
+      marginTop: 0,
+    },
+    staffHelperText: {
+      ...theme.typography.small,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginTop: theme.spacing.md,
+      lineHeight: 18,
+    },
 
-  // ── OTP Section Styles ────────────────────────────────────────────────────
-  otpSection: {
-    width: '100%',
-  },
-  otpHeaderRow: {
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  otpSectionLabel: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    fontFamily: theme.fonts.headingMedium,
-    fontWeight: '600',
-  },
-  devOtpBtn: {
-    minHeight: 44,
-    justifyContent: 'center',
-    borderRadius: theme.radius.sm,
-  },
-  devOtpHint: {
-    ...theme.typography.small,
-    fontFamily: theme.fonts.headingBold,
-    fontWeight: '700',
-    color: theme.colors.primary,
-    backgroundColor: 'rgba(142, 182, 155, 0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(142, 182, 155, 0.32)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: theme.radius.sm,
-    overflow: 'hidden',
-  },
-  otpWrapper: {
-    position: 'relative',
-    width: '100%',
-    alignItems: 'center',
-  },
-  hiddenOtpInput: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: '100%',
-    height: '100%',
-    opacity: 0.01,
-    fontSize: 1,
-    zIndex: 2,
-    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
-  },
-  otpBoxesRow: {
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  otpBox: {
-    flex: 1,
-    maxWidth: 56,
-    aspectRatio: 1,
-    borderRadius: theme.radius.md,
-    backgroundColor: 'rgba(11, 43, 38, 0.80)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(142, 182, 155, 0.35)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  otpBoxFilled: {
-    borderColor: theme.colors.primary,
-    borderWidth: 1.5,
-    backgroundColor: 'rgba(142, 182, 155, 0.16)',
-  },
-  otpBoxActive: {
-    borderColor: theme.colors.primary,
-    borderWidth: 2,
-    backgroundColor: 'rgba(142, 182, 155, 0.20)',
-    ...Platform.select({
-      ios: {
-        shadowColor: theme.colors.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-        shadowColor: theme.colors.primary,
-      },
-      web: {
-        boxShadow: '0 0 10px rgba(142, 182, 155, 0.40)',
-      } as any,
-    }),
-  },
-  otpBoxError: {
-    borderColor: theme.colors.error,
-    borderWidth: 1.5,
-  },
-  otpDigitText: {
-    fontFamily: theme.fonts.headingBold,
-    fontWeight: '700',
-    color: theme.colors.text,
-    textAlign: 'center',
-    includeFontPadding: false,
-  },
-  otpCustomCaret: {
-    position: 'absolute',
-    width: 2,
-    height: 24,
-    borderRadius: 1,
-    backgroundColor: theme.colors.primary,
-  },
-  resendRow: {
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  resendPrompt: {
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 13,
-    color: theme.colors.textMuted,
-  },
-  resendCountdown: {
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    fontVariant: ['tabular-nums'],
-  },
-  resendTouchTarget: {
-    minHeight: 44,
-    minWidth: 44,
-    justifyContent: 'center',
-    alignItems: 'flex-end',
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-  },
-  resendLinkActive: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 13,
-    fontWeight: '700',
-    color: theme.colors.primary,
-  },
-  errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(255, 107, 107, 0.15)',
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.40)',
-    padding: 12,
-    marginTop: 16,
-    marginBottom: 0,
-    width: '100%',
-  },
-  errorBannerText: {
-    color: theme.colors.error,
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 13,
-    lineHeight: 18,
-    flex: 1,
-  },
-  verifyButtonWrapper: {
-    width: '100%',
-    marginTop: 24,
-  },
+    // ── OTP Section Styles ────────────────────────────────────────────────────
+    otpSection: {
+      width: '100%',
+    },
+    otpHeaderRow: {
+      width: '100%',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    otpSectionLabel: {
+      ...theme.typography.caption,
+      color: colors.textSecondary,
+      fontFamily: theme.fonts.headingMedium,
+      fontWeight: '600',
+    },
+    devOtpBtn: {
+      minHeight: 44,
+      justifyContent: 'center',
+      borderRadius: theme.radius.sm,
+    },
+    devOtpHint: {
+      ...theme.typography.small,
+      fontFamily: theme.fonts.headingBold,
+      fontWeight: '700',
+      color: colors.primary,
+      backgroundColor: colors.primarySoft,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: theme.radius.sm,
+      overflow: 'hidden',
+    },
+    otpWrapper: {
+      position: 'relative',
+      width: '100%',
+      alignItems: 'center',
+    },
+    hiddenOtpInput: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: '100%',
+      height: '100%',
+      opacity: 0.01,
+      fontSize: 1,
+      zIndex: 2,
+      ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
+    },
+    otpBoxesRow: {
+      width: '100%',
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: 8,
+    },
+    otpBox: {
+      flex: 1,
+      maxWidth: 56,
+      aspectRatio: 1,
+      borderRadius: theme.radius.md,
+      backgroundColor: colors.surfaceRaised,
+      borderWidth: 1,
+      borderColor: colors.border,
+      justifyContent: 'center',
+      alignItems: 'center',
+      position: 'relative',
+    },
+    otpBoxFilled: {
+      borderColor: colors.border,
+      borderWidth: 1,
+      backgroundColor: colors.surfaceRaised,
+    },
+    otpBoxActive: {
+      borderColor: colors.primary,
+      borderWidth: 1.5,
+      backgroundColor: colors.surfaceRaised,
+      ...Platform.select({
+        ios: {
+          shadowColor: colors.primary,
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.5,
+          shadowRadius: 8,
+        },
+        android: {
+          elevation: 4,
+          shadowColor: colors.primary,
+        },
+        web: {
+          boxShadow: `0 0 10px ${colors.primary}66`,
+        } as any,
+      }),
+    },
+    otpBoxError: {
+      borderColor: colors.danger,
+      borderWidth: 1.5,
+    },
+    otpDigitText: {
+      fontFamily: theme.fonts.headingBold,
+      fontWeight: '700',
+      color: colors.text,
+      textAlign: 'center',
+      includeFontPadding: false,
+    },
+    otpCustomCaret: {
+      position: 'absolute',
+      width: 2,
+      height: 24,
+      borderRadius: 1,
+      backgroundColor: colors.primary,
+    },
+    resendRow: {
+      width: '100%',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: 16,
+    },
+    resendPrompt: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 13,
+      color: colors.textSecondary,
+    },
+    resendCountdown: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 13,
+      color: colors.textSecondary,
+      fontVariant: ['tabular-nums'],
+    },
+    resendTouchTarget: {
+      minHeight: 44,
+      minWidth: 44,
+      justifyContent: 'center',
+      alignItems: 'flex-end',
+      paddingVertical: 10,
+      paddingHorizontal: 4,
+    },
+    resendLinkActive: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    errorBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: colors.chipDangerBg,
+      borderRadius: theme.radius.md,
+      borderWidth: 1,
+      borderColor: colors.danger,
+      padding: 12,
+      marginTop: 16,
+      marginBottom: 0,
+      width: '100%',
+    },
+    errorBannerText: {
+      color: colors.chipDangerText,
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 13,
+      lineHeight: 18,
+      flex: 1,
+    },
+    verifyButtonWrapper: {
+      width: '100%',
+      marginTop: 24,
+    },
 
-  // ── Footer Links ──────────────────────────────────────────────────────────
-  footerLinksRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: theme.spacing.md,
-  },
-  footerLinkTouch: {
-    paddingVertical: 6,
-    paddingHorizontal: 6,
-  },
-  footerLinkText: {
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 13,
-    color: 'rgba(218, 241, 222, 0.65)',
-  },
-  footerDivider: {
-    color: 'rgba(218, 241, 222, 0.35)',
-    fontSize: 12,
-  },
-});
+    // ── Footer Links ──────────────────────────────────────────────────────────
+    footerLinksRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      marginTop: theme.spacing.md,
+    },
+    footerLinkTouch: {
+      paddingVertical: 6,
+      paddingHorizontal: 6,
+    },
+    footerLinkText: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 13,
+      color: colors.textSecondary,
+    },
+    footerDivider: {
+      color: colors.textSecondary,
+      fontSize: 12,
+    },
+  });
+};

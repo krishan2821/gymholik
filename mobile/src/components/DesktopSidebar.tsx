@@ -17,7 +17,7 @@ import {
   LogOut,
   Sparkles,
 } from 'lucide-react-native';
-import { theme } from '../theme/theme';
+import { useTheme } from '../theme/ThemeContext';
 import { GymholikLogo } from './GymholikLogo';
 import { getTabsForRole, TabItemConfig } from '../navigation/tabsByRole';
 
@@ -48,6 +48,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   onNavigate,
   onSignOut,
 }) => {
+  const { colors, fonts } = useTheme();
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
   const [hoveredSignOut, setHoveredSignOut] = useState(false);
 
@@ -63,25 +64,54 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
     .toUpperCase();
 
   return (
-    <View style={styles.sidebar}>
+    <View
+      style={[
+        styles.sidebar,
+        {
+          backgroundColor: colors.surface,
+          borderRightColor: colors.border,
+        },
+      ]}
+    >
       {/* ── Top Header: Logo + Gym Name ──────────────────────── */}
       <View style={styles.header}>
         <View style={styles.logoRow}>
           <GymholikLogo size={28} />
           <View style={styles.titleCol}>
-            <Text style={styles.gymName} numberOfLines={1}>
+            <Text
+              style={[
+                styles.gymName,
+                { fontFamily: fonts.headingBold, color: colors.text },
+              ]}
+              numberOfLines={1}
+            >
               {gymName || 'Gymholik Fitness'}
             </Text>
             {role && (
-              <View style={styles.roleBadge}>
-                <Text style={styles.roleText}>{role}</Text>
+              <View
+                style={[
+                  styles.roleBadge,
+                  {
+                    backgroundColor: colors.primarySoft,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.roleText,
+                    { fontFamily: fonts.headingMedium, color: colors.primary },
+                  ]}
+                >
+                  {role}
+                </Text>
               </View>
             )}
           </View>
         </View>
       </View>
 
-      {/* ── Middle: Navigation Items for Current Role ───────── */}
+      {/* ── Middle: Navigation Items ───────────────────────────── */}
       <View style={styles.navSection}>
         {allowedTabs.map((tab: TabItemConfig) => {
           const isCheckIn = tab.isRaisedCenter || tab.name === 'attendance';
@@ -89,7 +119,6 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           const isHovered = hoveredTab === tab.name;
           const Icon = TAB_ICONS[tab.name] || Home;
 
-          // ── Check-in highlighted as Primary Action ──────────
           if (isCheckIn) {
             return (
               <TouchableOpacity
@@ -97,8 +126,8 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                 onPress={() => onNavigate(tab.name, tab.href)}
                 style={[
                   styles.checkInButton,
-                  isHovered && styles.checkInButtonHovered,
-                  isFocused && styles.checkInButtonActive,
+                  { backgroundColor: colors.primary },
+                  isFocused && { borderWidth: 2, borderColor: colors.text },
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel="Check-in primary action"
@@ -111,25 +140,31 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                 <View style={styles.checkInContent}>
                   <CalendarCheck
                     size={20}
-                    color="#051F20"
+                    color={colors.textOnPrimary}
                     strokeWidth={2.4}
                   />
-                  <Text style={styles.checkInText}>Check-in</Text>
+                  <Text
+                    style={[
+                      styles.checkInText,
+                      { fontFamily: fonts.headingBold, color: colors.textOnPrimary },
+                    ]}
+                  >
+                    Check-in
+                  </Text>
                 </View>
-                <Sparkles size={14} color="#051F20" style={{ opacity: 0.8 }} />
+                <Sparkles size={14} color={colors.textOnPrimary} />
               </TouchableOpacity>
             );
           }
 
-          // ── Regular Nav Item ────────────────────────────────
           return (
             <TouchableOpacity
               key={tab.name}
               onPress={() => onNavigate(tab.name, tab.href)}
               style={[
                 styles.navItem,
-                isFocused && styles.navItemActive,
-                isHovered && !isFocused && styles.navItemHovered,
+                isFocused && { backgroundColor: colors.primarySoft },
+                isHovered && !isFocused && { backgroundColor: colors.surfaceRaised },
               ]}
               accessibilityRole="button"
               accessibilityLabel={tab.title}
@@ -142,13 +177,16 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
               <View style={styles.navItemLeft}>
                 <Icon
                   size={19}
-                  color={isFocused ? '#DAF1DE' : 'rgba(218, 241, 222, 0.65)'}
+                  color={isFocused ? colors.primary : colors.textSecondary}
                   strokeWidth={isFocused ? 2.2 : 1.8}
                 />
                 <Text
                   style={[
                     styles.navItemText,
-                    isFocused && styles.navItemTextActive,
+                    {
+                      fontFamily: isFocused ? fonts.headingSemiBold : fonts.bodyMedium,
+                      color: isFocused ? colors.text : colors.textSecondary,
+                    },
                   ]}
                   numberOfLines={1}
                 >
@@ -156,23 +194,52 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                 </Text>
               </View>
 
-              {isFocused && <View style={styles.activeDot} />}
+              {isFocused && (
+                <View style={[styles.activeDot, { backgroundColor: colors.primary }]} />
+              )}
             </TouchableOpacity>
           );
         })}
       </View>
 
       {/* ── Bottom: User Menu ─────────────────────────────────── */}
-      <View style={styles.userMenu}>
+      <View style={[styles.userMenu, { borderTopColor: colors.border }]}>
         <View style={styles.userCard}>
-          <View style={styles.userAvatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
+          <View
+            style={[
+              styles.userAvatar,
+              {
+                backgroundColor: colors.primarySoft,
+                borderColor: colors.primary,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.avatarText,
+                { fontFamily: fonts.headingBold, color: colors.text },
+              ]}
+            >
+              {initials}
+            </Text>
           </View>
           <View style={styles.userInfo}>
-            <Text style={styles.userName} numberOfLines={1}>
+            <Text
+              style={[
+                styles.userName,
+                { fontFamily: fonts.headingMedium, color: colors.text },
+              ]}
+              numberOfLines={1}
+            >
               {userName || 'User'}
             </Text>
-            <Text style={styles.userRoleSubtitle} numberOfLines={1}>
+            <Text
+              style={[
+                styles.userRoleSubtitle,
+                { fontFamily: fonts.bodyRegular, color: colors.textSecondary },
+              ]}
+              numberOfLines={1}
+            >
               {role || 'Staff'}
             </Text>
           </View>
@@ -182,7 +249,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           onPress={onSignOut}
           style={[
             styles.signOutBtn,
-            hoveredSignOut && styles.signOutBtnHovered,
+            hoveredSignOut && { backgroundColor: `${colors.danger}18` },
           ]}
           accessibilityRole="button"
           accessibilityLabel="Sign out"
@@ -192,8 +259,15 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             tabIndex: 0,
           } as any)}
         >
-          <LogOut size={16} color="#FF7A7A" />
-          <Text style={styles.signOutText}>Sign out</Text>
+          <LogOut size={16} color={colors.danger} />
+          <Text
+            style={[
+              styles.signOutText,
+              { fontFamily: fonts.bodyMedium, color: colors.danger },
+            ]}
+          >
+            Sign out
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -204,9 +278,7 @@ const styles = StyleSheet.create({
   sidebar: {
     width: 240,
     height: '100%',
-    backgroundColor: '#072728',
     borderRightWidth: 1,
-    borderRightColor: 'rgba(218, 241, 222, 0.08)',
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'space-between',
@@ -232,27 +304,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   gymName: {
-    fontFamily: theme.fonts.headingBold,
     fontSize: 15,
     fontWeight: '700',
-    color: '#DAF1DE',
     letterSpacing: 0.2,
     marginBottom: 4,
   },
   roleBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(142, 182, 155, 0.14)',
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: 'rgba(142, 182, 155, 0.25)',
   },
   roleText: {
-    fontFamily: theme.fonts.headingMedium,
     fontSize: 10,
     fontWeight: '600',
-    color: '#8EB69B',
     letterSpacing: 0.4,
   },
   navSection: {
@@ -260,7 +326,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   checkInButton: {
-    backgroundColor: '#8EB69B',
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
@@ -273,22 +338,8 @@ const styles = StyleSheet.create({
       ? ({
           cursor: 'pointer',
           transition: 'all 0.15s ease',
-          boxShadow: '0 4px 14px rgba(142, 182, 155, 0.28)',
         } as any)
       : {}),
-  },
-  checkInButtonHovered: {
-    backgroundColor: '#A0C6AC',
-    ...(Platform.OS === 'web'
-      ? ({
-          transform: [{ translateY: -1 }],
-          boxShadow: '0 6px 18px rgba(142, 182, 155, 0.4)',
-        } as any)
-      : {}),
-  },
-  checkInButtonActive: {
-    borderWidth: 2,
-    borderColor: '#DAF1DE',
   },
   checkInContent: {
     flexDirection: 'row',
@@ -296,10 +347,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   checkInText: {
-    fontFamily: theme.fonts.headingBold,
     fontSize: 14,
     fontWeight: '700',
-    color: '#051F20',
   },
   navItem: {
     flexDirection: 'row',
@@ -316,37 +365,22 @@ const styles = StyleSheet.create({
         } as any)
       : {}),
   },
-  navItemHovered: {
-    backgroundColor: 'rgba(218, 241, 222, 0.06)',
-  },
-  navItemActive: {
-    backgroundColor: 'rgba(142, 182, 155, 0.14)',
-  },
   navItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
   navItemText: {
-    fontFamily: theme.fonts.bodyMedium,
     fontSize: 14,
-    color: 'rgba(218, 241, 222, 0.70)',
     fontWeight: '500',
-  },
-  navItemTextActive: {
-    color: '#DAF1DE',
-    fontFamily: theme.fonts.headingSemiBold,
-    fontWeight: '700',
   },
   activeDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#8EB69B',
   },
   userMenu: {
     borderTopWidth: 1,
-    borderTopColor: 'rgba(218, 241, 222, 0.08)',
     paddingTop: 16,
     gap: 10,
   },
@@ -359,31 +393,23 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: 'rgba(142, 182, 155, 0.18)',
     borderWidth: 1.5,
-    borderColor: '#8EB69B',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    fontFamily: theme.fonts.headingBold,
     fontSize: 12,
     fontWeight: '700',
-    color: '#DAF1DE',
   },
   userInfo: {
     flex: 1,
   },
   userName: {
-    fontFamily: theme.fonts.headingMedium,
     fontSize: 13,
     fontWeight: '600',
-    color: '#DAF1DE',
   },
   userRoleSubtitle: {
-    fontFamily: theme.fonts.bodyRegular,
     fontSize: 11,
-    color: 'rgba(218, 241, 222, 0.55)',
   },
   signOutBtn: {
     flexDirection: 'row',
@@ -399,13 +425,10 @@ const styles = StyleSheet.create({
         } as any)
       : {}),
   },
-  signOutBtnHovered: {
-    backgroundColor: 'rgba(255, 122, 122, 0.1)',
-  },
   signOutText: {
-    fontFamily: theme.fonts.bodyMedium,
     fontSize: 12,
     fontWeight: '600',
-    color: '#FF7A7A',
   },
 });
+
+export default DesktopSidebar;

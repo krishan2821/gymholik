@@ -23,7 +23,7 @@ import {
   X,
   Phone,
 } from 'lucide-react-native';
-import { theme } from '../../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../../src/theme/ThemeContext';
 import { useAuthStore } from '../../../../src/store/useAuthStore';
 import {
   useTrainers,
@@ -48,6 +48,8 @@ const STATUS_FILTERS = [
 ];
 
 export default function TrainersScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const router = useRouter();
   const { role } = useAuthStore();
   const { isPhone } = useBreakpoint();
@@ -140,12 +142,12 @@ export default function TrainersScreen() {
               </View>
               {item.phone ? (
                 <View style={styles.phoneRow}>
-                  <Phone size={12} color={theme.colors.textMuted} style={styles.phoneIcon} />
+                  <Phone size={12} color={colors.textSecondary} style={styles.phoneIcon} />
                   <Text style={styles.phoneText}>{item.phone}</Text>
                 </View>
               ) : null}
             </View>
-            <ChevronRight size={20} color={theme.colors.textMuted} />
+            <ChevronRight size={20} color={colors.textSecondary} />
           </View>
 
           {/* Trainer Type Chips */}
@@ -162,7 +164,7 @@ export default function TrainersScreen() {
           {/* Assigned Member Count */}
           <View style={styles.cardFooter}>
             <View style={styles.membersCountRow}>
-              <Users size={14} color={theme.colors.primary} style={styles.membersIcon} />
+              <Users size={14} color={colors.primary} style={styles.membersIcon} />
               <Text style={styles.membersCountText}>
                 {TRAINERS.ASSIGNED_COUNT_LABEL(item.activeAssignmentsCount || 0)}
               </Text>
@@ -189,7 +191,7 @@ export default function TrainersScreen() {
           onPress={() => router.push('/(tabs)/more/trainers/types')}
           accessibilityRole="button"
         >
-          <Tag size={16} color={theme.colors.primary} style={styles.tagIcon} />
+          <Tag size={16} color={colors.primary} style={styles.tagIcon} />
           <Text style={styles.manageTypesText}>{TRAINERS.MANAGE_TYPES_BTN}</Text>
         </TouchableOpacity>
       </View>
@@ -199,7 +201,7 @@ export default function TrainersScreen() {
         <View style={styles.bannerContainer}>
           <GlassCard style={styles.bannerCard} contentStyle={styles.bannerContent}>
             <View style={styles.bannerHeader}>
-              <AlertTriangle size={20} color={theme.colors.warning} style={styles.bannerIcon} />
+              <AlertTriangle size={20} color={colors.warning} style={styles.bannerIcon} />
               <Text style={styles.bannerTitle}>{TRAINERS.DEACTIVATED_BANNER_TITLE}</Text>
             </View>
             <Text style={styles.bannerDesc}>
@@ -217,7 +219,7 @@ export default function TrainersScreen() {
             >
               <ArrowRightLeft
                 size={16}
-                color={theme.colors.textOnPrimary}
+                color={colors.textOnPrimary}
                 style={styles.reassignIcon}
               />
               <Text style={styles.reassignActionText}>{TRAINERS.REASSIGN_BTN}</Text>
@@ -229,13 +231,13 @@ export default function TrainersScreen() {
       {/* ── Trainers List ──────────────────────────────────────── */}
       {isLoading && !isRefetching ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : isError ? (
         <ErrorState message={TRAINERS.LOAD_ERROR} onRetry={() => refetch()} />
       ) : !trainers || trainers.length === 0 ? (
         <EmptyState
-          icon={<Users size={48} color={theme.colors.primary} />}
+          icon={<Users size={48} color={colors.primary} />}
           title={TRAINERS.EMPTY}
           actionLabel={TRAINERS.ADD_BTN}
           onAction={() => router.push('/(tabs)/more/trainers/add')}
@@ -250,7 +252,7 @@ export default function TrainersScreen() {
             <RefreshControl
               refreshing={isRefetching}
               onRefresh={refetch}
-              tintColor={theme.colors.primary}
+              tintColor={colors.primary}
             />
           }
         />
@@ -264,7 +266,7 @@ export default function TrainersScreen() {
         accessibilityRole="button"
         accessibilityLabel={TRAINERS.ADD_BTN}
       >
-        <Plus size={20} color={theme.colors.textOnPrimary} style={styles.fabIcon} />
+        <Plus size={20} color={colors.textOnPrimary} style={styles.fabIcon} />
         <Text style={styles.fabText}>{TRAINERS.ADD_BTN}</Text>
       </TouchableOpacity>
 
@@ -284,7 +286,7 @@ export default function TrainersScreen() {
                 disabled={reassignTrainer.isPending}
                 accessibilityRole="button"
               >
-                <X size={22} color={theme.colors.textMuted} />
+                <X size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -353,7 +355,7 @@ export default function TrainersScreen() {
                 value={reassignNotes}
                 onChangeText={setReassignNotes}
                 placeholder="Reason for reassignment…"
-                placeholderTextColor={theme.colors.textMuted}
+                placeholderTextColor={colors.textSecondary}
               />
             </ScrollView>
 
@@ -373,10 +375,10 @@ export default function TrainersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: ThemeValue) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.bg,
   },
   centered: {
     flex: 1,
@@ -397,7 +399,7 @@ const styles = StyleSheet.create({
   manageTypesBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 6,
     borderRadius: theme.radius.md,
@@ -438,7 +440,7 @@ const styles = StyleSheet.create({
   },
   bannerDesc: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: theme.spacing.sm,
   },
   reassignActionBtn: {
@@ -500,7 +502,8 @@ const styles = StyleSheet.create({
   },
   phoneText: {
     ...theme.typography.small,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
+    fontVariant: ['tabular-nums'],
   },
   chipsRow: {
     flexDirection: 'row',
@@ -509,7 +512,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   typeChip: {
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: theme.radius.sm,
@@ -538,7 +541,8 @@ const styles = StyleSheet.create({
   },
   membersCountText: {
     ...theme.typography.small,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
+    fontVariant: ['tabular-nums'],
   },
   fab: {
     position: 'absolute',
@@ -561,7 +565,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: theme.colors.overlayEnd,
+    backgroundColor: theme.colors.scrim,
     justifyContent: 'flex-end',
   },
   modalOverlayDesktop: {
@@ -595,7 +599,7 @@ const styles = StyleSheet.create({
   },
   sheetDesc: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: theme.spacing.md,
   },
   sheetScroll: {
@@ -607,7 +611,7 @@ const styles = StyleSheet.create({
   },
   selectLabel: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: 8,
     fontFamily: theme.fonts.headingMedium,
   },
@@ -623,7 +627,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1,
     borderColor: theme.colors.borderLight,
   },
@@ -640,7 +644,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.headingSemiBold,
   },
   dialogInput: {
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.md,

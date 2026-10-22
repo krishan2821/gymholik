@@ -22,7 +22,7 @@ import {
   Coins,
   FileText,
 } from 'lucide-react-native';
-import { theme } from '../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import { useAuthStore } from '../../../src/store/useAuthStore';
 import { useCurrentUser } from '../../../src/api/auth';
 import {
@@ -62,6 +62,8 @@ function formatDisplayDate(dateStr: string): string {
 
 export default function DayCloseScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const { role } = useAuthStore();
   const { data: currentUser } = useCurrentUser();
   const isOwner = (currentUser?.role || role) === 'OWNER';
@@ -150,11 +152,11 @@ export default function DayCloseScreen() {
             accessibilityLabel="Previous day"
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <ChevronLeft size={20} color={theme.colors.text} />
+            <ChevronLeft size={20} color={colors.text} />
           </TouchableOpacity>
 
           <View style={styles.dateDisplay}>
-            <Calendar size={18} color={theme.colors.primary} style={{ marginRight: 6 }} />
+            <Calendar size={18} color={colors.primary} style={{ marginRight: 6 }} />
             <Text style={styles.dateText}>{formatDisplayDate(selectedDate)}</Text>
             {isToday ? (
               <Badge label="Today" variant="neutral" style={styles.todayBadge} />
@@ -171,7 +173,7 @@ export default function DayCloseScreen() {
           >
             <ChevronRight
               size={20}
-              color={isToday ? theme.colors.textMuted : theme.colors.text}
+              color={isToday ? colors.textSecondary : colors.text}
             />
           </TouchableOpacity>
         </View>
@@ -221,7 +223,7 @@ export default function DayCloseScreen() {
       {/* ── Loading / Error State ─────────────────────────────────── */}
       {isLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Fetching cash register details...</Text>
         </View>
       ) : isError ? (
@@ -234,7 +236,7 @@ export default function DayCloseScreen() {
           {/* ── Status Banner if Closed ───────────────────────────── */}
           {report?.isClosed ? (
             <View style={styles.closedBanner}>
-              <CheckCircle2 size={18} color={theme.colors.primary} style={{ marginRight: 8 }} />
+              <CheckCircle2 size={18} color={colors.primary} style={{ marginRight: 8 }} />
               <Text style={styles.closedBannerText}>
                 Day close completed for this date
               </Text>
@@ -244,7 +246,7 @@ export default function DayCloseScreen() {
           {/* ── Expected Cash Summary Card ─────────────────────────── */}
           <GlassCard style={styles.sectionCard}>
             <View style={styles.cardHeaderRow}>
-              <Coins size={20} color={theme.colors.primary} style={{ marginRight: 8 }} />
+              <Coins size={20} color={colors.primary} style={{ marginRight: 8 }} />
               <Text style={styles.sectionTitle}>Drawer Reconciliation</Text>
             </View>
 
@@ -306,7 +308,7 @@ export default function DayCloseScreen() {
               <TextInput
                 style={styles.cashInput}
                 placeholder="0"
-                placeholderTextColor={theme.colors.textMuted}
+                placeholderTextColor={colors.textSecondary}
                 keyboardType="numeric"
                 value={countedCash}
                 onChangeText={setCountedCash}
@@ -335,14 +337,14 @@ export default function DayCloseScreen() {
               >
                 <View style={styles.diffHeader}>
                   {differencePaise === 0 ? (
-                    <CheckCircle2 size={18} color={theme.colors.primary} />
+                    <CheckCircle2 size={18} color={colors.primary} />
                   ) : (
                     <AlertTriangle
                       size={18}
                       color={
                         differencePaise < 0
-                          ? theme.colors.coral
-                          : theme.colors.warning
+                          ? colors.danger
+                          : colors.warning
                       }
                     />
                   )}
@@ -378,7 +380,7 @@ export default function DayCloseScreen() {
             <TextInput
               style={styles.noteInput}
               placeholder="e.g. ₹50 change deficit due to rounding"
-              placeholderTextColor={theme.colors.textMuted}
+              placeholderTextColor={colors.textSecondary}
               multiline
               numberOfLines={3}
               value={note}
@@ -401,7 +403,7 @@ export default function DayCloseScreen() {
           {report?.staffBreakdown && report.staffBreakdown.length > 0 ? (
             <GlassCard style={styles.sectionCard}>
               <View style={styles.cardHeaderRow}>
-                <User size={18} color={theme.colors.primary} style={{ marginRight: 8 }} />
+                <User size={18} color={colors.primary} style={{ marginRight: 8 }} />
                 <Text style={styles.sectionTitle}>Staff Collections</Text>
               </View>
               {report.staffBreakdown.map((item, idx) => (
@@ -425,7 +427,8 @@ export default function DayCloseScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
   container: {
     padding: theme.spacing.lg,
     paddingBottom: 40,
@@ -437,12 +440,12 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginTop: 12,
   },
   errorText: {
     ...theme.typography.body,
-    color: theme.colors.error,
+    color: theme.colors.danger,
     marginBottom: 12,
   },
   dateCard: {
@@ -461,7 +464,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1,
     borderColor: theme.colors.border,
     justifyContent: 'center',
@@ -491,20 +494,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: theme.radius.sm,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1,
     borderColor: theme.colors.border,
     minHeight: 32,
     justifyContent: 'center',
   },
   quickDateChipActive: {
-    backgroundColor: 'rgba(218, 241, 222, 0.15)',
+    backgroundColor: theme.colors.surfaceRaised,
     borderColor: theme.colors.primary,
   },
   quickDateText: {
     fontFamily: theme.fonts.bodyMedium,
     fontSize: 13,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
   quickDateTextActive: {
     color: theme.colors.primary,
@@ -512,9 +515,9 @@ const styles = StyleSheet.create({
   closedBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(218, 241, 222, 0.12)',
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.25)',
+    borderColor: theme.colors.border,
     borderRadius: theme.radius.lg,
     padding: 12,
     marginBottom: theme.spacing.lg,
@@ -540,22 +543,22 @@ const styles = StyleSheet.create({
   },
   sectionDesc: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginTop: 4,
     marginBottom: theme.spacing.md,
   },
   expectedBox: {
-    backgroundColor: 'rgba(218, 241, 222, 0.08)',
+    backgroundColor: theme.colors.surfaceRaised,
     borderRadius: theme.radius.lg,
     padding: theme.spacing.lg,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.2)',
+    borderColor: theme.colors.border,
     alignItems: 'center',
     marginVertical: theme.spacing.md,
   },
   expectedLabel: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     letterSpacing: 0.8,
   },
   expectedAmount: {
@@ -566,7 +569,7 @@ const styles = StyleSheet.create({
   },
   expectedSub: {
     ...theme.typography.small,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
   },
   statsGrid: {
@@ -576,13 +579,13 @@ const styles = StyleSheet.create({
   },
   statCol: {
     flex: 1,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     padding: 12,
     borderRadius: theme.radius.md,
   },
   statLabel: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
   statValue: {
     fontFamily: theme.fonts.headingMedium,
@@ -598,7 +601,7 @@ const styles = StyleSheet.create({
   },
   breakdownTitle: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: 8,
     textTransform: 'uppercase',
   },
@@ -614,12 +617,12 @@ const styles = StyleSheet.create({
   modeAmount: {
     fontFamily: theme.fonts.bodyMedium,
     fontSize: 14,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.lg,
@@ -630,7 +633,7 @@ const styles = StyleSheet.create({
   currencyPrefix: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 22,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginRight: 8,
   },
   cashInput: {
@@ -639,14 +642,15 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: theme.colors.text,
     paddingVertical: 8,
+    fontVariant: ['tabular-nums'],
   },
   matchBtn: {
-    backgroundColor: 'rgba(218, 241, 222, 0.12)',
+    backgroundColor: theme.colors.surfaceRaised,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: theme.radius.sm,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.25)',
+    borderColor: theme.colors.border,
   },
   matchBtnText: {
     fontFamily: theme.fonts.bodyMedium,
@@ -660,16 +664,16 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   diffBalanced: {
-    backgroundColor: 'rgba(218, 241, 222, 0.1)',
-    borderColor: 'rgba(218, 241, 222, 0.3)',
+    backgroundColor: theme.colors.surfaceRaised,
+    borderColor: theme.colors.border,
   },
   diffShortfall: {
-    backgroundColor: 'rgba(255, 107, 107, 0.1)',
-    borderColor: 'rgba(255, 107, 107, 0.35)',
+    backgroundColor: theme.colors.chipDangerBg,
+    borderColor: theme.colors.danger,
   },
   diffExcess: {
-    backgroundColor: 'rgba(255, 179, 0, 0.1)',
-    borderColor: 'rgba(255, 179, 0, 0.35)',
+    backgroundColor: theme.colors.chipWarningBg,
+    borderColor: theme.colors.warning,
   },
   diffHeader: {
     flexDirection: 'row',
@@ -679,29 +683,30 @@ const styles = StyleSheet.create({
   diffTitle: {
     fontFamily: theme.fonts.headingMedium,
     fontSize: 15,
+    fontVariant: ['tabular-nums'],
   },
   diffBalancedText: {
     color: theme.colors.primary,
   },
   diffShortfallText: {
-    color: theme.colors.coral,
+    color: theme.colors.chipDangerText,
   },
   diffExcessText: {
-    color: theme.colors.warning,
+    color: theme.colors.chipWarningText,
   },
   diffExplanation: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginTop: 4,
     marginLeft: 26,
   },
   label: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: 6,
   },
   noteInput: {
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.lg,
@@ -728,11 +733,12 @@ const styles = StyleSheet.create({
   },
   staffRole: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
   staffAmount: {
     fontFamily: theme.fonts.headingMedium,
     fontSize: 15,
     color: theme.colors.text,
+    fontVariant: ['tabular-nums'],
   },
 });

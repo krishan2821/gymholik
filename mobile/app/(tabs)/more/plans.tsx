@@ -16,7 +16,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Plus, X, Edit2, Calendar, ShieldCheck } from 'lucide-react-native';
-import { theme } from '../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import { useAuthStore } from '../../../src/store/useAuthStore';
 import { usePlans, useAddPlan, useUpdatePlan, Plan } from '../../../src/api/plans';
 import { ErrorState } from '../../../src/components/ErrorState';
@@ -40,6 +40,8 @@ type FormData = z.infer<typeof schema>;
 export default function PlansScreen() {
   const { role } = useAuthStore();
   const { isPhone } = useBreakpoint();
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [showModal, setShowModal] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
 
@@ -67,7 +69,7 @@ export default function PlansScreen() {
   if (isLoading) {
     return (
       <Screen safeTop={false} style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </Screen>
     );
   }
@@ -121,7 +123,7 @@ export default function PlansScreen() {
         <Text style={styles.name}>{item.name}</Text>
         <View style={styles.badgeRow}>
           <View style={styles.durationBadge}>
-            <Calendar size={13} color={theme.colors.primary} style={{ marginRight: 4 }} />
+            <Calendar size={13} color={colors.primary} style={{ marginRight: 4 }} />
             <Text style={styles.durationText}>{item.durationDays} Days</Text>
           </View>
           <Text style={styles.priceText}>{formatMoney(item.pricePaise)}</Text>
@@ -134,7 +136,7 @@ export default function PlansScreen() {
         accessibilityLabel={`Edit ${item.name}`}
         hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
       >
-        <Edit2 color={theme.colors.primary} size={18} />
+        <Edit2 color={colors.primary} size={18} />
       </TouchableOpacity>
     </GlassCard>
   );
@@ -158,7 +160,7 @@ export default function PlansScreen() {
           variant="primary"
           size="sm"
           fullWidth={false}
-          icon={<Plus color={theme.colors.textOnPrimary} size={16} />}
+          icon={<Plus color={colors.textOnPrimary} size={16} />}
         />
       </View>
 
@@ -192,7 +194,7 @@ export default function PlansScreen() {
                 accessibilityLabel="Close"
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <X color={theme.colors.textMuted} size={22} />
+                <X color={colors.textSecondary} size={22} />
               </TouchableOpacity>
             </View>
 
@@ -204,7 +206,7 @@ export default function PlansScreen() {
                 <TextInput
                   style={[styles.input, errors.name && styles.inputError]}
                   placeholder={PLANS.NAME_PLACEHOLDER}
-                  placeholderTextColor={theme.colors.textMuted}
+                  placeholderTextColor={colors.textSecondary}
                   value={value}
                   onChangeText={onChange}
                 />
@@ -220,7 +222,7 @@ export default function PlansScreen() {
                 <TextInput
                   style={[styles.input, errors.durationDays && styles.inputError]}
                   placeholder={PLANS.DURATION_PLACEHOLDER}
-                  placeholderTextColor={theme.colors.textMuted}
+                  placeholderTextColor={colors.textSecondary}
                   keyboardType="numeric"
                   value={value}
                   onChangeText={onChange}
@@ -239,7 +241,7 @@ export default function PlansScreen() {
                 <TextInput
                   style={[styles.input, errors.price && styles.inputError]}
                   placeholder={PLANS.PRICE_PLACEHOLDER}
-                  placeholderTextColor={theme.colors.textMuted}
+                  placeholderTextColor={colors.textSecondary}
                   keyboardType="decimal-pad"
                   value={value}
                   onChangeText={onChange}
@@ -265,154 +267,157 @@ export default function PlansScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  actionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.sm,
-  },
-  counterText: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    fontFamily: theme.fonts.bodyRegular,
-  },
-  list: {
-    padding: theme.spacing.lg,
-    paddingBottom: 40,
-  },
-  card: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.md,
-    padding: theme.spacing.lg,
-  },
-  cardInfo: {
-    flex: 1,
-    marginRight: theme.spacing.md,
-  },
-  name: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 17,
-    color: theme.colors.text,
-    marginBottom: 6,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  },
-  durationBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.raised,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: theme.radius.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  durationText: {
-    ...theme.typography.small,
-    color: theme.colors.textMuted,
-  },
-  priceText: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 16,
-    color: theme.colors.text,
-  },
-  editBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: theme.radius.full,
-    backgroundColor: theme.colors.raised,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    centered: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    actionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: theme.spacing.lg,
+      paddingTop: theme.spacing.md,
+      paddingBottom: theme.spacing.sm,
+    },
+    counterText: {
+      ...theme.typography.caption,
+      color: theme.colors.textSecondary,
+      fontFamily: theme.fonts.bodyRegular,
+    },
+    list: {
+      padding: theme.spacing.lg,
+      paddingBottom: 40,
+    },
+    card: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+      padding: theme.spacing.lg,
+    },
+    cardInfo: {
+      flex: 1,
+      marginRight: theme.spacing.md,
+    },
+    name: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 17,
+      color: theme.colors.text,
+      marginBottom: 6,
+    },
+    badgeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: theme.spacing.sm,
+    },
+    durationBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.surfaceRaised,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: theme.radius.sm,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    durationText: {
+      ...theme.typography.small,
+      color: theme.colors.textSecondary,
+      fontVariant: ['tabular-nums'],
+    },
+    priceText: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 16,
+      color: theme.colors.text,
+      fontVariant: ['tabular-nums'],
+    },
+    editBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: theme.radius.full,
+      backgroundColor: theme.colors.surfaceRaised,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
 
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(5, 31, 32, 0.85)',
-    justifyContent: 'flex-end',
-  },
-  modalOverlayDesktop: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalContent: {
-    backgroundColor: theme.colors.surface,
-    padding: theme.spacing.xl,
-    borderTopLeftRadius: theme.radius.xl,
-    borderTopRightRadius: theme.radius.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  modalContentDesktop: {
-    borderRadius: theme.radius.xl,
-    width: '100%',
-    maxWidth: 440,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  modalTitle: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 18,
-    color: theme.colors.text,
-  },
-  closeBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  label: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    marginBottom: 6,
-    marginLeft: 2,
-  },
-  input: {
-    backgroundColor: theme.colors.raised,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.lg,
-    paddingHorizontal: 16,
-    minHeight: 50,
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 15,
-    color: theme.colors.text,
-    marginBottom: theme.spacing.md,
-  },
-  inputError: {
-    borderColor: theme.colors.error,
-  },
-  errorText: {
-    ...theme.typography.small,
-    color: theme.colors.error,
-    marginTop: -8,
-    marginBottom: theme.spacing.sm,
-    marginLeft: 4,
-  },
-  modalActionRow: {
-    marginTop: theme.spacing.sm,
-    marginBottom: theme.spacing.lg,
-  },
-});
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: theme.colors.scrim,
+      justifyContent: 'flex-end',
+    },
+    modalOverlayDesktop: {
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 24,
+    },
+    modalContent: {
+      backgroundColor: theme.colors.surface,
+      padding: theme.spacing.xl,
+      borderTopLeftRadius: theme.radius.xl,
+      borderTopRightRadius: theme.radius.xl,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    modalContentDesktop: {
+      borderRadius: theme.radius.xl,
+      width: '100%',
+      maxWidth: 440,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: theme.spacing.lg,
+    },
+    modalTitle: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 18,
+      color: theme.colors.text,
+    },
+    closeBtn: {
+      width: 44,
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    label: {
+      ...theme.typography.caption,
+      color: theme.colors.textSecondary,
+      marginBottom: 6,
+      marginLeft: 2,
+    },
+    input: {
+      backgroundColor: theme.colors.surfaceRaised,
+      borderWidth: 1.5,
+      borderColor: theme.colors.border,
+      borderRadius: theme.radius.lg,
+      paddingHorizontal: 16,
+      minHeight: 50,
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 15,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.md,
+    },
+    inputError: {
+      borderColor: theme.colors.danger,
+    },
+    errorText: {
+      ...theme.typography.small,
+      color: theme.colors.danger,
+      marginTop: -8,
+      marginBottom: theme.spacing.sm,
+      marginLeft: 4,
+    },
+    modalActionRow: {
+      marginTop: theme.spacing.sm,
+      marginBottom: theme.spacing.lg,
+    },
+  });

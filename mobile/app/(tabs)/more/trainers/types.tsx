@@ -13,7 +13,7 @@ import {
 import Toast from 'react-native-toast-message';
 import { showConfirmDialog } from '../../../../src/components/ConfirmDialog';
 import { Tag, Plus, Edit2, Trash2, X, Check } from 'lucide-react-native';
-import { theme } from '../../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../../src/theme/ThemeContext';
 import { useAuthStore } from '../../../../src/store/useAuthStore';
 import {
   useTrainerTypes,
@@ -32,6 +32,8 @@ import { TRAINER_TYPES, COMMON, ERRORS } from '../../../../src/constants/strings
 
 export default function TrainerTypesScreen() {
   const { role } = useAuthStore();
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const { data: types, isLoading, isError, refetch, isRefetching } = useTrainerTypes();
   const createType = useCreateTrainerType();
   const updateType = useUpdateTrainerType();
@@ -52,7 +54,7 @@ export default function TrainerTypesScreen() {
   if (isLoading && !isRefetching) {
     return (
       <Screen safeTop={false} style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </Screen>
     );
   }
@@ -121,7 +123,7 @@ export default function TrainerTypesScreen() {
     <GlassCard style={styles.card} contentStyle={styles.cardContent}>
       <View style={styles.itemLeft}>
         <View style={styles.tagIconWrapper}>
-          <Tag size={18} color={theme.colors.primary} />
+          <Tag size={18} color={colors.primary} />
         </View>
         <View style={styles.nameContainer}>
           <Text style={styles.typeName}>{item.name}</Text>
@@ -143,7 +145,7 @@ export default function TrainerTypesScreen() {
           accessibilityLabel="Edit type"
           disabled={deactivateType.isPending}
         >
-          <Edit2 size={18} color={theme.colors.text} />
+          <Edit2 size={18} color={colors.text} />
         </TouchableOpacity>
         {item.active && (
           <TouchableOpacity
@@ -153,7 +155,7 @@ export default function TrainerTypesScreen() {
             accessibilityLabel="Deactivate type"
             disabled={deactivateType.isPending}
           >
-            <Trash2 size={18} color={theme.colors.error} />
+            <Trash2 size={18} color={colors.danger} />
           </TouchableOpacity>
         )}
       </View>
@@ -166,7 +168,7 @@ export default function TrainerTypesScreen() {
         <Text style={styles.headerTitle}>{TRAINER_TYPES.SCREEN_TITLE}</Text>
         <Button
           title={TRAINER_TYPES.ADD_BTN}
-          icon={<Plus size={16} color={theme.colors.textOnPrimary} />}
+          icon={<Plus size={16} color={colors.textOnPrimary} />}
           onPress={handleOpenAdd}
           size="sm"
         />
@@ -174,7 +176,7 @@ export default function TrainerTypesScreen() {
 
       {(!types || types.length === 0) ? (
         <EmptyState
-          icon={<Tag size={48} color={theme.colors.primary} />}
+          icon={<Tag size={48} color={colors.primary} />}
           title={TRAINER_TYPES.EMPTY}
         />
       ) : (
@@ -187,7 +189,7 @@ export default function TrainerTypesScreen() {
             <RefreshControl
               refreshing={isRefetching}
               onRefresh={refetch}
-              tintColor={theme.colors.primary}
+              tintColor={colors.primary}
             />
           }
         />
@@ -211,7 +213,7 @@ export default function TrainerTypesScreen() {
                 disabled={isSaving}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <X size={20} color={theme.colors.textMuted} />
+                <X size={20} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -221,7 +223,7 @@ export default function TrainerTypesScreen() {
               value={typeName}
               onChangeText={setTypeName}
               placeholder={TRAINER_TYPES.NAME_PLACEHOLDER}
-              placeholderTextColor={theme.colors.textMuted}
+              placeholderTextColor={colors.textSecondary}
               autoFocus
               editable={!isSaving}
             />
@@ -251,10 +253,10 @@ export default function TrainerTypesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: ThemeValue) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.bg,
   },
   centered: {
     justifyContent: 'center',
@@ -293,7 +295,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: theme.spacing.md,
@@ -313,17 +315,17 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: theme.spacing.xs,
   },
   deleteBtn: {
-    backgroundColor: 'rgba(255, 107, 107, 0.15)',
+    backgroundColor: theme.colors.chipDangerBg,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(5, 31, 32, 0.85)',
+    backgroundColor: theme.colors.scrim,
     justifyContent: 'center',
     alignItems: 'center',
     padding: theme.spacing.lg,
@@ -349,11 +351,11 @@ const styles = StyleSheet.create({
   },
   modalLabel: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: 6,
   },
   modalInput: {
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.lg,
@@ -371,10 +373,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: theme.spacing.lg,
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
   },
   cancelBtnText: {
     ...theme.typography.bodyMedium,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
 });

@@ -9,7 +9,7 @@ import {
 } from '../../../src/utils/safeHaptics';
 import { safeOpenSettings } from '../../../src/utils/safeLinking';
 import { X, Flashlight, AlertCircle, CheckCircle } from 'lucide-react-native';
-import { theme } from '../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import { useCheckIn } from '../../../src/api/attendance';
 import { Button } from '../../../src/components/Button';
 import { CheckInSuccessModal } from '../../../src/components/CheckInSuccessModal';
@@ -18,6 +18,8 @@ import { SCANNER, COMMON } from '../../../src/constants/strings';
 
 export default function ScanScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [permission, requestPermission] = useCameraPermissions();
   const [torch, setTorch] = useState(false);
 
@@ -155,14 +157,14 @@ export default function ScanScreen() {
             onPress={() => safeBack('/(tabs)/attendance')}
             accessibilityLabel="Close camera"
           >
-            <X color={theme.colors.text} size={22} />
+            <X color={colors.text} size={22} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.iconBtn}
             onPress={() => setTorch(!torch)}
             accessibilityLabel="Toggle flashlight"
           >
-            <Flashlight color={torch ? theme.colors.primary : theme.colors.text} size={22} />
+            <Flashlight color={torch ? colors.primary : colors.text} size={22} />
           </TouchableOpacity>
         </View>
 
@@ -192,7 +194,7 @@ export default function ScanScreen() {
         <View style={[styles.resultOverlay, styles.resultWarningOverlay]}>
           <View style={styles.warningCard}>
             <View style={styles.warningIconCircle}>
-              <AlertCircle color={theme.colors.warning} size={44} />
+              <AlertCircle color={colors.warning} size={44} />
             </View>
             <Text style={styles.warningTitle}>{resultOverlay.name || 'Member Checked In'}</Text>
             <Text style={styles.warningSubtitle}>{resultOverlay.message}</Text>
@@ -247,7 +249,7 @@ export default function ScanScreen() {
       {/* Result Error Overlay */}
       {resultOverlay && resultOverlay.type === 'error' && (
         <View style={[styles.resultOverlay, styles.resultError]}>
-          <AlertCircle color={theme.colors.error} size={52} />
+          <AlertCircle color={colors.danger} size={52} />
           <Text style={styles.resultMessage}>{resultOverlay.message}</Text>
         </View>
       )}
@@ -256,163 +258,165 @@ export default function ScanScreen() {
 }
 
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  permissionContainer: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.xl,
-  },
-  permissionTitle: {
-    ...theme.typography.h1,
-    color: theme.colors.text,
-    marginBottom: theme.spacing.md,
-    textAlign: 'center',
-  },
-  permissionDesc: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-    marginBottom: theme.spacing.xl,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(5, 31, 32, 0.65)',
-    justifyContent: 'space-between',
-    padding: theme.spacing.md,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 44,
-  },
-  iconBtn: {
-    minWidth: 44,
-    minHeight: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(11, 43, 38, 0.85)',
-    borderWidth: 1,
-    borderColor: theme.colors.borderLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scannerFrame: {
-    width: 250,
-    height: 250,
-    alignSelf: 'center',
-    position: 'relative',
-  },
-  corner: {
-    position: 'absolute',
-    width: 36,
-    height: 36,
-    borderColor: theme.colors.primary,
-  },
-  cornerTL: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: 8 },
-  cornerTR: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: 8 },
-  cornerBL: { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4, borderBottomLeftRadius: 8 },
-  cornerBR: { bottom: 0, right: 0, borderBottomWidth: 4, borderRightWidth: 4, borderBottomRightRadius: 8 },
-  helperText: {
-    ...theme.typography.body,
-    color: theme.colors.text,
-    textAlign: 'center',
-    marginBottom: 44,
-  },
-  resultOverlay: {
-    ...StyleSheet.absoluteFill,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 100,
-    padding: 24,
-  },
-  resultSuccess: {
-    backgroundColor: 'rgba(11, 43, 38, 0.95)',
-  },
-  resultError: {
-    backgroundColor: 'rgba(5, 31, 32, 0.95)',
-  },
-  resultPhoto: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginVertical: 16,
-    borderWidth: 2,
-    borderColor: theme.colors.primary,
-  },
-  resultName: {
-    ...theme.typography.h1,
-    color: theme.colors.text,
-    marginTop: 8,
-  },
-  resultMessage: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    marginTop: 6,
-    textAlign: 'center',
-  },
-  resultWarningOverlay: {
-    backgroundColor: 'rgba(5, 31, 32, 0.92)',
-  },
-  warningCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.xl,
-    padding: theme.spacing.xl,
-    width: '100%',
-    maxWidth: 360,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 179, 0, 0.3)',
-  },
-  warningIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255, 179, 0, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: theme.spacing.md,
-  },
-  warningTitle: {
-    ...theme.typography.h2,
-    color: theme.colors.text,
-    textAlign: 'center',
-  },
-  warningSubtitle: {
-    ...theme.typography.body,
-    color: theme.colors.warning,
-    marginTop: 4,
-    marginBottom: theme.spacing.md,
-    textAlign: 'center',
-  },
-  warningDueBox: {
-    backgroundColor: 'rgba(255, 107, 107, 0.12)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: theme.radius.md,
-    marginBottom: theme.spacing.lg,
-    alignItems: 'center',
-    width: '100%',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.25)',
-  },
-  warningDueLabel: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  warningDueAmount: {
-    ...theme.typography.h2,
-    color: theme.colors.coral,
-    marginTop: 2,
-  },
-  warningActionsCol: {
-    width: '100%',
-    gap: theme.spacing.sm,
-  },
-});
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.bg,
+    },
+    permissionContainer: {
+      flex: 1,
+      backgroundColor: theme.colors.bg,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: theme.spacing.xl,
+    },
+    permissionTitle: {
+      ...theme.typography.h1,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.md,
+      textAlign: 'center',
+    },
+    permissionDesc: {
+      ...theme.typography.body,
+      color: theme.colors.textMuted,
+      textAlign: 'center',
+      marginBottom: theme.spacing.xl,
+    },
+    overlay: {
+      flex: 1,
+      backgroundColor: theme.colors.scrim,
+      justifyContent: 'space-between',
+      padding: theme.spacing.md,
+    },
+    headerRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 44,
+    },
+    iconBtn: {
+      minWidth: 44,
+      minHeight: 44,
+      borderRadius: 22,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.borderLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    scannerFrame: {
+      width: 250,
+      height: 250,
+      alignSelf: 'center',
+      position: 'relative',
+    },
+    corner: {
+      position: 'absolute',
+      width: 36,
+      height: 36,
+      borderColor: theme.colors.primary,
+    },
+    cornerTL: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: 8 },
+    cornerTR: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: 8 },
+    cornerBL: { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4, borderBottomLeftRadius: 8 },
+    cornerBR: { bottom: 0, right: 0, borderBottomWidth: 4, borderRightWidth: 4, borderBottomRightRadius: 8 },
+    helperText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      textAlign: 'center',
+      marginBottom: 44,
+    },
+    resultOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 100,
+      padding: 24,
+    },
+    resultSuccess: {
+      backgroundColor: theme.colors.surface,
+    },
+    resultError: {
+      backgroundColor: theme.colors.scrim,
+    },
+    resultPhoto: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      marginVertical: 16,
+      borderWidth: 2,
+      borderColor: theme.colors.primary,
+    },
+    resultName: {
+      ...theme.typography.h1,
+      color: theme.colors.text,
+      marginTop: 8,
+    },
+    resultMessage: {
+      ...theme.typography.body,
+      color: theme.colors.textMuted,
+      marginTop: 6,
+      textAlign: 'center',
+    },
+    resultWarningOverlay: {
+      backgroundColor: theme.colors.scrim,
+    },
+    warningCard: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.radius.xl,
+      padding: theme.spacing.xl,
+      width: '100%',
+      maxWidth: 360,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: theme.colors.chipWarningBg,
+    },
+    warningIconCircle: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: theme.colors.chipWarningBg,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    warningTitle: {
+      ...theme.typography.h2,
+      color: theme.colors.text,
+      textAlign: 'center',
+    },
+    warningSubtitle: {
+      ...theme.typography.body,
+      color: theme.colors.warning,
+      marginTop: 4,
+      marginBottom: theme.spacing.md,
+      textAlign: 'center',
+    },
+    warningDueBox: {
+      backgroundColor: theme.colors.chipDangerBg,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: theme.radius.md,
+      marginBottom: theme.spacing.lg,
+      alignItems: 'center',
+      width: '100%',
+      borderWidth: 1,
+      borderColor: theme.colors.danger,
+    },
+    warningDueLabel: {
+      ...theme.typography.caption,
+      color: theme.colors.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    warningDueAmount: {
+      ...theme.typography.h2,
+      color: theme.colors.danger,
+      marginTop: 2,
+      fontVariant: ['tabular-nums'],
+    },
+    warningActionsCol: {
+      width: '100%',
+      gap: theme.spacing.sm,
+    },
+  });

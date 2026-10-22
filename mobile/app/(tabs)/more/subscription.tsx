@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { safeOpenURL } from '../../../src/utils/safeLinking';
 import { MessageCircle, ShieldCheck, Sparkles } from 'lucide-react-native';
-import { theme } from '../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import { useAuthStore } from '../../../src/store/useAuthStore';
 import { Screen } from '../../../src/components/Screen';
 import { PageHeader } from '../../../src/components/PageHeader';
@@ -17,6 +17,8 @@ import { useGymProfile } from '../../../src/api/more';
 
 export default function SubscriptionScreen() {
   const { gymId, role } = useAuthStore();
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const { data: gymProfile } = useGymProfile();
   const upiId = process.env.EXPO_PUBLIC_UPI_ID;
 
@@ -69,7 +71,7 @@ export default function SubscriptionScreen() {
       <GlassCard style={styles.card} contentStyle={styles.cardContent}>
         <View style={styles.planBadgeContainer}>
           <View style={styles.planIconCircle}>
-            <Sparkles size={20} color={theme.colors.primary} />
+            <Sparkles size={20} color={colors.primary} />
           </View>
           <Badge label={statusText} variant="success" size="md" />
         </View>
@@ -97,7 +99,7 @@ export default function SubscriptionScreen() {
       {/* ── Renewal / Support Section ────────────────────────────── */}
       <GlassCard style={styles.card} contentStyle={styles.cardContent}>
         <View style={styles.headerRow}>
-          <ShieldCheck size={22} color={theme.colors.primary} style={styles.headerIcon} />
+          <ShieldCheck size={22} color={colors.primary} style={styles.headerIcon} />
           <Text style={styles.sectionTitle}>{SUBSCRIPTION.HOW_TO_RENEW_TITLE}</Text>
         </View>
 
@@ -111,8 +113,8 @@ export default function SubscriptionScreen() {
               <QRCode
                 value={upiPayLink}
                 size={140}
-                color="#051F20"
-                backgroundColor="#FFFFFF"
+                color={colors.qrForeground}
+                backgroundColor={colors.qrBackground}
               />
             </View>
             <Text style={styles.upiText}>{upiId}</Text>
@@ -130,7 +132,7 @@ export default function SubscriptionScreen() {
           variant="primary"
           size="md"
           fullWidth
-          icon={<MessageCircle color={theme.colors.textOnPrimary} size={20} />}
+          icon={<MessageCircle color={colors.textOnPrimary} size={20} />}
         />
       </GlassCard>
 
@@ -139,123 +141,126 @@ export default function SubscriptionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 0,
-    paddingBottom: 40,
-  },
-  card: {
-    marginHorizontal: 20,
-    marginBottom: theme.spacing.lg,
-  },
-  cardContent: {
-    padding: theme.spacing.lg,
-  },
-  planBadgeContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.md,
-  },
-  planIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: theme.radius.full,
-    backgroundColor: theme.colors.raised,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  planTitle: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 22,
-    color: theme.colors.text,
-    marginBottom: 4,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: theme.colors.border,
-    marginVertical: theme.spacing.md,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 6,
-  },
-  infoLabel: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-  },
-  infoValue: {
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: 15,
-    color: theme.colors.text,
-  },
-  infoValueActive: {
-    fontFamily: theme.fonts.headingMedium,
-    fontSize: 15,
-    color: theme.colors.primary,
-  },
-  infoValueHighlight: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 16,
-    color: theme.colors.text,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-  },
-  headerIcon: {
-    marginRight: 8,
-  },
-  sectionTitle: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 18,
-    color: theme.colors.text,
-  },
-  desc: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    lineHeight: 22,
-    marginBottom: theme.spacing.lg,
-  },
-  qrContainer: {
-    alignItems: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  qrBox: {
-    padding: 12,
-    backgroundColor: '#FFFFFF',
-    borderRadius: theme.radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: theme.spacing.sm,
-  },
-  upiText: {
-    fontFamily: theme.fonts.headingMedium,
-    fontSize: 16,
-    color: theme.colors.text,
-    marginBottom: 4,
-  },
-  upiSubtext: {
-    ...theme.typography.small,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-  },
-  noUpiContainer: {
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  noUpiText: {
-    fontFamily: theme.fonts.headingMedium,
-    fontSize: 16,
-    color: theme.colors.primary,
-  },
-  bottomSpacer: {
-    height: 24,
-  },
-});
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
+    container: {
+      paddingHorizontal: 0,
+      paddingBottom: 40,
+    },
+    card: {
+      marginHorizontal: 20,
+      marginBottom: theme.spacing.lg,
+    },
+    cardContent: {
+      padding: theme.spacing.lg,
+    },
+    planBadgeContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    planIconCircle: {
+      width: 40,
+      height: 40,
+      borderRadius: theme.radius.full,
+      backgroundColor: theme.colors.surfaceRaised,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    planTitle: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 22,
+      color: theme.colors.text,
+      marginBottom: 4,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: theme.colors.border,
+      marginVertical: theme.spacing.md,
+    },
+    infoRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 6,
+    },
+    infoLabel: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+    },
+    infoValue: {
+      fontFamily: theme.fonts.bodyMedium,
+      fontSize: 15,
+      color: theme.colors.text,
+      fontVariant: ['tabular-nums'],
+    },
+    infoValueActive: {
+      fontFamily: theme.fonts.headingMedium,
+      fontSize: 15,
+      color: theme.colors.primary,
+    },
+    infoValueHighlight: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 16,
+      color: theme.colors.text,
+      fontVariant: ['tabular-nums'],
+    },
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: theme.spacing.sm,
+    },
+    headerIcon: {
+      marginRight: 8,
+    },
+    sectionTitle: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 18,
+      color: theme.colors.text,
+    },
+    desc: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      lineHeight: 22,
+      marginBottom: theme.spacing.lg,
+    },
+    qrContainer: {
+      alignItems: 'center',
+      marginBottom: theme.spacing.lg,
+    },
+    qrBox: {
+      padding: 12,
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.radius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: theme.spacing.sm,
+    },
+    upiText: {
+      fontFamily: theme.fonts.headingMedium,
+      fontSize: 16,
+      color: theme.colors.text,
+      marginBottom: 4,
+    },
+    upiSubtext: {
+      ...theme.typography.small,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+    },
+    noUpiContainer: {
+      paddingVertical: 12,
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    noUpiText: {
+      fontFamily: theme.fonts.headingMedium,
+      fontSize: 16,
+      color: theme.colors.primary,
+    },
+    bottomSpacer: {
+      height: 24,
+    },
+  });

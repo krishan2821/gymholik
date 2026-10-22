@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
-import { theme } from '../theme/theme';
+import { useStyles, ThemeValue } from '../theme/ThemeContext';
 import { Chip } from './Chip';
 
 export interface FilterChipsProps {
@@ -10,6 +10,8 @@ export interface FilterChipsProps {
 }
 
 export const FilterChips: React.FC<FilterChipsProps> = ({ options, selectedValue, onSelect }) => {
+  const styles = useStyles(makeStyles);
+
   return (
     <ScrollView 
       horizontal 
@@ -32,11 +34,12 @@ export const FilterChips: React.FC<FilterChipsProps> = ({ options, selectedValue
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-  },
-});
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
+    container: {
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+    },
+  });
 
 export default FilterChips;

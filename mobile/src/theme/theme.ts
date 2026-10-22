@@ -1,206 +1,223 @@
-import { Platform, TextStyle } from 'react-native';
+/**
+ * theme.ts — Design token system and theme snapshot.
+ *
+ * This file is purely brand & layout tokens; it does NOT import react-native
+ * at the top level, allowing unit tests (Node.js/tsx) to import theme tokens
+ * without React Native environment mocks.
+ */
 
-export const colors = {
-  // Backgrounds & Surfaces
-  background: '#051F20',
-  surface: '#0B2B26',
-  card: '#0B2B26',
-  raised: '#163832',
-  accentDark: '#235347',
-  border: '#235347',
-  borderLight: 'rgba(218, 241, 222, 0.12)',
+import { BRAND, getPalette, getBgAsset, PALETTES, SemanticTokens } from './palette';
+import { fonts, typeScale, spacing, radius, elevation, layout } from './tokens';
 
-  // Brand / Interactive
-  primary: '#8EB69B',
-  primaryLight: '#A7C7B1',
-  primaryDark: '#235347',
-  primarySageEnd: '#DAF1DE',
+export type { Brand, ColorMode, SemanticTokens } from './palette';
+export { BRAND, getPalette, getBgAsset, PALETTES };
+export { fonts, typeScale, spacing, radius, elevation, layout };
 
-  // Text
-  text: '#DAF1DE',
-  textMuted: 'rgba(218, 241, 222, 0.65)',
-  textSecondary: 'rgba(218, 241, 222, 0.65)',
-  textDisabled: 'rgba(218, 241, 222, 0.35)',
-  textOnPrimary: '#051F20',
+export function createThemeColors(palette: SemanticTokens) {
+  return {
+    ...palette,
+    background: palette.bg,
+    card: palette.surface,
+    raised: palette.surfaceRaised,
+    error: palette.danger,
+    textMuted: palette.textSecondary,
+    borderLight: palette.border,
+    primaryLight: palette.primary,
+    primaryDark: palette.primaryPressed,
+    primarySageEnd: palette.primaryPressed,
+    coral: palette.danger,
+    amber: palette.warning,
+    glassBg: palette.glassTint,
+    glassGlow: palette.primarySoft,
+    cyan: palette.primary,
+    cyanBg: palette.primarySoft,
+    cyanBorder: palette.border,
+    overlayEnd: palette.scrim,
+    overlayStart: palette.scrim,
+  };
+}
 
-  // Status
-  warning: '#F5B544',
-  error: '#FF6B6B',
-  coral: '#FF6B6B',
-  amber: '#F5B544',
-  success: '#8EB69B',
-  info: '#8EB69B',
-  cyan: '#4ECDC4',
-  cyanBorder: 'rgba(78, 205, 196, 0.40)',
-  cyanBg: 'rgba(78, 205, 196, 0.15)',
+export type ThemeColors = ReturnType<typeof createThemeColors>;
 
-  // Glassmorphism
-  glassBg: 'rgba(11, 43, 38, 0.70)',
-  glassBorder: 'rgba(218, 241, 222, 0.12)',
-  glassGlow: 'rgba(142, 182, 155, 0.15)',
+export interface ThemeValue {
+  mode: ColorMode;
+  isDark: boolean;
+  colors: ThemeColors;
+  fonts: typeof fonts;
+  typeScale: typeof typeScale;
+  spacing: typeof spacing;
+  radius: typeof radius & { glass: number; xl: number };
+  elevation: typeof elevation;
+  layout: typeof layout;
+  brand: Brand;
+  typography: {
+    display: any;
+    h1: any;
+    h2: any;
+    h3: any;
+    body: any;
+    bodyMedium: any;
+    caption: any;
+    small: any;
+    numberBig: any;
+    button: any;
+  };
+  gradients: {
+    primaryButton: [string, string];
+    heroOverlay: [string, string];
+    cardShimmer: [string, string, string];
+  };
+  shadows: {
+    soft: any;
+    glass: any;
+    glow: any;
+  };
+}
 
-  // Overlays
-  overlayStart: 'rgba(5, 31, 32, 0.70)',
-  overlayEnd: 'rgba(5, 31, 32, 0.95)',
-} as const;
+export function buildTheme(mode: ColorMode, brand: Brand = BRAND): ThemeValue {
+  const palette = getPalette(brand, mode);
+  const themeColors = createThemeColors(palette);
+  const isDark = mode === 'dark';
 
-export const fonts = {
-  headingBold: 'SpaceGrotesk_700Bold',
-  headingSemiBold: 'SpaceGrotesk_600SemiBold',
-  headingMedium: 'SpaceGrotesk_500Medium',
-  headingRegular: 'SpaceGrotesk_400Regular',
-  bodyBold: 'Inter_700Bold',
-  bodySemiBold: 'Inter_600SemiBold',
-  bodyMedium: 'Inter_500Medium',
-  bodyRegular: 'Inter_400Regular',
-} as const;
+  return {
+    mode,
+    isDark,
+    colors: themeColors,
+    fonts,
+    typeScale,
+    spacing,
+    radius: {
+      ...radius,
+      glass: radius.card,
+      xl: radius.card,
+    },
+    elevation,
+    layout,
+    brand,
+    typography: {
+      display: { ...typeScale.display, color: themeColors.text },
+      h1: { ...typeScale.h1, color: themeColors.text },
+      h2: { ...typeScale.h2, color: themeColors.text },
+      h3: { ...typeScale.h3, color: themeColors.text },
+      body: { ...typeScale.body, color: themeColors.text },
+      bodyMedium: { ...typeScale.bodyMedium, color: themeColors.text },
+      caption: { ...typeScale.caption, color: themeColors.textSecondary },
+      small: { ...typeScale.small, color: themeColors.textSecondary },
+      numberBig: { ...typeScale.numberBig, color: themeColors.text },
+      button: { ...typeScale.button },
+    },
+    gradients: {
+      primaryButton: [themeColors.primary, themeColors.primaryPressed] as [string, string],
+      heroOverlay: [themeColors.scrim, themeColors.scrim] as [string, string],
+      cardShimmer: [themeColors.surface, themeColors.surfaceRaised, themeColors.surface] as [string, string, string],
+    },
+    shadows: {
+      soft: {
+        shadowColor: themeColors.shadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: isDark ? 0.3 : 0.08,
+        shadowRadius: 8,
+        elevation: 3,
+      },
+      glass: {
+        shadowColor: themeColors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: isDark ? 0.08 : 0.05,
+        shadowRadius: 12,
+        elevation: 4,
+      },
+      glow: {
+        shadowColor: themeColors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: isDark ? 0.20 : 0.12,
+        shadowRadius: 10,
+        elevation: 5,
+      },
+    },
+  };
+}
 
-export const typography = {
-  display: {
-    fontFamily: fonts.headingBold,
-    fontSize: 34,
-    lineHeight: 42,
-    fontWeight: '700' as const,
-    color: colors.text,
-  },
-  h1: {
-    fontFamily: fonts.headingBold,
-    fontSize: 26,
-    lineHeight: 32,
-    fontWeight: '700' as const,
-    color: colors.text,
-  },
-  h2: {
-    fontFamily: fonts.headingSemiBold,
-    fontSize: 20,
-    lineHeight: 26,
-    fontWeight: '600' as const,
-    color: colors.text,
-  },
-  h3: {
-    fontFamily: fonts.headingSemiBold,
-    fontSize: 17,
-    lineHeight: 22,
-    fontWeight: '600' as const,
-    color: colors.text,
-  },
-  body: {
-    fontFamily: fonts.bodyRegular,
-    fontSize: 15,
-    lineHeight: 22,
-    fontWeight: '400' as const,
-    color: colors.text,
-  },
-  bodyMedium: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 15,
-    lineHeight: 22,
-    fontWeight: '500' as const,
-    color: colors.text,
-  },
-  caption: {
-    fontFamily: fonts.bodyRegular,
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '400' as const,
-    color: colors.textMuted,
-  },
-  small: {
-    fontFamily: fonts.bodyRegular,
-    fontSize: 11,
-    lineHeight: 15,
-    fontWeight: '400' as const,
-    color: colors.textMuted,
-  },
-  numberBig: {
-    fontFamily: fonts.headingBold,
-    fontSize: 32,
-    lineHeight: 38,
-    fontWeight: '700' as const,
-    color: colors.text,
-  },
-  button: {
-    fontFamily: fonts.headingBold,
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: '700' as const,
-  },
-} satisfies Record<string, TextStyle>;
+const _defaultColors = PALETTES[BRAND].dark;
 
-export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-  xxl: 48,
-} as const;
+export const colors = createThemeColors(_defaultColors);
 
-export const radius = {
-  xs: 4,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  glass: 24,
-  full: 9999,
-} as const;
+export function updateThemePalette(newPalette: SemanticTokens, mode: ColorMode = 'dark') {
+  Object.assign(colors, createThemeColors(newPalette));
 
-export const gradients = {
-  primarySage: ['#8EB69B', '#A7C7B1', '#B9D7C2'] as const,
-  primaryButton: ['#8EB69B', '#9EC3AB', '#B4D5BF'] as const,
-  heroOverlay: ['rgba(5, 31, 32, 0.70)', 'rgba(5, 31, 32, 0.95)'] as const,
-  cardShimmer: ['#0B2B26', '#163832', '#0B2B26'] as const,
-} as const;
-
-export const shadows = {
-  soft: {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  glass: {
-    shadowColor: '#8EB69B',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  glow: {
-    shadowColor: '#8EB69B',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-} as const;
-
-export const layout = {
-  maxWidth: {
-    column: 480,
-    form: 420,
-    content: 480,
-    desktopContent: 1100,
-    modal: 560,
-  },
-  sidebarWidth: 240,
-  breakpoints: {
-    phone: 640,
-    tablet: 1024,
-  },
-} as const;
+  theme.name = `${BRAND.charAt(0).toUpperCase() + BRAND.slice(1)} ${mode === 'dark' ? 'Dark' : 'Light'}`;
+  if (theme.typography) {
+    theme.typography.display.color = newPalette.text;
+    theme.typography.h1.color = newPalette.text;
+    theme.typography.h2.color = newPalette.text;
+    theme.typography.h3.color = newPalette.text;
+    theme.typography.body.color = newPalette.text;
+    theme.typography.bodyMedium.color = newPalette.text;
+    theme.typography.caption.color = newPalette.textSecondary;
+    theme.typography.small.color = newPalette.textSecondary;
+    theme.typography.numberBig.color = newPalette.text;
+  }
+  if (theme.gradients) {
+    theme.gradients.primaryButton = [newPalette.primary, newPalette.primaryPressed];
+    theme.gradients.heroOverlay = [newPalette.scrim, newPalette.scrim];
+    theme.gradients.cardShimmer = [newPalette.surface, newPalette.surfaceRaised, newPalette.surface];
+  }
+  if (theme.shadows) {
+    theme.shadows.soft.shadowColor = newPalette.shadow;
+    theme.shadows.glass.shadowColor = newPalette.primary;
+    theme.shadows.glow.shadowColor = newPalette.primary;
+  }
+}
 
 export const theme = {
-  name: 'Forest Iron',
+  name: `${BRAND.charAt(0).toUpperCase() + BRAND.slice(1)} Dark`,
   colors,
   fonts,
-  typography,
+  typography: {
+    display: { ...typeScale.display, color: _defaultColors.text },
+    h1: { ...typeScale.h1, color: _defaultColors.text },
+    h2: { ...typeScale.h2, color: _defaultColors.text },
+    h3: { ...typeScale.h3, color: _defaultColors.text },
+    body: { ...typeScale.body, color: _defaultColors.text },
+    bodyMedium: { ...typeScale.bodyMedium, color: _defaultColors.text },
+    caption: { ...typeScale.caption, color: _defaultColors.textSecondary },
+    small: { ...typeScale.small, color: _defaultColors.textSecondary },
+    numberBig: { ...typeScale.numberBig, color: _defaultColors.text },
+    button: { ...typeScale.button },
+  },
   spacing,
-  radius,
-  gradients,
-  shadows,
+  radius: {
+    ...radius,
+    glass: radius.card,
+    xl: radius.card,
+  },
+  gradients: {
+    primaryButton: [_defaultColors.primary, _defaultColors.primaryPressed] as [string, string],
+    heroOverlay: [_defaultColors.scrim, _defaultColors.scrim] as [string, string],
+    cardShimmer: [_defaultColors.surface, _defaultColors.surfaceRaised, _defaultColors.surface] as [string, string, string],
+  },
+  shadows: {
+    soft: {
+      shadowColor: _defaultColors.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    glass: {
+      shadowColor: _defaultColors.primary,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 12,
+      elevation: 4,
+    },
+    glow: {
+      shadowColor: _defaultColors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.20,
+      shadowRadius: 10,
+      elevation: 5,
+    },
+  },
   layout,
 };
 

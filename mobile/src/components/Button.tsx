@@ -11,12 +11,12 @@ import {
   TextStyle,
   Platform,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { safeImpactAsync, ImpactFeedbackStyle } from '../utils/safeHaptics';
-import { theme } from '../theme/theme';
+import { useTheme } from '../theme/ThemeContext';
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion';
+import { getPlatformSpring } from '../utils/platformCapabilities';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 export interface ButtonProps {
@@ -31,6 +31,7 @@ export interface ButtonProps {
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
   fullWidth?: boolean;
+  platformOverride?: 'ios' | 'android';
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -45,27 +46,35 @@ export const Button: React.FC<ButtonProps> = ({
   style,
   textStyle,
   fullWidth = true,
+  platformOverride,
 }) => {
+  const { colors, fonts, spacing, radius } = useTheme();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const prefersReducedMotion = usePrefersReducedMotion();
 
+  const isAndroid = platformOverride ? platformOverride === 'android' : Platform.OS === 'android';
+  const isIOS = platformOverride ? platformOverride === 'ios' : Platform.OS === 'ios';
+
+  const isDestructive = variant === 'destructive' || variant === 'danger';
+  const isPrimary = variant === 'primary';
+  const isSecondary = variant === 'secondary';
+  const isGhost = variant === 'ghost';
+
   const handlePressIn = () => {
-    if (disabled || loading || prefersReducedMotion) return;
+    if (disabled || loading || prefersReducedMotion || isAndroid) return;
     Animated.spring(scaleAnim, {
-      toValue: 0.97,
+      toValue: 0.96,
       useNativeDriver: Platform.OS !== 'web',
-      speed: 40,
-      bounciness: 4,
+      ...getPlatformSpring('ios'),
     }).start();
   };
 
   const handlePressOut = () => {
-    if (disabled || loading || prefersReducedMotion) return;
+    if (disabled || loading || prefersReducedMotion || isAndroid) return;
     Animated.spring(scaleAnim, {
       toValue: 1,
       useNativeDriver: Platform.OS !== 'web',
-      speed: 35,
-      bounciness: 4,
+      ...getPlatformSpring('ios'),
     }).start();
   };
 
@@ -75,65 +84,134 @@ export const Button: React.FC<ButtonProps> = ({
     onPress();
   };
 
-  const heightBy = {
-    sm: 44,
-    md: 52,
-    lg: 58,
-  }[size];
+  const heightBy = { sm: 44, md: 52, lg: 58 }[size];
+  const fontSizeBy = { sm: 14, md: 15, lg: 17 }[size];
 
-  const fontSizeBy = {
-    sm: 14,
-    md: 15,
-    lg: 17,
-  }[size];
-
-  const isPrimary = variant === 'primary';
-  const isSecondary = variant === 'secondary';
-  const isGhost = variant === 'ghost';
-  const isDanger = variant === 'danger';
-
-  const textColor = isPrimary
-    ? (disabled ? '#8EB69B' : theme.colors.textOnPrimary) // #8EB69B sage with > 5:1 contrast, #051F20 active
-    : isDanger
-    ? theme.colors.error
+  // Resolve text color ensuring >= 4.5:1 contrast
+  const textColor = disabled
+    ? colors.textSecondary
+    : isPrimary
+    ? colors.textOnPrimary
+    : isDestructive
+    ? colors.danger
     : isGhost
-    ? theme.colors.primary
-    : theme.colors.text;
+    ? colors.primary
+    : colors.text;
+
+  // Ripple color on Android
+  const rippleColor = isPrimary
+    ? colors.primaryPressed
+    : isDestructive
+    ? colors.chipDangerBg
+    : colors.primarySoft;
+
+  const spinnerColor = isPrimary
+    ? colors.textOnPrimary
+    : isDestructive
+    ? colors.danger
+    : colors.primary;
 
   const renderContent = () => (
     <View style={styles.contentRow}>
       {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={isPrimary ? (disabled ? '#8EB69B' : theme.colors.textOnPrimary) : theme.colors.primary}
-        />
+        <ActivityIndicator size="small" color={spinnerColor} />
       ) : (
         <>
-          {icon && iconPosition === 'left' && <View style={styles.iconLeft}>{icon}</View>}
+          {icon && iconPosition === 'left' && (
+            <View style={{ marginRight: spacing.sm }}>{icon}</View>
+          )}
           <Text
             style={[
-              styles.text,
               {
+                fontFamily: fonts.headingBold,
+                fontWeight: '700',
                 fontSize: fontSizeBy,
-                color: disabled && !isPrimary ? theme.colors.textDisabled : textColor,
+                letterSpacing: 0.3,
+                color: textColor,
               },
               textStyle,
             ]}
           >
             {title}
           </Text>
-          {icon && iconPosition === 'right' && <View style={styles.iconRight}>{icon}</View>}
+          {icon && iconPosition === 'right' && (
+            <View style={{ marginLeft: spacing.sm }}>{icon}</View>
+          )}
         </>
       )}
     </View>
   );
 
+  // Background and borders per variant and state
+  const getContainerStyle = (pressed: boolean): ViewStyle => {
+    if (disabled) {
+      return {
+        backgroundColor: colors.surfaceRaised,
+        borderWidth: 1,
+        borderColor: colors.border,
+      };
+    }
+
+    if (isPrimary) {
+      return {
+        backgroundColor: pressed && !isAndroid ? colors.primaryPressed : colors.primary,
+        borderWidth: 0,
+      };
+    }
+
+    if (isDestructive) {
+      return {
+        backgroundColor: pressed && !isAndroid ? colors.danger : colors.chipDangerBg,
+        borderWidth: 1,
+        borderColor: colors.danger,
+      };
+    }
+
+    if (isSecondary) {
+      return {
+        backgroundColor: pressed && !isAndroid ? colors.surface : colors.surfaceRaised,
+        borderWidth: 1,
+        borderColor: colors.border,
+      };
+    }
+
+    // Ghost
+    return {
+      backgroundColor: pressed && !isAndroid ? colors.primarySoft : 'transparent',
+      borderWidth: 0,
+    };
+  };
+
+  const shadowElevation = disabled
+    ? {}
+    : isPrimary
+    ? isIOS
+      ? {
+          shadowColor: colors.shadow,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.22,
+          shadowRadius: 8,
+        }
+      : isAndroid
+      ? { elevation: 3 }
+      : ({
+          boxShadow: `0 4px 14px ${colors.primary}33`,
+        } as any)
+    : isSecondary
+    ? isAndroid
+      ? { elevation: 1 }
+      : {}
+    : {};
+
   return (
     <Animated.View
       style={[
-        styles.wrapper,
-        fullWidth && styles.fullWidth,
-        !prefersReducedMotion && { transform: [{ scale: scaleAnim }] },
+        {
+          borderRadius: radius.button,
+          overflow: 'hidden',
+        },
+        fullWidth && { width: '100%' },
+        !prefersReducedMotion && isIOS && { transform: [{ scale: scaleAnim }] },
         style,
       ]}
     >
@@ -144,107 +222,41 @@ export const Button: React.FC<ButtonProps> = ({
         disabled={disabled || loading}
         accessibilityRole="button"
         accessibilityState={{ disabled: disabled || loading }}
+        android_ripple={
+          isAndroid && !disabled && !loading
+            ? {
+                color: rippleColor,
+                borderless: false,
+                foreground: true,
+              }
+            : undefined
+        }
         {...({ dataSet: { interactive: 'button' } } as any)}
         style={({ pressed }) => [
-          styles.pressable,
-          { minHeight: heightBy },
-          Platform.OS === 'web' && (disabled || loading ? styles.webDisabled : styles.webPointer),
-          !isPrimary && isSecondary && styles.secondaryBg,
-          !isPrimary && isGhost && styles.ghostBg,
-          !isPrimary && isDanger && styles.dangerBg,
-          disabled && !isPrimary && styles.disabledOpacity,
-          pressed && !isPrimary && styles.pressedOpacity,
+          {
+            borderRadius: radius.button,
+            justifyContent: 'center',
+            alignItems: 'center',
+            paddingHorizontal: spacing.lg,
+            minHeight: heightBy,
+          },
+          getContainerStyle(pressed),
+          shadowElevation,
+          Platform.OS === 'web' &&
+            (disabled || loading ? { cursor: 'not-allowed' } : { cursor: 'pointer' }),
         ]}
       >
-        {isPrimary ? (
-          disabled ? (
-            <View style={[styles.gradient, styles.primaryDisabled, { minHeight: heightBy }]}>
-              {renderContent()}
-            </View>
-          ) : (
-            <LinearGradient
-              colors={[theme.colors.primary, theme.colors.primarySageEnd]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.gradient, { minHeight: heightBy }]}
-            >
-              {renderContent()}
-            </LinearGradient>
-          )
-        ) : (
-          renderContent()
-        )}
+        {renderContent()}
       </Pressable>
     </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  wrapper: {
-    borderRadius: theme.radius.full,
-    overflow: 'hidden',
-  },
-  fullWidth: {
-    width: '100%',
-  },
-  pressable: {
-    borderRadius: theme.radius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-  },
-  webPointer: {
-    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
-  },
-  webDisabled: {
-    ...(Platform.OS === 'web' ? ({ cursor: 'not-allowed' } as any) : {}),
-  },
-  gradient: {
-    width: '100%',
-    borderRadius: theme.radius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-  },
-  primaryDisabled: {
-    backgroundColor: '#163832',
-    borderWidth: 1,
-    borderColor: '#235347',
-  },
   contentRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  text: {
-    fontFamily: theme.fonts.headingBold,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  iconLeft: {
-    marginRight: theme.spacing.sm,
-  },
-  iconRight: {
-    marginLeft: theme.spacing.sm,
-  },
-  secondaryBg: {
-    backgroundColor: theme.colors.raised,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  ghostBg: {
-    backgroundColor: 'transparent',
-  },
-  dangerBg: {
-    backgroundColor: 'rgba(255, 107, 107, 0.15)',
-    borderWidth: 1,
-    borderColor: theme.colors.error,
-  },
-  disabledOpacity: {
-    opacity: 0.5,
-  },
-  pressedOpacity: {
-    opacity: 0.8,
   },
 });
 

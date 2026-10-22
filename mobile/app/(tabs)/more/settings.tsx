@@ -20,7 +20,7 @@ import {
   QrCode,
   ExternalLink,
 } from 'lucide-react-native';
-import { theme } from '../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import { useAuthStore } from '../../../src/store/useAuthStore';
 import {
   useGymSettings,
@@ -55,6 +55,8 @@ type FormData = z.infer<typeof schema>;
 
 export default function SettingsScreen() {
   const { role } = useAuthStore();
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const { data: settings, isLoading, isError, refetch } = useGymSettings();
   const { data: collectionInfo, refetch: refetchCollection } = useCollectionInfo();
   const updateSettings = useUpdateGymSettings();
@@ -108,7 +110,7 @@ export default function SettingsScreen() {
   if (isLoading) {
     return (
       <Screen safeTop={false} style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </Screen>
     );
   }
@@ -161,7 +163,7 @@ export default function SettingsScreen() {
     >
       <GlassCard style={styles.sectionCard}>
         <View style={styles.sectionHeaderRow}>
-          <Building2 size={20} color={theme.colors.primary} style={styles.headerIcon} />
+          <Building2 size={20} color={colors.primary} style={styles.headerIcon} />
           <Text style={styles.sectionTitle}>{SETTINGS.SECTION_GENERAL}</Text>
         </View>
 
@@ -173,7 +175,7 @@ export default function SettingsScreen() {
             <TextInput
               style={[styles.input, errors.gymName && styles.inputError]}
               placeholder="Enter gym name"
-              placeholderTextColor={theme.colors.textMuted}
+              placeholderTextColor={colors.textSecondary}
               value={value}
               onChangeText={onChange}
             />
@@ -191,7 +193,7 @@ export default function SettingsScreen() {
             <TextInput
               style={[styles.input, styles.textArea, errors.address && styles.inputError]}
               placeholder="Gym address or location"
-              placeholderTextColor={theme.colors.textMuted}
+              placeholderTextColor={colors.textSecondary}
               multiline
               numberOfLines={3}
               value={value}
@@ -206,7 +208,7 @@ export default function SettingsScreen() {
 
       <GlassCard style={styles.sectionCard}>
         <View style={styles.sectionHeaderRow}>
-          <Settings2 size={20} color={theme.colors.primary} style={styles.headerIcon} />
+          <Settings2 size={20} color={colors.primary} style={styles.headerIcon} />
           <Text style={styles.sectionTitle}>{SETTINGS.SECTION_CHECKIN}</Text>
         </View>
 
@@ -223,11 +225,11 @@ export default function SettingsScreen() {
                 value={value}
                 onValueChange={onChange}
                 trackColor={{
-                  false: theme.colors.raised,
-                  true: theme.colors.primary,
+                  false: colors.surfaceRaised,
+                  true: colors.primary,
                 }}
                 thumbColor={
-                  value ? theme.colors.textOnPrimary : theme.colors.textMuted
+                  value ? colors.textOnPrimary : colors.textSecondary
                 }
               />
             )}
@@ -237,7 +239,7 @@ export default function SettingsScreen() {
         <View style={styles.divider} />
 
         <View style={styles.sectionHeaderRow}>
-          <BellRing size={18} color={theme.colors.primary} style={styles.headerIcon} />
+          <BellRing size={18} color={colors.primary} style={styles.headerIcon} />
           <Text style={styles.subSectionTitle}>Expiry Reminders</Text>
         </View>
 
@@ -249,7 +251,7 @@ export default function SettingsScreen() {
             <TextInput
               style={[styles.input, errors.reminderDays && styles.inputError]}
               placeholder="e.g. 5"
-              placeholderTextColor={theme.colors.textMuted}
+              placeholderTextColor={colors.textSecondary}
               keyboardType="numeric"
               value={value}
               onChangeText={onChange}
@@ -264,7 +266,7 @@ export default function SettingsScreen() {
       {/* ── Staff Privacy Settings ─────────────────────────────── */}
       <GlassCard style={styles.sectionCard}>
         <View style={styles.sectionHeaderRow}>
-          <ShieldAlert size={20} color={theme.colors.warning} style={styles.headerIcon} />
+          <ShieldAlert size={20} color={colors.warning} style={styles.headerIcon} />
           <Text style={styles.sectionTitle}>Privacy & Staff Access</Text>
         </View>
 
@@ -283,11 +285,11 @@ export default function SettingsScreen() {
                 value={value}
                 onValueChange={onChange}
                 trackColor={{
-                  false: theme.colors.raised,
-                  true: theme.colors.primary,
+                  false: colors.surfaceRaised,
+                  true: colors.primary,
                 }}
                 thumbColor={
-                  value ? theme.colors.textOnPrimary : theme.colors.textMuted
+                  value ? colors.textOnPrimary : colors.textSecondary
                 }
               />
             )}
@@ -298,7 +300,7 @@ export default function SettingsScreen() {
       {/* ── UPI Fee Collection Settings ─────────────────────────── */}
       <GlassCard style={styles.sectionCard}>
         <View style={styles.sectionHeaderRow}>
-          <QrCode size={20} color={theme.colors.primary} style={styles.headerIcon} />
+          <QrCode size={20} color={colors.primary} style={styles.headerIcon} />
           <Text style={styles.sectionTitle}>Fee Collection UPI</Text>
         </View>
 
@@ -314,7 +316,7 @@ export default function SettingsScreen() {
             <TextInput
               style={[styles.input, errors.upiId && styles.inputError]}
               placeholder="e.g. yourgym@upi or 9876543210@okaxis"
-              placeholderTextColor={theme.colors.textMuted}
+              placeholderTextColor={colors.textSecondary}
               autoCapitalize="none"
               autoCorrect={false}
               value={value}
@@ -334,7 +336,7 @@ export default function SettingsScreen() {
             <TextInput
               style={styles.input}
               placeholder="e.g. Gymholik Fitness Club"
-              placeholderTextColor={theme.colors.textMuted}
+              placeholderTextColor={colors.textSecondary}
               value={value}
               onChangeText={onChange}
             />
@@ -362,7 +364,7 @@ export default function SettingsScreen() {
             accessibilityRole="button"
             accessibilityLabel="Test UPI link"
           >
-            <ExternalLink size={16} color={theme.colors.primary} />
+            <ExternalLink size={16} color={colors.primary} />
             <Text style={styles.testUpiBtnText}>Test UPI link on device</Text>
           </TouchableOpacity>
         ) : null}
@@ -384,132 +386,133 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    padding: theme.spacing.lg,
-    paddingBottom: 40,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sectionCard: {
-    padding: theme.spacing.xl,
-    marginBottom: theme.spacing.lg,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  headerIcon: {
-    marginRight: 8,
-  },
-  sectionTitle: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 18,
-    color: theme.colors.text,
-  },
-  subSectionTitle: {
-    fontFamily: theme.fonts.headingMedium,
-    fontSize: 16,
-    color: theme.colors.text,
-  },
-  label: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    marginBottom: 6,
-    marginLeft: 2,
-  },
-  labelSpaced: {
-    marginTop: 12,
-  },
-  input: {
-    backgroundColor: theme.colors.raised,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.lg,
-    paddingHorizontal: 16,
-    minHeight: 52,
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 15,
-    color: theme.colors.text,
-  },
-  textArea: {
-    minHeight: 88,
-    paddingTop: 12,
-    textAlignVertical: 'top',
-  },
-  inputError: {
-    borderColor: theme.colors.error,
-  },
-  errorText: {
-    ...theme.typography.small,
-    color: theme.colors.error,
-    marginTop: 4,
-    marginBottom: 6,
-    marginLeft: 4,
-  },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  switchTextContainer: {
-    flex: 1,
-    paddingRight: 16,
-  },
-  switchLabel: {
-    fontFamily: theme.fonts.headingMedium,
-    fontSize: 15,
-    color: theme.colors.text,
-  },
-  switchDesc: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    marginTop: 3,
-    lineHeight: 18,
-  },
-  warningDesc: {
-    color: theme.colors.warning,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: theme.colors.border,
-    marginVertical: theme.spacing.lg,
-  },
-  submitContainer: {
-    marginTop: theme.spacing.sm,
-    marginBottom: theme.spacing.lg,
-  },
-  sectionDesc: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    lineHeight: 18,
-    marginBottom: theme.spacing.md,
-  },
-  testUpiBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: theme.spacing.lg,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: theme.radius.md,
-    backgroundColor: 'rgba(218, 241, 222, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.16)',
-    alignSelf: 'flex-start',
-    minHeight: 44,
-  },
-  testUpiBtnText: {
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: 14,
-    color: theme.colors.primary,
-  },
-  bottomSpacer: {
-    height: 40,
-  },
-});
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
+    container: {
+      padding: theme.spacing.lg,
+      paddingBottom: 40,
+    },
+    centered: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    sectionCard: {
+      padding: theme.spacing.xl,
+      marginBottom: theme.spacing.lg,
+    },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: theme.spacing.lg,
+    },
+    headerIcon: {
+      marginRight: 8,
+    },
+    sectionTitle: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 18,
+      color: theme.colors.text,
+    },
+    subSectionTitle: {
+      fontFamily: theme.fonts.headingMedium,
+      fontSize: 16,
+      color: theme.colors.text,
+    },
+    label: {
+      ...theme.typography.caption,
+      color: theme.colors.textSecondary,
+      marginBottom: 6,
+      marginLeft: 2,
+    },
+    labelSpaced: {
+      marginTop: 12,
+    },
+    input: {
+      backgroundColor: theme.colors.surfaceRaised,
+      borderWidth: 1.5,
+      borderColor: theme.colors.border,
+      borderRadius: theme.radius.lg,
+      paddingHorizontal: 16,
+      minHeight: 52,
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 15,
+      color: theme.colors.text,
+    },
+    textArea: {
+      minHeight: 88,
+      paddingTop: 12,
+      textAlignVertical: 'top',
+    },
+    inputError: {
+      borderColor: theme.colors.danger,
+    },
+    errorText: {
+      ...theme.typography.small,
+      color: theme.colors.danger,
+      marginTop: 4,
+      marginBottom: 6,
+      marginLeft: 4,
+    },
+    switchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 4,
+    },
+    switchTextContainer: {
+      flex: 1,
+      paddingRight: 16,
+    },
+    switchLabel: {
+      fontFamily: theme.fonts.headingMedium,
+      fontSize: 15,
+      color: theme.colors.text,
+    },
+    switchDesc: {
+      ...theme.typography.caption,
+      color: theme.colors.textSecondary,
+      marginTop: 3,
+      lineHeight: 18,
+    },
+    warningDesc: {
+      color: theme.colors.warning,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: theme.colors.border,
+      marginVertical: theme.spacing.lg,
+    },
+    submitContainer: {
+      marginTop: theme.spacing.sm,
+      marginBottom: theme.spacing.lg,
+    },
+    sectionDesc: {
+      ...theme.typography.caption,
+      color: theme.colors.textSecondary,
+      lineHeight: 18,
+      marginBottom: theme.spacing.md,
+    },
+    testUpiBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: theme.spacing.lg,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderRadius: theme.radius.md,
+      backgroundColor: theme.colors.surfaceRaised,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      alignSelf: 'flex-start',
+      minHeight: 44,
+    },
+    testUpiBtnText: {
+      fontFamily: theme.fonts.bodyMedium,
+      fontSize: 14,
+      color: theme.colors.primary,
+    },
+    bottomSpacer: {
+      height: 40,
+    },
+  });

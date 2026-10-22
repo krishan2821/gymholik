@@ -23,7 +23,7 @@ import {
   Edit2,
 } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
-import { theme } from '../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import { useAuthStore } from '../../../src/store/useAuthStore';
 import {
   useStaffList,
@@ -52,6 +52,8 @@ const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/;
 
 export default function StaffScreen() {
   const { role, user } = useAuthStore();
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const { isPhone } = useBreakpoint();
   const { data: gymSettings } = useGymSettings();
 
@@ -329,7 +331,7 @@ export default function StaffScreen() {
                 {item.name}
               </Text>
               <View style={styles.phoneRow}>
-                <Phone size={12} color={theme.colors.textMuted} style={styles.phoneIcon} />
+                <Phone size={12} color={colors.textSecondary} style={styles.phoneIcon} />
                 <Text style={styles.phone}>{item.phone}</Text>
               </View>
             </View>
@@ -347,7 +349,7 @@ export default function StaffScreen() {
             onPress={() => handleOpenEditStaff(item)}
             accessibilityRole="button"
           >
-            <Edit2 size={14} color={theme.colors.primary} style={styles.actionIcon} />
+            <Edit2 size={14} color={colors.primary} style={styles.actionIcon} />
             <Text style={styles.editBtnText}>{COMMON.EDIT}</Text>
           </TouchableOpacity>
 
@@ -378,13 +380,13 @@ export default function StaffScreen() {
     <Screen safeTop={false} contentContainerStyle={styles.container}>
       {isLoading && !isRefetching ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : isError ? (
         <ErrorState message={STAFF.LOAD_ERROR} onRetry={() => refetch()} />
       ) : !staff || staff.length === 0 ? (
         <EmptyState
-          icon={<Users size={48} color={theme.colors.primary} />}
+          icon={<Users size={48} color={colors.primary} />}
           title={STAFF.EMPTY}
           actionLabel={STAFF.ADD_BTN}
           onAction={handleOpenAddModal}
@@ -399,7 +401,7 @@ export default function StaffScreen() {
             <RefreshControl
               refreshing={isRefetching}
               onRefresh={refetch}
-              tintColor={theme.colors.primary}
+              tintColor={colors.primary}
             />
           }
         />
@@ -413,7 +415,7 @@ export default function StaffScreen() {
         accessibilityRole="button"
         accessibilityLabel={STAFF.ADD_BTN}
       >
-        <Plus size={20} color={theme.colors.textOnPrimary} style={styles.fabIcon} />
+        <Plus size={20} color={colors.textOnPrimary} style={styles.fabIcon} />
         <Text style={styles.fabText}>{STAFF.ADD_BTN}</Text>
       </TouchableOpacity>
 
@@ -438,7 +440,7 @@ export default function StaffScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={COMMON.CLOSE}
               >
-                <X color={theme.colors.textMuted} size={22} />
+                <X color={colors.textSecondary} size={22} />
               </TouchableOpacity>
             </View>
 
@@ -506,7 +508,7 @@ export default function StaffScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={COMMON.CLOSE}
               >
-                <X color={theme.colors.textMuted} size={22} />
+                <X color={colors.textSecondary} size={22} />
               </TouchableOpacity>
             </View>
 
@@ -563,7 +565,7 @@ export default function StaffScreen() {
         <View style={[styles.modalOverlay, !isPhone && styles.modalOverlayWide]}>
           <View style={[styles.modalContent, !isPhone && styles.modalContentWide]}>
             <View style={styles.successIconWrap}>
-              <CheckCircle2 size={44} color={theme.colors.primary} />
+              <CheckCircle2 size={44} color={colors.primary} />
             </View>
             <Text style={styles.successSheetTitle}>{STAFF.SUCCESS_SHEET_TITLE}</Text>
             <Text style={styles.successSheetDesc}>{STAFF.SUCCESS_SHEET_DESC}</Text>
@@ -571,7 +573,7 @@ export default function StaffScreen() {
             <View style={styles.successActions}>
               <Button
                 title={STAFF.SHARE_WHATSAPP_BTN}
-                icon={<MessageCircle size={18} color={theme.colors.textOnPrimary} />}
+                icon={<MessageCircle size={18} color={colors.textOnPrimary} />}
                 onPress={handleShareOnWhatsApp}
                 variant="primary"
                 size="lg"
@@ -592,10 +594,11 @@ export default function StaffScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.bg,
   },
   centered: {
     flex: 1,
@@ -642,7 +645,8 @@ const styles = StyleSheet.create({
   },
   phone: {
     ...theme.typography.small,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
+    fontVariant: ['tabular-nums'],
   },
   cardActionsRow: {
     flexDirection: 'row',
@@ -660,7 +664,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: theme.radius.sm,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1,
     borderColor: theme.colors.borderLight,
   },
@@ -679,8 +683,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   deactivateActionBtn: {
-    backgroundColor: theme.colors.raised,
-    borderColor: theme.colors.error,
+    backgroundColor: theme.colors.surfaceRaised,
+    borderColor: theme.colors.danger,
   },
   reactivateActionBtn: {
     backgroundColor: theme.colors.primary,
@@ -691,7 +695,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.headingSemiBold,
   },
   deactivateText: {
-    color: theme.colors.error,
+    color: theme.colors.danger,
   },
   reactivateText: {
     color: theme.colors.textOnPrimary,
@@ -717,7 +721,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: theme.colors.overlayEnd,
+    backgroundColor: theme.colors.scrim,
     justifyContent: 'flex-end',
     alignItems: 'center',
   },

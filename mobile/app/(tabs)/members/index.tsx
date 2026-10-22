@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -41,7 +41,7 @@ import { AddMemberModal } from '../../../src/components/AddMemberModal';
 import { CollectPaymentModal } from '../../../src/components/CollectPaymentModal';
 import { isPhoneMasked } from '../../../src/components/MaskedPhone';
 import { useBreakpoint } from '../../../src/hooks/useBreakpoint';
-import { theme } from '../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import { formatMoney } from '../../../src/utils/formatters';
 import { openPhone, openWhatsApp } from '../../../src/utils/safeLinking';
 import { MEMBERS } from '../../../src/constants/strings';
@@ -50,6 +50,8 @@ const PAGE_SIZE = 10;
 
 export default function MembersListScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const rawInsets = useSafeAreaInsets();
   const insets = Platform.OS === 'web' ? { top: 0, right: 0, bottom: 0, left: 0 } : (rawInsets ?? { top: 0, right: 0, bottom: 0, left: 0 });
   const { role } = useAuthStore();
@@ -161,11 +163,11 @@ export default function MembersListScreen() {
         <PageHeader title={MEMBERS.SCREEN_TITLE} />
         <View style={styles.header}>
           <View style={styles.searchContainer}>
-            <Search color={theme.colors.primary} size={20} />
+            <Search color={colors.primary} size={20} />
             <TextInput
               style={styles.searchInput}
               placeholder={MEMBERS.SEARCH_PLACEHOLDER}
-              placeholderTextColor={theme.colors.textMuted}
+              placeholderTextColor={colors.textSecondary}
               value={searchTerm ?? ''}
               editable={false}
             />
@@ -197,18 +199,18 @@ export default function MembersListScreen() {
           <View style={styles.desktopTopLeft}>
             <Text style={styles.desktopScreenTitle}>{MEMBERS.SCREEN_TITLE}</Text>
             <View style={styles.desktopSearchWrap}>
-              <Search color={theme.colors.primary} size={18} />
+              <Search color={colors.primary} size={18} />
               <TextInput
                 ref={searchInputRef}
                 style={styles.desktopSearchInput}
                 placeholder="Search name or mobile... (Press / to focus)"
-                placeholderTextColor={theme.colors.textMuted}
+                placeholderTextColor={colors.textSecondary}
                 value={searchTerm ?? ''}
                 onChangeText={setSearchTerm}
               />
               {searchTerm ? (
                 <TouchableOpacity onPress={() => setSearchTerm('')}>
-                  <X size={16} color={theme.colors.textMuted} />
+                  <X size={16} color={colors.textSecondary} />
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -226,7 +228,7 @@ export default function MembersListScreen() {
             {!isTrainer && (
               <Button
                 title="Add Member"
-                icon={<Plus size={18} color="#051F20" />}
+                icon={<Plus size={18} color={colors.textOnPrimary} />}
                 variant="primary"
                 size="md"
                 onPress={() => setShowAddModal(true)}
@@ -332,16 +334,19 @@ export default function MembersListScreen() {
                       </View>
 
                       {/* Due */}
-                      <Text
-                        style={[
-                          styles.tableTd,
-                          styles.tableDueText,
-                          { flex: 1.2, textAlign: 'right' },
-                          duePaise > 0 && { color: theme.colors.error },
-                        ]}
-                      >
-                        {isTrainer ? '—' : duePaise > 0 ? formatMoney(duePaise) : '₹0'}
-                      </Text>
+                      <View style={[styles.tableTd, { flex: 1.2, alignItems: 'flex-end', justifyContent: 'center' }]}>
+                        {isTrainer ? (
+                          <Text style={styles.tableText}>—</Text>
+                        ) : duePaise > 0 ? (
+                          <Badge
+                            label={formatMoney(duePaise)}
+                            variant="due"
+                            size="sm"
+                          />
+                        ) : (
+                          <Text style={[styles.tableText, { fontVariant: ['tabular-nums'] }]}>₹0</Text>
+                        )}
+                      </View>
                     </TouchableOpacity>
                   );
                 })
@@ -361,7 +366,7 @@ export default function MembersListScreen() {
                     disabled={currentPage === 1}
                     onPress={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   >
-                    <ChevronLeft size={16} color={currentPage === 1 ? 'rgba(218, 241, 222, 0.3)' : '#DAF1DE'} />
+                    <ChevronLeft size={16} color={currentPage === 1 ? colors.border : colors.text} />
                     <Text style={[styles.pageBtnText, currentPage === 1 && styles.pageBtnTextDisabled]}>Prev</Text>
                   </TouchableOpacity>
 
@@ -375,7 +380,7 @@ export default function MembersListScreen() {
                     onPress={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   >
                     <Text style={[styles.pageBtnText, currentPage === totalPages && styles.pageBtnTextDisabled]}>Next</Text>
-                    <ChevronRight size={16} color={currentPage === totalPages ? 'rgba(218, 241, 222, 0.3)' : '#DAF1DE'} />
+                    <ChevronRight size={16} color={currentPage === totalPages ? colors.border : colors.text} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -410,12 +415,12 @@ export default function MembersListScreen() {
                       style={styles.detailContactBtn}
                       onPress={() => openPhone(selectedMember.phone)}
                     >
-                      <Phone size={15} color="#DAF1DE" />
+                      <Phone size={15} color={colors.text} />
                       <Text style={styles.detailContactText}>Call</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      style={[styles.detailContactBtn, { backgroundColor: '#8EB69B' }]}
+                      style={[styles.detailContactBtn, { backgroundColor: colors.primary }]}
                       onPress={() =>
                         openWhatsApp(
                           selectedMember.phone,
@@ -423,8 +428,8 @@ export default function MembersListScreen() {
                         )
                       }
                     >
-                      <MessageCircle size={15} color="#051F20" />
-                      <Text style={[styles.detailContactText, { color: '#051F20' }]}>WhatsApp</Text>
+                      <MessageCircle size={15} color={colors.textOnPrimary} />
+                      <Text style={[styles.detailContactText, { color: colors.textOnPrimary }]}>WhatsApp</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -478,24 +483,26 @@ export default function MembersListScreen() {
                     </View>
                     <View style={styles.detailInfoRow}>
                       <Text style={styles.detailLabel}>Pending Due</Text>
-                      <Text
-                        style={[
-                          styles.detailValue,
-                          (selectedMember.currentMembership?.duePaise || 0) > 0 && {
-                            color: theme.colors.error,
-                            fontWeight: '700',
-                          },
-                        ]}
-                      >
-                        {formatMoney(selectedMember.currentMembership?.duePaise || 0)}
-                      </Text>
+                      {(selectedMember.currentMembership?.duePaise || 0) > 0 ? (
+                        <Badge
+                          label={formatMoney(selectedMember.currentMembership?.duePaise || 0)}
+                          variant="due"
+                          size="sm"
+                        />
+                      ) : (
+                        <Badge
+                          label={formatMoney(0)}
+                          variant="paid"
+                          size="sm"
+                        />
+                      )}
                     </View>
 
                     <View style={styles.detailActionsCol}>
                       {(selectedMember.currentMembership?.duePaise || 0) > 0 && (
                         <Button
                           title="Collect Due Fee"
-                          icon={<CreditCard size={16} color="#051F20" />}
+                          icon={<CreditCard size={16} color={colors.textOnPrimary} />}
                           variant="primary"
                           size="md"
                           onPress={() => {
@@ -516,7 +523,7 @@ export default function MembersListScreen() {
               </ScrollView>
             ) : (
               <View style={styles.emptyDetailPanel}>
-                <User size={40} color="rgba(218, 241, 222, 0.3)" />
+                <User size={40} color={colors.border} />
                 <Text style={styles.emptyDetailText}>Select a member to view details</Text>
               </View>
             )}
@@ -544,16 +551,16 @@ export default function MembersListScreen() {
 
   // ── MOBILE VIEW: FlatList of Cards ───────────────────────────────────
   return (
-    <Screen>
+    <Screen safeBottom={false}>
       <PageHeader title={MEMBERS.SCREEN_TITLE} />
       <View style={styles.header}>
         <View style={styles.searchContainer}>
-          <Search color={theme.colors.primary} size={20} />
+          <Search color={colors.primary} size={20} />
           <TextInput
             ref={searchInputRef}
             style={styles.searchInput}
             placeholder={MEMBERS.SEARCH_PLACEHOLDER}
-            placeholderTextColor={theme.colors.textMuted}
+            placeholderTextColor={colors.textSecondary}
             value={searchTerm ?? ''}
             onChangeText={setSearchTerm}
           />
@@ -575,7 +582,7 @@ export default function MembersListScreen() {
         getItemLayout={getItemLayout}
         contentContainerStyle={[
           styles.listContent,
-          { paddingBottom: getScreenBottomPadding(insets.bottom) },
+          { paddingBottom: getScreenBottomPadding(insets.bottom, !isTrainer) },
         ]}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
@@ -614,351 +621,356 @@ export default function MembersListScreen() {
           accessibilityLabel={MEMBERS.ADD_MEMBER}
           activeOpacity={0.85}
         >
-          <Plus color={theme.colors.textOnPrimary} size={26} />
+          <Plus color={colors.textOnPrimary} size={26} />
         </TouchableOpacity>
       )}
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.raised,
-    borderRadius: theme.radius.full,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingHorizontal: theme.spacing.md,
-    minHeight: 48,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: theme.spacing.sm,
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 15,
-    color: theme.colors.text,
-  },
-  filtersContainer: {
-    backgroundColor: theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  listContent: {
-    padding: theme.spacing.md,
-    paddingBottom: 130,
-    flexGrow: 1,
-  },
-  fab: {
-    position: 'absolute',
-    right: theme.spacing.lg,
-    backgroundColor: theme.colors.primary,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.shadows.glow,
-    zIndex: 10,
-  },
+const makeStyles = (theme: ThemeValue) => {
+  const { colors } = theme;
+  return StyleSheet.create({
+    centered: {
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    header: {
+      padding: theme.spacing.md,
+      backgroundColor: colors.bg,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    searchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surfaceRaised,
+      borderRadius: theme.radius.full,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: theme.spacing.md,
+      minHeight: 48,
+    },
+    searchInput: {
+      flex: 1,
+      marginLeft: theme.spacing.sm,
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 15,
+      color: colors.text,
+    },
+    filtersContainer: {
+      backgroundColor: colors.bg,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    listContent: {
+      padding: theme.spacing.md,
+      paddingBottom: 130,
+      flexGrow: 1,
+    },
+    fab: {
+      position: 'absolute',
+      right: theme.spacing.lg,
+      backgroundColor: colors.primary,
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...theme.shadows.glow,
+      zIndex: 10,
+    },
 
-  // Desktop Specific Styles
-  desktopTopBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    flexWrap: 'wrap',
-    gap: 16,
-  },
-  desktopTopLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 20,
-    flex: 1,
-  },
-  desktopScreenTitle: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 22,
-    color: '#DAF1DE',
-    fontWeight: '700',
-  },
-  desktopSearchWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(11, 43, 38, 0.8)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.14)',
-    paddingHorizontal: 12,
-    width: 320,
-    height: 42,
-  },
-  desktopSearchInput: {
-    flex: 1,
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 13,
-    color: '#DAF1DE',
-  },
-  desktopTopRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  desktopContentRow: {
-    flex: 1,
-    flexDirection: 'row',
-    gap: 20,
-    minHeight: 560,
-  },
-  desktopTableCard: {
-    flex: 1,
-    backgroundColor: '#072728',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.1)',
-    overflow: 'hidden',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'space-between',
-  },
-  desktopTableScroll: {
-    flex: 1,
-  },
-  desktopTableHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#0B2B26',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(218, 241, 222, 0.12)',
-    ...(Platform.OS === 'web'
-      ? ({
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
-        } as any)
-      : {}),
-  },
-  tableTh: {
-    fontFamily: theme.fonts.headingSemiBold,
-    fontSize: 11,
-    color: 'rgba(218, 241, 222, 0.65)',
-    letterSpacing: 0.8,
-    fontWeight: '600',
-  },
-  desktopTableRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(218, 241, 222, 0.05)',
-    ...(Platform.OS === 'web'
-      ? ({
-          cursor: 'pointer',
-          transition: 'background 0.15s ease',
-        } as any)
-      : {}),
-  },
-  desktopTableRowSelected: {
-    backgroundColor: 'rgba(142, 182, 155, 0.14)',
-    borderLeftWidth: 3,
-    borderLeftColor: '#8EB69B',
-  },
-  tableTd: {
-    paddingRight: 8,
-  },
-  tableMemberName: {
-    fontFamily: theme.fonts.headingMedium,
-    fontSize: 13,
-    color: '#DAF1DE',
-    fontWeight: '600',
-  },
-  tableMemberCode: {
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 10,
-    color: theme.colors.textMuted,
-  },
-  tableText: {
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 13,
-    color: 'rgba(218, 241, 222, 0.75)',
-  },
-  tableDueText: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 13,
-    color: '#DAF1DE',
-  },
-  desktopEmptyTable: {
-    padding: 32,
-    alignItems: 'center',
-  },
-  desktopPagination: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(218, 241, 222, 0.08)',
-    backgroundColor: 'rgba(5, 31, 32, 0.5)',
-  },
-  paginationText: {
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 12,
-    color: theme.colors.textMuted,
-  },
-  paginationButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  pageBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: 'rgba(218, 241, 222, 0.08)',
-    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
-  },
-  pageBtnDisabled: {
-    opacity: 0.4,
-    ...(Platform.OS === 'web' ? ({ cursor: 'not-allowed' } as any) : {}),
-  },
-  pageBtnText: {
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: 12,
-    color: '#DAF1DE',
-  },
-  pageBtnTextDisabled: {
-    color: 'rgba(218, 241, 222, 0.4)',
-  },
-  pageNumberText: {
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: 12,
-    color: theme.colors.primary,
-  },
+    // Desktop Specific Styles
+    desktopTopBar: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 20,
+      flexWrap: 'wrap',
+      gap: 16,
+    },
+    desktopTopLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 20,
+      flex: 1,
+    },
+    desktopScreenTitle: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 22,
+      color: colors.text,
+      fontWeight: '700',
+    },
+    desktopSearchWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: colors.surface,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 12,
+      width: 320,
+      height: 42,
+    },
+    desktopSearchInput: {
+      flex: 1,
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 13,
+      color: colors.text,
+    },
+    desktopTopRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+    },
+    desktopContentRow: {
+      flex: 1,
+      flexDirection: 'row',
+      gap: 20,
+      minHeight: 560,
+    },
+    desktopTableCard: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+    },
+    desktopTableScroll: {
+      flex: 1,
+    },
+    desktopTableHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      ...(Platform.OS === 'web'
+        ? ({
+            position: 'sticky',
+            top: 0,
+            zIndex: 10,
+          } as any)
+        : {}),
+    },
+    tableTh: {
+      fontFamily: theme.fonts.headingSemiBold,
+      fontSize: 11,
+      color: colors.textSecondary,
+      letterSpacing: 0.8,
+      fontWeight: '600',
+    },
+    desktopTableRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      ...(Platform.OS === 'web'
+        ? ({
+            cursor: 'pointer',
+            transition: 'background 0.15s ease',
+          } as any)
+        : {}),
+    },
+    desktopTableRowSelected: {
+      backgroundColor: colors.primarySoft,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.primary,
+    },
+    tableTd: {
+      paddingRight: 8,
+    },
+    tableMemberName: {
+      fontFamily: theme.fonts.headingMedium,
+      fontSize: 13,
+      color: colors.text,
+      fontWeight: '600',
+    },
+    tableMemberCode: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 10,
+      color: colors.textSecondary,
+    },
+    tableText: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 13,
+      color: colors.textSecondary,
+    },
+    tableDueText: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 13,
+      color: colors.text,
+      fontVariant: ['tabular-nums'],
+    },
+    desktopEmptyTable: {
+      padding: 32,
+      alignItems: 'center',
+    },
+    desktopPagination: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      backgroundColor: colors.scrim,
+    },
+    paginationText: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+    paginationButtons: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    pageBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 6,
+      backgroundColor: colors.surfaceRaised,
+      ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+    },
+    pageBtnDisabled: {
+      opacity: 0.4,
+      ...(Platform.OS === 'web' ? ({ cursor: 'not-allowed' } as any) : {}),
+    },
+    pageBtnText: {
+      fontFamily: theme.fonts.bodyMedium,
+      fontSize: 12,
+      color: colors.text,
+    },
+    pageBtnTextDisabled: {
+      color: colors.textSecondary,
+    },
+    pageNumberText: {
+      fontFamily: theme.fonts.bodyMedium,
+      fontSize: 12,
+      color: colors.primary,
+    },
 
-  // Detail Panel
-  desktopDetailPanel: {
-    width: 380,
-    backgroundColor: '#072728',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.1)',
-    overflow: 'hidden',
-  },
-  detailScroll: {
-    padding: 20,
-  },
-  detailHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(218, 241, 222, 0.08)',
-  },
-  detailHeaderInfo: {
-    flex: 1,
-  },
-  detailMemberName: {
-    fontFamily: theme.fonts.headingBold,
-    fontSize: 17,
-    color: '#DAF1DE',
-  },
-  detailMemberCode: {
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 11,
-    color: theme.colors.textMuted,
-    marginTop: 2,
-  },
-  detailContactRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 14,
-  },
-  detailContactBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: 'rgba(218, 241, 222, 0.1)',
-    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
-  },
-  detailContactText: {
-    fontFamily: theme.fonts.headingMedium,
-    fontSize: 12,
-    color: '#DAF1DE',
-    fontWeight: '600',
-  },
-  detailCard: {
-    backgroundColor: 'rgba(11, 43, 38, 0.6)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.08)',
-    padding: 14,
-    marginTop: 14,
-  },
-  detailSectionTitle: {
-    fontFamily: theme.fonts.headingSemiBold,
-    fontSize: 11,
-    color: theme.colors.textMuted,
-    letterSpacing: 0.8,
-    marginBottom: 10,
-  },
-  detailInfoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(218, 241, 222, 0.04)',
-  },
-  detailLabel: {
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 12,
-    color: theme.colors.textMuted,
-  },
-  detailValue: {
-    fontFamily: theme.fonts.bodyMedium,
-    fontSize: 12,
-    color: '#DAF1DE',
-    fontWeight: '500',
-  },
-  detailActionsCol: {
-    gap: 8,
-    marginTop: 12,
-  },
-  emptyDetailPanel: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-    gap: 12,
-  },
-  emptyDetailText: {
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 13,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-  },
-});
+    // Detail Panel
+    desktopDetailPanel: {
+      width: 380,
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: 'hidden',
+    },
+    detailScroll: {
+      padding: 20,
+    },
+    detailHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      paddingBottom: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    detailHeaderInfo: {
+      flex: 1,
+    },
+    detailMemberName: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 17,
+      color: colors.text,
+    },
+    detailMemberCode: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 11,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    detailContactRow: {
+      flexDirection: 'row',
+      gap: 10,
+      marginTop: 14,
+    },
+    detailContactBtn: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 8,
+      borderRadius: 8,
+      backgroundColor: colors.surfaceRaised,
+      ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+    },
+    detailContactText: {
+      fontFamily: theme.fonts.headingMedium,
+      fontSize: 12,
+      color: colors.text,
+      fontWeight: '600',
+    },
+    detailCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 14,
+      marginTop: 14,
+    },
+    detailSectionTitle: {
+      fontFamily: theme.fonts.headingSemiBold,
+      fontSize: 11,
+      color: colors.textSecondary,
+      letterSpacing: 0.8,
+      marginBottom: 10,
+    },
+    detailInfoRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 6,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    detailLabel: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+    detailValue: {
+      fontFamily: theme.fonts.bodyMedium,
+      fontSize: 12,
+      color: colors.text,
+      fontWeight: '500',
+      fontVariant: ['tabular-nums'],
+    },
+    detailActionsCol: {
+      gap: 8,
+      marginTop: 12,
+    },
+    emptyDetailPanel: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 32,
+      gap: 12,
+    },
+    emptyDetailText: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 13,
+      color: colors.textSecondary,
+      textAlign: 'center',
+    },
+  });
+};

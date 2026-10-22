@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { History, Shield, User, Clock, ArrowRight } from 'lucide-react-native';
 import { format, parseISO } from 'date-fns';
-import { theme } from '../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import { useAuthStore } from '../../../src/store/useAuthStore';
 import { useAuditLogs, AuditLogItem } from '../../../src/api/audit';
 import { Screen } from '../../../src/components/Screen';
@@ -22,6 +22,8 @@ import { AUDIT_LOGS, ERRORS } from '../../../src/constants/strings';
 
 export default function AuditLogScreen() {
   const { role } = useAuthStore();
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const [page, setPage] = useState(0);
 
   const { data, isLoading, isError, refetch, isRefetching } = useAuditLogs({
@@ -40,7 +42,7 @@ export default function AuditLogScreen() {
   if (isLoading && !isRefetching) {
     return (
       <Screen safeTop={false} style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </Screen>
     );
   }
@@ -82,7 +84,7 @@ export default function AuditLogScreen() {
             size="sm"
           />
           <View style={styles.timeRow}>
-            <Clock size={12} color={theme.colors.textMuted} style={{ marginRight: 4 }} />
+            <Clock size={12} color={colors.textSecondary} style={{ marginRight: 4 }} />
             <Text style={styles.timeText}>{formattedDate}</Text>
           </View>
         </View>
@@ -93,7 +95,7 @@ export default function AuditLogScreen() {
 
         <View style={styles.footerRow}>
           <View style={styles.actorChip}>
-            <Shield size={12} color={theme.colors.primary} style={{ marginRight: 4 }} />
+            <Shield size={12} color={colors.primary} style={{ marginRight: 4 }} />
             <Text style={styles.actorText}>
               {item.actorRole || 'OWNER'}
             </Text>
@@ -112,7 +114,7 @@ export default function AuditLogScreen() {
     <Screen safeTop={false} contentContainerStyle={styles.container}>
       {logs.length === 0 ? (
         <EmptyState
-          icon={<History size={48} color={theme.colors.primary} />}
+          icon={<History size={48} color={colors.primary} />}
           title={AUDIT_LOGS.EMPTY}
         />
       ) : (
@@ -125,7 +127,7 @@ export default function AuditLogScreen() {
             <RefreshControl
               refreshing={isRefetching}
               onRefresh={refetch}
-              tintColor={theme.colors.primary}
+              tintColor={colors.primary}
             />
           }
           onEndReachedThreshold={0.5}
@@ -135,69 +137,70 @@ export default function AuditLogScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  listContent: {
-    padding: theme.spacing.md,
-    paddingBottom: 40,
-  },
-  logCard: {
-    marginBottom: theme.spacing.md,
-  },
-  cardContent: {
-    padding: theme.spacing.md,
-  },
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-  },
-  timeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  timeText: {
-    ...theme.typography.small,
-    color: theme.colors.textMuted,
-  },
-  detailsText: {
-    ...theme.typography.body,
-    fontSize: 14,
-    color: theme.colors.text,
-    marginBottom: theme.spacing.sm,
-  },
-  footerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: theme.spacing.xs,
-    paddingTop: theme.spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.borderLight,
-  },
-  actorChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.raised,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 2,
-    borderRadius: theme.radius.sm,
-  },
-  actorText: {
-    ...theme.typography.small,
-    color: theme.colors.primary,
-    fontFamily: theme.fonts.headingSemiBold,
-  },
-  targetText: {
-    ...theme.typography.small,
-    color: theme.colors.textMuted,
-  },
-});
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.bg,
+    },
+    centered: {
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    listContent: {
+      padding: theme.spacing.md,
+      paddingBottom: 40,
+    },
+    logCard: {
+      marginBottom: theme.spacing.md,
+    },
+    cardContent: {
+      padding: theme.spacing.md,
+    },
+    topRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: theme.spacing.sm,
+    },
+    timeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    timeText: {
+      ...theme.typography.small,
+      color: theme.colors.textSecondary,
+    },
+    detailsText: {
+      ...theme.typography.body,
+      fontSize: 14,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.sm,
+    },
+    footerRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: theme.spacing.xs,
+      paddingTop: theme.spacing.xs,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.borderLight,
+    },
+    actorChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.surfaceRaised,
+      paddingHorizontal: theme.spacing.sm,
+      paddingVertical: 2,
+      borderRadius: theme.radius.sm,
+    },
+    actorText: {
+      ...theme.typography.small,
+      color: theme.colors.primary,
+      fontFamily: theme.fonts.headingSemiBold,
+    },
+    targetText: {
+      ...theme.typography.small,
+      color: theme.colors.textSecondary,
+    },
+  });

@@ -14,7 +14,7 @@ import { showConfirmDialog } from '../../../../../src/components/ConfirmDialog';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { safeBack } from '../../../../../src/utils/navigation';
 import { Search, Check, Users, IndianRupee, Dumbbell, FileText } from 'lucide-react-native';
-import { theme } from '../../../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../../../src/theme/ThemeContext';
 import { useAuthStore } from '../../../../../src/store/useAuthStore';
 import {
   useTrainer,
@@ -32,6 +32,8 @@ import { ErrorState } from '../../../../../src/components/ErrorState';
 import { ASSIGN_MEMBERS, COMMON, ERRORS } from '../../../../../src/constants/strings';
 
 export default function AssignMembersScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { role } = useAuthStore();
@@ -128,7 +130,7 @@ export default function AssignMembersScreen() {
   if (isLoading && !membersData) {
     return (
       <Screen safeTop={false} style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </Screen>
     );
   }
@@ -202,7 +204,7 @@ export default function AssignMembersScreen() {
               isAssignedToThisTrainer && styles.checkboxBoxDisabled,
             ]}
           >
-            {isSelected && <Check size={16} color={theme.colors.textOnPrimary} />}
+            {isSelected && <Check size={16} color={colors.textOnPrimary} />}
           </View>
         </GlassCard>
       </TouchableOpacity>
@@ -213,11 +215,11 @@ export default function AssignMembersScreen() {
     <Screen safeTop={false} keyboardAvoiding contentContainerStyle={styles.container}>
       {/* ── Search Bar ─────────────────────────────────────────── */}
       <View style={styles.searchBox}>
-        <Search size={18} color={theme.colors.textMuted} style={styles.searchIcon} />
+        <Search size={18} color={colors.textSecondary} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
           placeholder={ASSIGN_MEMBERS.SEARCH_PLACEHOLDER}
-          placeholderTextColor={theme.colors.textMuted}
+          placeholderTextColor={colors.textSecondary}
           value={searchTerm}
           onChangeText={setSearchTerm}
         />
@@ -226,7 +228,7 @@ export default function AssignMembersScreen() {
       {/* ── Members List ───────────────────────────────────────── */}
       {allMembers.length === 0 ? (
         <EmptyState
-          icon={<Users size={40} color={theme.colors.primary} />}
+          icon={<Users size={40} color={colors.primary} />}
           title={ASSIGN_MEMBERS.NO_MEMBERS_FOUND}
         />
       ) : (
@@ -247,7 +249,7 @@ export default function AssignMembersScreen() {
             <TextInput
               style={styles.fieldInput}
               placeholder="e.g. 2500"
-              placeholderTextColor={theme.colors.textMuted}
+              placeholderTextColor={colors.textSecondary}
               keyboardType="numeric"
               value={ptFee}
               onChangeText={setPtFee}
@@ -258,7 +260,7 @@ export default function AssignMembersScreen() {
             <TextInput
               style={styles.fieldInput}
               placeholder="e.g. 12"
-              placeholderTextColor={theme.colors.textMuted}
+              placeholderTextColor={colors.textSecondary}
               keyboardType="numeric"
               value={sessionsTotal}
               onChangeText={setSessionsTotal}
@@ -271,7 +273,7 @@ export default function AssignMembersScreen() {
           <TextInput
             style={styles.fieldInput}
             placeholder="Special instructions or batch timing"
-            placeholderTextColor={theme.colors.textMuted}
+            placeholderTextColor={colors.textSecondary}
             value={notes}
             onChangeText={setNotes}
           />
@@ -295,10 +297,10 @@ export default function AssignMembersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: ThemeValue) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.bg,
   },
   centered: {
     flex: 1,
@@ -308,7 +310,7 @@ const styles = StyleSheet.create({
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     marginHorizontal: theme.spacing.md,
     marginTop: theme.spacing.sm,
     marginBottom: theme.spacing.sm,
@@ -360,7 +362,7 @@ const styles = StyleSheet.create({
   },
   memberSub: {
     ...theme.typography.small,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginTop: 2,
   },
   checkboxBox: {
@@ -377,7 +379,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.primary,
   },
   checkboxBoxDisabled: {
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderColor: theme.colors.borderLight,
   },
   bottomCard: {
@@ -404,11 +406,11 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: 4,
   },
   fieldInput: {
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.md,

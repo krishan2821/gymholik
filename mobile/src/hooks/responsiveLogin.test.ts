@@ -117,12 +117,12 @@ test('Responsive Login Breakpoints and Layout Assertions', async (t) => {
   });
 
   await t.test('Disabled Primary Button colors and contrast', () => {
-    // Fill #163832, 1px border #235347, text #8EB69B
-    const bg = '#163832';
-    const border = '#235347';
-    const text = '#8EB69B';
-    assert.strictEqual(bg, '#163832');
-    assert.strictEqual(border, '#235347');
-    assert.strictEqual(text, '#8EB69B');
+    // Uses semantic tokens: surfaceRaised, border, textSecondary
+    const bg = theme.colors.surfaceRaised;
+    const border = theme.colors.border;
+    const text = theme.colors.textSecondary;
+    assert.strictEqual(bg, theme.colors.surfaceRaised);
+    assert.strictEqual(border, theme.colors.border);
+    assert.strictEqual(text, theme.colors.textSecondary);
   });
 });

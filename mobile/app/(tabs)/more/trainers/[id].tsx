@@ -28,7 +28,7 @@ import {
 } from 'lucide-react-native';
 import { format, parseISO } from 'date-fns';
 import Toast from 'react-native-toast-message';
-import { theme } from '../../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../../src/theme/ThemeContext';
 import { useAuthStore } from '../../../../src/store/useAuthStore';
 import {
   useTrainer,
@@ -56,6 +56,8 @@ import { formatMoney } from '../../../../src/utils/formatters';
 const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/;
 
 export default function TrainerDetailScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { role } = useAuthStore();
@@ -130,7 +132,7 @@ export default function TrainerDetailScreen() {
   if (isLoading && !isRefetching) {
     return (
       <Screen safeTop={false} style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </Screen>
     );
   }
@@ -400,7 +402,7 @@ export default function TrainerDetailScreen() {
             accessibilityLabel="Remove member assignment"
             disabled={endAssignment.isPending}
           >
-            <Trash2 size={16} color={theme.colors.error} />
+            <Trash2 size={16} color={colors.danger} />
           </TouchableOpacity>
         </View>
 
@@ -408,7 +410,7 @@ export default function TrainerDetailScreen() {
           <View style={styles.assignmentDetailsRow}>
             {formattedStart ? (
               <View style={styles.detailPill}>
-                <Calendar size={12} color={theme.colors.textMuted} style={styles.pillIcon} />
+                <Calendar size={12} color={colors.textSecondary} style={styles.pillIcon} />
                 <Text style={styles.detailPillText}>Started {formattedStart}</Text>
               </View>
             ) : null}
@@ -443,7 +445,7 @@ export default function TrainerDetailScreen() {
             </View>
             <View style={styles.phoneActionRow}>
               <View style={styles.phoneRow}>
-                <Phone size={14} color={theme.colors.primary} style={styles.phoneIcon} />
+                <Phone size={14} color={colors.primary} style={styles.phoneIcon} />
                 <Text style={styles.phoneText}>{trainer.phone || '—'}</Text>
               </View>
               <TouchableOpacity
@@ -466,7 +468,7 @@ export default function TrainerDetailScreen() {
               onPress={handleOpenEditModal}
               accessibilityRole="button"
             >
-              <Edit2 size={14} color={theme.colors.primary} style={styles.editIcon} />
+              <Edit2 size={14} color={colors.primary} style={styles.editIcon} />
               <Text style={styles.editTypesBtnText}>{TRAINERS.EDIT_DETAILS_BTN}</Text>
             </TouchableOpacity>
           </View>
@@ -490,7 +492,7 @@ export default function TrainerDetailScreen() {
         <View style={styles.bannerContainer}>
           <GlassCard style={styles.bannerCard} contentStyle={styles.bannerContent}>
             <View style={styles.bannerHeader}>
-              <AlertTriangle size={20} color={theme.colors.warning} style={styles.bannerIcon} />
+              <AlertTriangle size={20} color={colors.warning} style={styles.bannerIcon} />
               <Text style={styles.bannerTitle}>{TRAINERS.DEACTIVATED_BANNER_TITLE}</Text>
             </View>
             <Text style={styles.bannerDesc}>{TRAINERS.DEACTIVATED_BANNER_MSG}</Text>
@@ -502,7 +504,7 @@ export default function TrainerDetailScreen() {
               >
                 <ArrowRightLeft
                   size={16}
-                  color={theme.colors.textOnPrimary}
+                  color={colors.textOnPrimary}
                   style={styles.reassignIcon}
                 />
                 <Text style={styles.reassignActionText}>{TRAINERS.REASSIGN_BTN}</Text>
@@ -515,7 +517,7 @@ export default function TrainerDetailScreen() {
       {/* ── Assigned Members Section ───────────────────────────── */}
       <View style={styles.assignmentsHeaderBar}>
         <View style={styles.assignmentsCountRow}>
-          <Users size={18} color={theme.colors.primary} style={styles.usersIcon} />
+          <Users size={18} color={colors.primary} style={styles.usersIcon} />
           <Text style={styles.sectionTitle}>
             {TRAINERS.ASSIGNED_MEMBERS} ({assignments.length})
           </Text>
@@ -524,7 +526,7 @@ export default function TrainerDetailScreen() {
         {isActive && (
           <Button
             title={TRAINERS.ASSIGN_MEMBERS_BTN}
-            icon={<UserPlus size={16} color={theme.colors.textOnPrimary} />}
+            icon={<UserPlus size={16} color={colors.textOnPrimary} />}
             onPress={() => router.push(`/(tabs)/more/trainers/${trainer.id}/assign`)}
             size="sm"
             fullWidth={false}
@@ -535,7 +537,7 @@ export default function TrainerDetailScreen() {
       {assignments.length === 0 ? (
         <View style={styles.emptyAssignmentsWrap}>
           <EmptyState
-            icon={<Users size={40} color={theme.colors.primary} />}
+            icon={<Users size={40} color={colors.primary} />}
             title={TRAINERS.NO_MEMBERS_ASSIGNED}
           />
         </View>
@@ -549,7 +551,7 @@ export default function TrainerDetailScreen() {
             <RefreshControl
               refreshing={isRefetching}
               onRefresh={handleRefetchAll}
-              tintColor={theme.colors.primary}
+              tintColor={colors.primary}
             />
           }
         />
@@ -593,7 +595,7 @@ export default function TrainerDetailScreen() {
                 onPress={() => setEditModalVisible(false)}
                 disabled={patchTrainer.isPending}
               >
-                <X size={22} color={theme.colors.textMuted} />
+                <X size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -616,7 +618,7 @@ export default function TrainerDetailScreen() {
                 onPress={() => setNewTypeModalVisible(true)}
                 disabled={patchTrainer.isPending}
               >
-                <Plus size={14} color={theme.colors.primary} style={styles.editIcon} />
+                <Plus size={14} color={colors.primary} style={styles.editIcon} />
                 <Text style={styles.editTypesBtnText}>{TRAINERS.ADD_NEW_TYPE_LINK}</Text>
               </TouchableOpacity>
             </View>
@@ -651,7 +653,7 @@ export default function TrainerDetailScreen() {
                           ]}
                         >
                           {isSelected && (
-                            <Check size={14} color={theme.colors.textOnPrimary} />
+                            <Check size={14} color={colors.textOnPrimary} />
                           )}
                         </View>
                       </TouchableOpacity>
@@ -690,7 +692,7 @@ export default function TrainerDetailScreen() {
                 onPress={() => setNewTypeModalVisible(false)}
                 disabled={createTrainerType.isPending}
               >
-                <X size={20} color={theme.colors.textMuted} />
+                <X size={20} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
             <Input
@@ -727,12 +729,12 @@ export default function TrainerDetailScreen() {
                 onPress={() => setPhoneModalVisible(false)}
                 disabled={patchTrainer.isPending}
               >
-                <X size={22} color={theme.colors.textMuted} />
+                <X size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.warningBox}>
-              <AlertTriangle size={18} color={theme.colors.warning} style={styles.bannerIcon} />
+              <AlertTriangle size={18} color={colors.warning} style={styles.bannerIcon} />
               <Text style={styles.warningText}>{TRAINERS.CHANGE_PHONE_WARNING}</Text>
             </View>
 
@@ -778,7 +780,7 @@ export default function TrainerDetailScreen() {
                 onPress={() => setReassignModalVisible(false)}
                 disabled={reassignTrainer.isPending}
               >
-                <X size={22} color={theme.colors.textMuted} />
+                <X size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -812,7 +814,7 @@ export default function TrainerDetailScreen() {
                         isSelected && styles.checkboxBoxActive,
                       ]}
                     >
-                      {isSelected && <Check size={14} color={theme.colors.textOnPrimary} />}
+                      {isSelected && <Check size={14} color={colors.textOnPrimary} />}
                     </View>
                   </TouchableOpacity>
                 );
@@ -833,10 +835,10 @@ export default function TrainerDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: ThemeValue) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.bg,
   },
   centered: {
     flex: 1,
@@ -888,7 +890,7 @@ const styles = StyleSheet.create({
   phoneText: {
     ...theme.typography.body,
     fontSize: 14,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
   changePhoneLink: {
     paddingVertical: 2,
@@ -937,7 +939,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   typeChip: {
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: theme.radius.sm,
@@ -950,7 +952,7 @@ const styles = StyleSheet.create({
   },
   noSpecialtiesText: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   },
   bannerContainer: {
     paddingHorizontal: theme.spacing.md,
@@ -978,7 +980,7 @@ const styles = StyleSheet.create({
   },
   bannerDesc: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: theme.spacing.sm,
   },
   reassignActionBtn: {
@@ -1042,21 +1044,21 @@ const styles = StyleSheet.create({
   },
   memberCodeText: {
     ...theme.typography.small,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginTop: 2,
   },
   memberPhoneText: {
     ...theme.typography.small,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginTop: 2,
   },
   removeBtn: {
     width: 32,
     height: 32,
     borderRadius: theme.radius.sm,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1,
-    borderColor: theme.colors.error,
+    borderColor: theme.colors.danger,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1072,7 +1074,7 @@ const styles = StyleSheet.create({
   detailPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: theme.radius.sm,
@@ -1094,19 +1096,19 @@ const styles = StyleSheet.create({
   deactivateBtn: {
     paddingVertical: 14,
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1,
-    borderColor: theme.colors.error,
+    borderColor: theme.colors.danger,
     alignItems: 'center',
     justifyContent: 'center',
   },
   deactivateBtnText: {
     ...theme.typography.button,
-    color: theme.colors.error,
+    color: theme.colors.danger,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: theme.colors.overlayEnd,
+    backgroundColor: theme.colors.scrim,
     justifyContent: 'flex-end',
     alignItems: 'center',
   },
@@ -1149,7 +1151,7 @@ const styles = StyleSheet.create({
   },
   sheetDesc: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: theme.spacing.sm,
   },
   selectLabel: {
@@ -1167,7 +1169,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: theme.spacing.md,
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: theme.colors.borderLight,
@@ -1197,13 +1199,13 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...theme.typography.small,
-    color: theme.colors.error,
+    color: theme.colors.danger,
     marginBottom: theme.spacing.sm,
   },
   warningBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1,
     borderColor: theme.colors.warning,
     borderRadius: theme.radius.md,

@@ -3,7 +3,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { TouchableOpacity, StyleSheet } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
 import { useAuthStore } from '../../../src/store/useAuthStore';
-import { theme } from '../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import { safeBack } from '../../../src/utils/navigation';
 import {
   MORE,
@@ -30,6 +30,8 @@ const OWNER_ONLY_SUBROUTES = new Set([
 export default function MoreLayout() {
   const router = useRouter();
   const segments = useSegments();
+  const { colors, fonts } = useTheme();
+  const styles = useStyles(makeStyles);
   const user = useAuthStore((state) => state.user);
   const role = user?.role || useAuthStore((state) => state.role);
 
@@ -50,18 +52,18 @@ export default function MoreLayout() {
     <Stack
       screenOptions={{
         headerStyle: {
-          backgroundColor: theme.colors.background,
+          backgroundColor: colors.bg,
         },
         headerShadowVisible: false,
-        headerTintColor: theme.colors.text,
+        headerTintColor: colors.text,
         headerBackVisible: false,
         headerTitleStyle: {
-          fontFamily: theme.fonts.headingBold,
+          fontFamily: fonts.headingBold,
           fontSize: 18,
-          color: theme.colors.text,
+          color: colors.text,
         },
         contentStyle: {
-          backgroundColor: theme.colors.background,
+          backgroundColor: colors.bg,
         },
         animation: 'slide_from_right',
         headerLeft: () => (
@@ -72,7 +74,7 @@ export default function MoreLayout() {
             accessibilityLabel="Go back"
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <ArrowLeft color={theme.colors.text} size={20} />
+            <ArrowLeft color={colors.text} size={20} />
           </TouchableOpacity>
         ),
       }}
@@ -100,12 +102,14 @@ export default function MoreLayout() {
         name="plans"
         options={{
           title: PLANS.SCREEN_TITLE,
+          headerShown: false,
         }}
       />
       <Stack.Screen
         name="gym-profile"
         options={{
           title: GYM_PROFILE.SCREEN_TITLE,
+          headerShown: false,
         }}
       />
       <Stack.Screen
@@ -118,6 +122,7 @@ export default function MoreLayout() {
         name="subscription"
         options={{
           title: SUBSCRIPTION.SCREEN_TITLE,
+          headerShown: false,
         }}
       />
       <Stack.Screen
@@ -160,22 +165,24 @@ export default function MoreLayout() {
         name="day-close"
         options={{
           title: 'Day Close',
+          headerShown: false,
         }}
       />
     </Stack>
   );
 }
 
-const styles = StyleSheet.create({
-  backBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: theme.colors.raised,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-});
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
+    backBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: theme.colors.surfaceRaised,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 10,
+    },
+  });

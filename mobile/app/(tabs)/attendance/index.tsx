@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,9 @@ import {
   TextInput,
   TouchableOpacity,
   Modal,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { safeNotificationAsync, NotificationFeedbackType } from '../../../src/utils/safeHaptics';
 import {
@@ -19,11 +21,11 @@ import {
   Calendar as CalendarIcon,
 } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { theme } from '../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import { formatMoney } from '../../../src/utils/formatters';
 import { useMembers, Member } from '../../../src/api/members';
 import { useTodayAttendance, useCheckIn, AttendanceRecord } from '../../../src/api/attendance';
-import { Screen } from '../../../src/components/Screen';
+import { Screen, getScreenBottomPadding } from '../../../src/components/Screen';
 import { PageHeader } from '../../../src/components/PageHeader';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Button } from '../../../src/components/Button';
@@ -39,6 +41,10 @@ import { useAuthStore } from '../../../src/store/useAuthStore';
 
 export default function AttendanceScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
+  const rawInsets = useSafeAreaInsets();
+  const insets = Platform.OS === 'web' ? { top: 0, right: 0, bottom: 0, left: 0 } : (rawInsets ?? { top: 0, right: 0, bottom: 0, left: 0 });
   const user = useAuthStore((state) => state.user);
   const role = user?.role || useAuthStore((state) => state.role);
   const isTrainer = role === 'TRAINER';
@@ -134,10 +140,10 @@ export default function AttendanceScreen() {
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           {item.currentMembership?.status === 'EXPIRED' && (
-            <Badge label="EXPIRED" variant="error" size="sm" />
+            <Badge label="Expired" variant="expired" size="sm" />
           )}
           {!isTrainer && due > 0 && (
-            <Badge label={`Due ${formatMoney(due)}`} variant="error" size="sm" />
+            <Badge label={`Due ${formatMoney(due)}`} variant="due" size="sm" />
           )}
         </View>
       </TouchableOpacity>
@@ -148,7 +154,7 @@ export default function AttendanceScreen() {
     <GlassCard style={styles.todayCard} contentStyle={styles.todayCardContent}>
       <View style={styles.todayItemLeft}>
         <View style={styles.checkIconWrapper}>
-          <CheckCircle color={theme.colors.primary} size={18} />
+          <CheckCircle color={colors.primary} size={18} />
         </View>
         <View style={styles.todayTextWrapper}>
           <Text style={styles.todayName}>{item.memberName}</Text>
@@ -169,7 +175,7 @@ export default function AttendanceScreen() {
   );
 
   return (
-    <Screen>
+    <Screen safeBottom={false}>
       <PageHeader title="Check-in" />
       {/* ── Top Header Actions ────────────────────────────────────── */}
       <View style={styles.headerLinks}>
@@ -177,7 +183,7 @@ export default function AttendanceScreen() {
           <Button
             title="Absent"
             variant="secondary"
-            icon={<Users color={theme.colors.text} size={18} />}
+            icon={<Users color={colors.text} size={18} />}
             onPress={() => router.push('/(tabs)/attendance/absent')}
             size="sm"
             style={{ minHeight: 44 }}
@@ -187,7 +193,7 @@ export default function AttendanceScreen() {
         <View style={{ flex: 1, marginLeft: 8 }}>
           <Button
             title="Scan QR"
-            icon={<QrCode color={theme.colors.textOnPrimary} size={18} />}
+            icon={<QrCode color={colors.textOnPrimary} size={18} />}
             onPress={() => router.push('/(tabs)/attendance/scan')}
             size="sm"
             style={{ minHeight: 44 }}
@@ -198,11 +204,11 @@ export default function AttendanceScreen() {
       {/* ── Search Section ────────────────────────────────────────── */}
       <View style={styles.searchSection}>
         <View style={styles.searchBox}>
-          <Search color={theme.colors.primary} size={20} />
+          <Search color={colors.primary} size={20} />
           <TextInput
             style={styles.searchInput}
             placeholder={isTrainer ? 'Search assigned members...' : ATTENDANCE.SEARCH_PLACEHOLDER}
-            placeholderTextColor={theme.colors.textMuted}
+            placeholderTextColor={colors.textSecondary}
             value={searchTerm}
             onChangeText={setSearchTerm}
             autoCorrect={false}
@@ -239,7 +245,7 @@ export default function AttendanceScreen() {
         <View style={styles.modalOverlay}>
           <GlassCard style={styles.warningCard} contentStyle={styles.warningCardContent}>
             <View style={styles.warningIconCircle}>
-              <AlertCircle color={theme.colors.error} size={36} />
+              <AlertCircle color={colors.danger} size={36} />
             </View>
             <Text style={styles.warningTitle}>
               {(() => {
@@ -371,7 +377,7 @@ export default function AttendanceScreen() {
           onPress={() => setShowDatePicker(true)}
           accessibilityLabel="Select date"
         >
-          <CalendarIcon color={theme.colors.primary} size={20} />
+          <CalendarIcon color={colors.text} size={20} />
         </TouchableOpacity>
       </View>
 
@@ -395,7 +401,10 @@ export default function AttendanceScreen() {
           data={sortedTodayList}
           keyExtractor={(item) => item.id}
           renderItem={renderTodayItem}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: getScreenBottomPadding(insets.bottom, false) },
+          ]}
           refreshing={isRefetching}
           onRefresh={refetch}
           ListEmptyComponent={<EmptyState type="attendance" message={ATTENDANCE.EMPTY} />}
@@ -405,269 +414,275 @@ export default function AttendanceScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  headerLinks: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  searchSection: {
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    zIndex: 10,
-  },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.raised,
-    borderRadius: theme.radius.full,
-    paddingHorizontal: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    minHeight: 48, // 44px+ tap target
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: theme.spacing.sm,
-    fontFamily: theme.fonts.bodyRegular,
-    fontSize: 15,
-    color: theme.colors.text,
-  },
-  searchingText: {
-    ...theme.typography.small,
-    color: theme.colors.textMuted,
-  },
-  searchResultsContainer: {
-    position: 'absolute',
-    top: 68,
-    left: theme.spacing.md,
-    right: theme.spacing.md,
-    maxHeight: 280,
-    zIndex: 20,
-    ...theme.shadows.soft,
-  },
-  searchResultsList: {
-    padding: theme.spacing.sm,
-  },
-  searchResultItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.borderLight,
-    minHeight: 52, // 44px+ tap target
-  },
-  resultInfo: {
-    flex: 1,
-    marginLeft: theme.spacing.md,
-  },
-  resultName: {
-    ...theme.typography.bodyMedium,
-    color: theme.colors.text,
-  },
-  resultPhone: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-  },
-  noResultText: {
-    padding: theme.spacing.md,
-    textAlign: 'center',
-    color: theme.colors.textMuted,
-  },
-  successBanner: {
-    position: 'absolute',
-    top: 140,
-    left: theme.spacing.lg,
-    right: theme.spacing.lg,
-    backgroundColor: theme.colors.surface,
-    borderColor: 'rgba(142, 182, 155, 0.5)',
-    borderWidth: 1.5,
-    borderRadius: theme.radius.lg,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    zIndex: 30,
-    ...theme.shadows.glow,
-  },
-  successBannerInfo: {
-    marginLeft: 12,
-  },
-  successBannerTitle: {
-    ...theme.typography.h3,
-    color: theme.colors.primary,
-  },
-  successBannerName: {
-    ...theme.typography.body,
-    color: theme.colors.text,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(5, 31, 32, 0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.lg,
-  },
-  warningCard: {
-    width: '100%',
-    maxWidth: 360,
-  },
-  warningCardContent: {
-    padding: theme.spacing.xl,
-    alignItems: 'center',
-  },
-  warningIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255, 107, 107, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: theme.spacing.md,
-  },
-  warningTitle: {
-    ...theme.typography.h2,
-    color: theme.colors.text,
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  warningDesc: {
-    ...theme.typography.body,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  warningButtons: {
-    flexDirection: 'row',
-    width: '100%',
-  },
-  warningDueBox: {
-    width: '100%',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    backgroundColor: 'rgba(255, 107, 107, 0.12)',
-    borderRadius: theme.radius.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 107, 107, 0.3)',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.md,
-  },
-  warningDueLabel: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  warningDueAmount: {
-    ...theme.typography.body,
-    fontSize: 18,
-    fontFamily: theme.fonts.headingBold,
-    color: theme.colors.coral,
-    fontWeight: '700',
-  },
-  warningActionGroup: {
-    width: '100%',
-    marginBottom: 4,
-  },
-  listHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  listTitle: {
-    ...theme.typography.h3,
-    color: theme.colors.text,
-  },
-  countBadge: {
-    marginLeft: 8,
-    backgroundColor: theme.colors.raised,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: theme.radius.full,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  countText: {
-    ...theme.typography.small,
-    fontFamily: theme.fonts.headingBold,
-    color: theme.colors.primary,
-    fontWeight: '700',
-  },
-  datePickerBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: theme.colors.raised,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  listContent: {
-    padding: theme.spacing.md,
-    paddingBottom: 110,
-    flexGrow: 1,
-  },
-  todayCard: {
-    marginBottom: theme.spacing.sm,
-  },
-  todayCardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: theme.spacing.md,
-  },
-  todayItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  checkIconWrapper: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(142, 182, 155, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: theme.spacing.md,
-  },
-  todayTextWrapper: {
-    flex: 1,
-  },
-  todayName: {
-    ...theme.typography.bodyMedium,
-    color: theme.colors.text,
-  },
-  todayMethod: {
-    ...theme.typography.small,
-    color: theme.colors.textMuted,
-    marginTop: 2,
-  },
-  todayTimeBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: theme.radius.sm,
-    backgroundColor: theme.colors.raised,
-    borderWidth: 1,
-    borderColor: theme.colors.borderLight,
-  },
-  todayTime: {
-    ...theme.typography.caption,
-    color: theme.colors.primary,
-    fontFamily: theme.fonts.headingMedium,
-    fontWeight: '600',
-  },
-});
+const makeStyles = (theme: ThemeValue) => {
+  const { colors } = theme;
+  return StyleSheet.create({
+    headerLinks: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      padding: theme.spacing.md,
+      backgroundColor: colors.bg,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    searchSection: {
+      padding: theme.spacing.md,
+      backgroundColor: colors.bg,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+      zIndex: 10,
+    },
+    searchBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surfaceRaised,
+      borderRadius: theme.radius.full,
+      paddingHorizontal: theme.spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      minHeight: 48, // 44px+ tap target
+    },
+    searchInput: {
+      flex: 1,
+      marginLeft: theme.spacing.sm,
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 15,
+      color: colors.text,
+    },
+    searchingText: {
+      ...theme.typography.small,
+      color: colors.textSecondary,
+    },
+    searchResultsContainer: {
+      position: 'absolute',
+      top: 68,
+      left: theme.spacing.md,
+      right: theme.spacing.md,
+      maxHeight: 280,
+      zIndex: 20,
+      ...theme.shadows.soft,
+    },
+    searchResultsList: {
+      padding: theme.spacing.sm,
+    },
+    searchResultItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: theme.spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      minHeight: 52, // 44px+ tap target
+    },
+    resultInfo: {
+      flex: 1,
+      marginLeft: theme.spacing.md,
+    },
+    resultName: {
+      ...theme.typography.bodyMedium,
+      color: colors.text,
+    },
+    resultPhone: {
+      ...theme.typography.caption,
+      color: colors.textSecondary,
+    },
+    noResultText: {
+      padding: theme.spacing.md,
+      textAlign: 'center',
+      color: colors.textSecondary,
+    },
+    successBanner: {
+      position: 'absolute',
+      top: 140,
+      left: theme.spacing.lg,
+      right: theme.spacing.lg,
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderWidth: 1.5,
+      borderRadius: theme.radius.lg,
+      padding: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      zIndex: 30,
+      ...theme.shadows.glow,
+    },
+    successBannerInfo: {
+      marginLeft: 12,
+    },
+    successBannerTitle: {
+      ...theme.typography.h3,
+      color: colors.primary,
+    },
+    successBannerName: {
+      ...theme.typography.body,
+      color: colors.text,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: colors.scrim,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: theme.spacing.lg,
+    },
+    warningCard: {
+      width: '100%',
+      maxWidth: 360,
+    },
+    warningCardContent: {
+      padding: theme.spacing.xl,
+      alignItems: 'center',
+    },
+    warningIconCircle: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: colors.chipDangerBg,
+      borderWidth: 1,
+      borderColor: colors.danger,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    warningTitle: {
+      ...theme.typography.h2,
+      color: colors.text,
+      marginBottom: 6,
+      textAlign: 'center',
+    },
+    warningDesc: {
+      ...theme.typography.body,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: theme.spacing.lg,
+    },
+    warningButtons: {
+      flexDirection: 'row',
+      width: '100%',
+    },
+    warningDueBox: {
+      width: '100%',
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+      backgroundColor: colors.chipDangerBg,
+      borderRadius: theme.radius.sm,
+      borderWidth: 1,
+      borderColor: colors.danger,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    warningDueLabel: {
+      ...theme.typography.caption,
+      color: colors.textSecondary,
+      fontWeight: '600',
+      textTransform: 'uppercase',
+    },
+    warningDueAmount: {
+      ...theme.typography.body,
+      fontSize: 18,
+      fontFamily: theme.fonts.headingBold,
+      color: colors.danger,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+    },
+    warningActionGroup: {
+      width: '100%',
+      marginBottom: 4,
+    },
+    listHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.md,
+      backgroundColor: colors.bg,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    listTitle: {
+      ...theme.typography.h3,
+      color: colors.text,
+    },
+    countBadge: {
+      marginLeft: 8,
+      backgroundColor: colors.surfaceRaised,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: theme.radius.full,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    countText: {
+      ...theme.typography.small,
+      fontFamily: theme.fonts.headingBold,
+      color: colors.primary,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+    },
+    datePickerBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.surfaceRaised,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    listContent: {
+      padding: theme.spacing.md,
+      paddingBottom: 110,
+      flexGrow: 1,
+    },
+    todayCard: {
+      marginBottom: theme.spacing.sm,
+    },
+    todayCardContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: theme.spacing.md,
+    },
+    todayItemLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    checkIconWrapper: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.primarySoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: theme.spacing.md,
+    },
+    todayTextWrapper: {
+      flex: 1,
+    },
+    todayName: {
+      ...theme.typography.bodyMedium,
+      color: colors.text,
+    },
+    todayMethod: {
+      ...theme.typography.small,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    todayTimeBadge: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: theme.radius.sm,
+      backgroundColor: colors.surfaceRaised,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    todayTime: {
+      ...theme.typography.caption,
+      color: colors.primary,
+      fontFamily: theme.fonts.headingMedium,
+      fontWeight: '600',
+      fontVariant: ['tabular-nums'],
+    },
+  });
+};

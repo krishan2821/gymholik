@@ -15,10 +15,12 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { CheckCircle, Send } from 'lucide-react-native';
-import { theme } from '../../../../src/theme/theme';
+import { useTheme, useStyles, ThemeValue } from '../../../../src/theme/ThemeContext';
 import { Screen } from '../../../../src/components/Screen';
+import { PageHeader } from '../../../../src/components/PageHeader';
 import { GlassCard } from '../../../../src/components/GlassCard';
 import { Button } from '../../../../src/components/Button';
+import { Badge } from '../../../../src/components/Badge';
 import { PlanPicker } from '../../../../src/components/PlanPicker';
 import { useRenewMember, useMember } from '../../../../src/api/members';
 import { usePlans } from '../../../../src/api/plans';
@@ -38,6 +40,8 @@ const renewSchema = z.object({
 type RenewFormData = z.infer<typeof renewSchema>;
 
 export default function RenewMemberScreen() {
+  const { colors } = useTheme();
+  const styles = useStyles(makeStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
@@ -126,7 +130,7 @@ export default function RenewMemberScreen() {
   if (isLoadingMember || !member) {
     return (
       <Screen style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </Screen>
     );
   }
@@ -201,7 +205,7 @@ export default function RenewMemberScreen() {
               },
             ]}
           >
-            <CheckCircle color={theme.colors.primary} size={64} strokeWidth={2.4} />
+            <CheckCircle color={colors.primary} size={64} strokeWidth={2.4} />
           </Animated.View>
 
           <Text style={styles.successTitle}>Membership Renewed Successfully</Text>
@@ -213,23 +217,24 @@ export default function RenewMemberScreen() {
           </Text>
 
           <View style={styles.successBalanceBadge}>
-            <Text
-              style={[
-                styles.successBalanceText,
-                successResult.remainingDuePaise === 0 && { color: theme.colors.primary },
-              ]}
-            >
-              {successResult.remainingDuePaise === 0
-                ? 'All fees paid in full'
-                : `Balance due: ${formatMoney(successResult.remainingDuePaise)}`}
-            </Text>
+            <View style={{ marginTop: 8 }}>
+              {successResult.remainingDuePaise === 0 ? (
+                <Badge label="All fees paid in full" variant="paid" size="md" />
+              ) : (
+                <Badge
+                  label={`Balance due: ${formatMoney(successResult.remainingDuePaise)}`}
+                  variant="due"
+                  size="md"
+                />
+              )}
+            </View>
           </View>
 
           <View style={styles.successActionsColumn}>
             {canSendWhatsApp && (
               <Button
                 title="Send on WhatsApp"
-                icon={<Send size={18} color={theme.colors.text} />}
+                icon={<Send size={18} color={colors.text} />}
                 onPress={handleSendWhatsApp}
                 variant="secondary"
                 size="md"
@@ -263,9 +268,11 @@ export default function RenewMemberScreen() {
 
   return (
     <Screen scrollable keyboardAvoiding contentContainerStyle={styles.scroll}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{RENEW.HEADING(member.name)}</Text>
-      </View>
+      <PageHeader
+        title={RENEW.HEADING(member.name)}
+        showBack
+        onBack={() => safeBack('/(tabs)/members')}
+      />
 
       <GlassCard style={styles.card} contentStyle={styles.cardContent}>
         <Text style={styles.sectionTitle}>{RENEW.SECTION_PLAN}</Text>
@@ -303,7 +310,7 @@ export default function RenewMemberScreen() {
             <TextInput
               style={[styles.input, errors.paidAmount && styles.inputError]}
               placeholder="e.g. 1000"
-              placeholderTextColor={theme.colors.textMuted}
+              placeholderTextColor={colors.textSecondary}
               value={value}
               onChangeText={onChange}
               keyboardType="number-pad"
@@ -315,9 +322,13 @@ export default function RenewMemberScreen() {
         )}
 
         {dueAmount > 0 && selectedPlan && (
-          <Text style={styles.dueText}>
-            {RENEW.DUE_REMAINING(String(dueAmount / 100))}
-          </Text>
+          <View style={{ marginVertical: 8 }}>
+            <Badge
+              label={RENEW.DUE_REMAINING(String(dueAmount / 100))}
+              variant="due"
+              size="sm"
+            />
+          </View>
         )}
 
         <Text style={[styles.label, { marginTop: 14 }]}>{FIELDS.PAYMENT_MODE}</Text>
@@ -355,7 +366,7 @@ export default function RenewMemberScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: ThemeValue) => StyleSheet.create({
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -385,12 +396,12 @@ const styles = StyleSheet.create({
   },
   label: {
     ...theme.typography.caption,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: 6,
     marginLeft: 2,
   },
   input: {
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.lg,
@@ -401,11 +412,11 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
   },
   inputError: {
-    borderColor: theme.colors.error,
+    borderColor: theme.colors.danger,
   },
   errorText: {
     ...theme.typography.small,
-    color: theme.colors.error,
+    color: theme.colors.danger,
     marginTop: 4,
     marginLeft: 4,
   },
@@ -416,7 +427,7 @@ const styles = StyleSheet.create({
   chip: {
     flex: 1,
     minHeight: 44, // 44px tap target
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     borderRadius: theme.radius.full,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -433,11 +444,11 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
   },
   chipTextSelected: {
-    color: theme.colors.textOnPrimary, // #051F20 contrast
+    color: theme.colors.textOnPrimary,
     fontWeight: '700',
   },
   planSummary: {
-    backgroundColor: theme.colors.raised,
+    backgroundColor: theme.colors.surfaceRaised,
     padding: theme.spacing.md,
     borderRadius: theme.radius.md,
     marginTop: theme.spacing.sm,
@@ -451,7 +462,7 @@ const styles = StyleSheet.create({
   },
   dueText: {
     ...theme.typography.small,
-    color: theme.colors.error,
+    color: theme.colors.danger,
     marginTop: 6,
     fontWeight: '700',
   },
@@ -465,9 +476,9 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   successCard: {
-    backgroundColor: '#072728',
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(218, 241, 222, 0.18)',
+    borderColor: theme.colors.border,
     borderRadius: theme.radius.lg,
     padding: 24,
     alignItems: 'center',
@@ -478,7 +489,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(142, 182, 155, 0.12)',
+    backgroundColor: theme.colors.primarySoft,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -499,21 +510,21 @@ const styles = StyleSheet.create({
   successSub: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 13,
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
     marginBottom: 12,
     textAlign: 'center',
   },
   successBalanceBadge: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: 'rgba(218, 241, 222, 0.08)',
+    backgroundColor: theme.colors.surfaceRaised,
     borderRadius: theme.radius.full,
     marginBottom: 24,
   },
   successBalanceText: {
     fontFamily: theme.fonts.bodySemiBold,
     fontSize: 13,
-    color: theme.colors.coral,
+    color: theme.colors.accent,
   },
   successActionsColumn: {
     width: '100%',
