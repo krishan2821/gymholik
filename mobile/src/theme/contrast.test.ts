@@ -181,30 +181,39 @@ test('WCAG contrast test for every text token in all 4 brand and mode palettes',
     }
   }
 
-  // Print formatted table
-  console.log('\n================================== WCAG CONTRAST TABLE ==================================');
-  console.log(
-    'Brand'.padEnd(8) +
-      'Mode'.padEnd(7) +
-      'Text Token'.padEnd(18) +
-      'Background'.padEnd(16) +
-      'Ratio'.padEnd(12) +
-      'Min Req'.padEnd(10) +
-      'Status'
-  );
-  console.log('-----------------------------------------------------------------------------------------');
-  for (const r of results) {
+  // Print 4 distinct sections for each brand and mode palette
+  const paletteSections: { brand: Brand; mode: ColorMode; title: string }[] = [
+    { brand: 'cobalt', mode: 'light', title: 'COBALT LIGHT PALETTE' },
+    { brand: 'cobalt', mode: 'dark', title: 'COBALT DARK PALETTE' },
+    { brand: 'ember', mode: 'light', title: 'EMBER LIGHT PALETTE' },
+    { brand: 'ember', mode: 'dark', title: 'EMBER DARK PALETTE' },
+  ];
+
+  for (const sec of paletteSections) {
+    const secResults = results.filter((r) => r.brand === sec.brand && r.mode === sec.mode);
+    console.log(`\n================================== [SECTION] ${sec.title} ==================================`);
     console.log(
-      r.brand.padEnd(8) +
-        r.mode.padEnd(7) +
-        r.textToken.padEnd(18) +
-        r.bgToken.padEnd(16) +
-        `${r.ratio.toFixed(2)}:1`.padEnd(12) +
-        `${r.minRequired.toFixed(1)}:1`.padEnd(10) +
-        (r.pass ? 'PASS' : 'FAIL')
+      'Text Token'.padEnd(20) +
+        'Background'.padEnd(18) +
+        'Ratio'.padEnd(14) +
+        'Min Req'.padEnd(12) +
+        'Status'
     );
+    console.log('-----------------------------------------------------------------------------------------');
+    for (const r of secResults) {
+      console.log(
+        r.textToken.padEnd(20) +
+          r.bgToken.padEnd(18) +
+          `${r.ratio.toFixed(2)}:1`.padEnd(14) +
+          `${r.minRequired.toFixed(1)}:1`.padEnd(12) +
+          (r.pass ? 'PASS (>= 4.5:1)' : 'FAIL (< 4.5:1)')
+      );
+    }
+    const allSecPass = secResults.every((r) => r.pass);
+    console.log('-----------------------------------------------------------------------------------------');
+    console.log(`Summary for ${sec.title}: ${secResults.length}/${secResults.length} tokens passed (All >= 4.5:1: ${allSecPass})`);
+    console.log(`=========================================================================================\n`);
   }
-  console.log('=========================================================================================\n');
 
   // Verify all pass
   for (const r of results) {

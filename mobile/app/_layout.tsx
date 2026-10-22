@@ -5,6 +5,7 @@ import Toast from 'react-native-toast-message';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, TextInput, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as SplashScreen from 'expo-splash-screen';
 import {
   useFonts,
   Manrope_500Medium,
@@ -20,27 +21,21 @@ import {
 } from '@expo-google-fonts/inter';
 import { useAuthStore } from '../src/store/useAuthStore';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
-import {
-  useAppearanceSync,
-  useAppearanceStore,
-  loadAppearanceSetting,
-} from '../src/theme/useAppearance';
 import { toastConfig } from '../src/components/Toast';
 import { GlobalConfirmDialog } from '../src/components/ConfirmDialog';
 import { queryClient } from '../src/api/queryClient';
 import { getHomeRouteForRole } from '../src/navigation/tabsByRole';
 import { injectGlobalWebStyles } from '../src/utils/webStyles';
 
+// Prevent splash screen from auto-hiding during cold start until hydration completes
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 // ── Inner layout: has access to ThemeProvider ─────────────────────────────
 function InnerLayout() {
   const { isAuthenticated, isLoading, checkAuth } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
-  const { colors } = useTheme();
-  const resolvedMode = useAppearanceStore((s) => s.resolvedMode);
-
-  // Sync OS appearance changes → store
-  useAppearanceSync();
+  const { colors, isDark, isHydrated } = useTheme();
 
   const [fontsLoaded] = useFonts({
     Manrope_500Medium,
@@ -52,6 +47,13 @@ function InnerLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
   });
+
+  // Hide splash screen only after stored preference is hydrated, fonts loaded, and auth determined
+  useEffect(() => {
+    if (isHydrated && fontsLoaded && !isLoading) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [isHydrated, fontsLoaded, isLoading]);
 
   // Set global text cursor/selection colour from primary token
   useEffect(() => {
@@ -88,8 +90,8 @@ function InnerLayout() {
     }
   }, [isAuthenticated, isLoading, fontsLoaded, segments]);
 
-  const showSplash = isLoading || !fontsLoaded;
-  const statusStyle = resolvedMode === 'dark' ? 'light' : 'dark';
+  const showSplash = !isHydrated || isLoading || !fontsLoaded;
+  const statusStyle = isDark ? 'light' : 'dark';
 
   return (
     <SafeAreaProvider style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -117,11 +119,6 @@ function InnerLayout() {
 }
 
 export default function RootLayout() {
-  // Load persisted appearance setting before rendering
-  useEffect(() => {
-    loadAppearanceSetting();
-  }, []);
-
   return (
     <ThemeProvider>
       <InnerLayout />

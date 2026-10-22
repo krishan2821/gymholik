@@ -141,7 +141,7 @@ const _defaultColors = PALETTES[BRAND].dark;
 
 export const colors = createThemeColors(_defaultColors);
 
-export function updateThemePalette(newPalette: SemanticTokens, mode: ColorMode = 'dark') {
+export function updateThemePalette(newPalette: SemanticTokens, mode: ColorMode) {
   Object.assign(colors, createThemeColors(newPalette));
 
   theme.name = `${BRAND.charAt(0).toUpperCase() + BRAND.slice(1)} ${mode === 'dark' ? 'Dark' : 'Light'}`;

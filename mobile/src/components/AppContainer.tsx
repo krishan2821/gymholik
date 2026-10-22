@@ -59,7 +59,9 @@ export const AppContainer: React.FC<AppContainerProps> = ({
               backgroundColor: colors.bg,
               borderColor: colors.border,
             },
-            Platform.OS === 'web' && styles.columnWebShadow,
+            Platform.OS === 'web' && ({
+              boxShadow: `0 0 36px ${colors.scrim}`,
+            } as any),
             columnStyle,
           ]}
         >
@@ -118,13 +120,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderLeftWidth: 1,
     borderRightWidth: 1,
-  },
-  columnWebShadow: {
-    ...(Platform.OS === 'web'
-      ? ({
-          boxShadow: '0 0 36px rgba(0,0,0,0.4)',
-        } as any)
-      : {}),
   },
 });
 

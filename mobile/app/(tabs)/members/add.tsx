@@ -705,7 +705,7 @@ const makeStyles = (theme: ThemeValue) => StyleSheet.create({
     padding: 24,
     ...(Platform.OS === 'web'
       ? ({
-          boxShadow: '0 16px 40px rgba(0, 0, 0, 0.7)',
+          boxShadow: `0 16px 40px ${theme.colors.scrim}`,
         } as any)
       : {}),
   },

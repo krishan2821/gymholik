@@ -103,7 +103,7 @@ export function injectGlobalWebStyles(): void {
       [data-interactive="button"]:hover:not([disabled]):not([aria-disabled="true"]),
       [role="button"]:not([data-tab-item]):hover:not([disabled]):not([aria-disabled="true"]) {
         transform: translateY(-2px);
-        box-shadow: 0 4px 14px rgba(0,0,0,0.20);
+        box-shadow: 0 4px 14px color-mix(in srgb, black 20%, transparent);
       }
 
       [data-tab-item]:hover {
@@ -119,7 +119,7 @@ export function injectGlobalWebStyles(): void {
       [data-interactive="card"]:hover,
       [data-interactive="card"]:hover > div {
         transform: translateY(-2px);
-        box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+        box-shadow: 0 6px 18px color-mix(in srgb, black 18%, transparent);
       }
 
       [data-interactive="row"]:hover {

@@ -2,11 +2,11 @@
 /**
  * audit-theme.js — Theme Guard Rail Script
  *
- * Verifies that:
- * 1. Raw palette files (e.g. palette.ts) are not directly imported outside src/theme/
- * 2. No StyleSheet.create calls at module scope reference theme/colors values
- * 3. No hex or rgba colour literals exist outside src/theme/
- * 4. Appearance.getColorScheme() / useColorScheme() are not called outside src/theme/useAppearance.ts
+ * Enforces 4 strict design system rules:
+ * Rule 1: No module-scope StyleSheet.create whose body reads theme, colors, or palette values.
+ * Rule 2: No hex or rgba color literals outside src/theme (including shadowColor and overlays).
+ * Rule 3: No imports of raw palette files (palette.ts, cobaltDark, cobaltLight, etc.) outside src/theme.
+ * Rule 4: No useColorScheme or Appearance usage outside the provider (src/theme/ThemeContext.tsx).
  *
  * Exits with code 1 if any violations are found.
  */
@@ -16,6 +16,10 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const IGNORED_DIRS = ['node_modules', '.expo', '.git', 'dist', 'build', 'web-build'];
+
+const HEX_COLOR_REGEX = /['"`]#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})['"`]/;
+const RGBA_COLOR_REGEX = /['"`]rgba?\([^)]+\)['"`]/;
+const PALETTE_IMPORT_REGEX = /import\s+.*from\s+['"][^'"]*\/palette(\.[a-z]+)?['"]|import\s+.*\{[^}]*\b(?:cobaltDark|cobaltLight|emberDark|emberLight)\b[^}]*\}\s+from/;
 
 function getAllFiles(dir, exts = ['.ts', '.tsx']) {
   let results = [];
@@ -32,113 +36,150 @@ function getAllFiles(dir, exts = ['.ts', '.tsx']) {
   return results;
 }
 
-const files = getAllFiles(ROOT);
-const violations = [];
+/**
+ * Audits source code for theme rule violations.
+ * @param {string} content Source code string
+ * @param {string} relPath Relative file path for reporting and rule exemption
+ * @returns {Array<{file: string, line: number, rule: string, snippet: string}>}
+ */
+function auditCode(content, relPath) {
+  const violations = [];
+  const normalized = relPath.replace(/\\/g, '/');
+  const isThemeFolder = normalized.startsWith('src/theme/');
+  const isThemeProvider = normalized === 'src/theme/ThemeContext.tsx';
+  const isAuditScript = normalized.includes('audit-theme');
+  const isTestOrFixture =
+    normalized.endsWith('.test.ts') ||
+    normalized.endsWith('.test.tsx') ||
+    normalized.includes('__tests__') ||
+    normalized.includes('fixtures');
 
-const HEX_COLOR_REGEX = /['"]#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})['"]/;
-const RGBA_COLOR_REGEX = /['"]rgba?\([^)]+\)['"]/;
-const PALETTE_IMPORT_REGEX = /import\s+.*from\s+['"][^'"]*\/palette(\.[a-z]+)?['"]/;
-const STATIC_STYLESHEET_REGEX = /const\s+styles\s*=\s*StyleSheet\.create\(/;
-
-for (const filePath of files) {
-  const relPath = path.relative(ROOT, filePath);
-  const isThemeFolder = relPath.startsWith('src/theme/') || relPath.startsWith('src/theme\\');
-  const isThemeContext = relPath.includes('ThemeContext');
-  const isAuditScript = relPath.includes('audit-theme');
-  const isTest = relPath.endsWith('.test.ts') || relPath.endsWith('.test.tsx');
-
-  const content = fs.readFileSync(filePath, 'utf8');
   const lines = content.split('\n');
 
-  // Check 1: Raw palette import outside theme folder
-  if (!isThemeFolder && !isAuditScript) {
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (PALETTE_IMPORT_REGEX.test(line)) {
-        violations.push({
-          file: relPath,
-          line: i + 1,
-          rule: 'no-restricted-imports (raw palette)',
-          snippet: line.trim(),
-        });
-      }
-    }
-  }
-
-  // Check 2: Appearance.getColorScheme or useColorScheme outside useAppearance.ts
-  if (relPath !== 'src/theme/useAppearance.ts' && !isTest) {
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (
-        (line.includes('Appearance.getColorScheme(') || line.includes('useColorScheme(')) &&
-        !line.trim().startsWith('//') &&
-        !line.trim().startsWith('*')
-      ) {
-        violations.push({
-          file: relPath,
-          line: i + 1,
-          rule: 'centralized-appearance-rule',
-          snippet: line.trim(),
-        });
-      }
-    }
-  }
-
-  // Check 3: Static StyleSheet.create referencing theme values
+  // Rule 1: No module-scope StyleSheet.create referencing theme/colors/palette
   if (!isThemeFolder) {
-    let inStaticStyleSheet = false;
+    let inStatic = false;
+    let braceDepth = 0;
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      if (STATIC_STYLESHEET_REGEX.test(line)) {
-        inStaticStyleSheet = true;
+      const code = line.split('//')[0];
+
+      if (!inStatic && /(?:export\s+)?const\s+[A-Za-z0-9_]+\s*=\s*StyleSheet\.create\(/.test(code)) {
+        inStatic = true;
+        braceDepth = (code.match(/\{/g) || []).length - (code.match(/\}/g) || []).length;
+        continue;
       }
-      if (inStaticStyleSheet && line.includes('theme.')) {
-        violations.push({
-          file: relPath,
-          line: i + 1,
-          rule: 'no-static-theme-stylesheet (useStyles hook required)',
-          snippet: line.trim(),
-        });
-      }
-      if (inStaticStyleSheet && line.trim() === '});') {
-        inStaticStyleSheet = false;
+
+      if (inStatic) {
+        braceDepth += (code.match(/\{/g) || []).length - (code.match(/\}/g) || []).length;
+        if (/\b(?:theme|colors|palette)\b/.test(code) && !code.includes('import') && !code.includes('useStyles')) {
+          violations.push({
+            file: relPath,
+            line: i + 1,
+            rule: 'no-static-theme-stylesheet (StyleSheet.create at module scope must not read theme, colors or palette)',
+            snippet: line.trim(),
+          });
+        }
+        if (braceDepth <= 0 || /^\}\);?$/.test(line.trim())) {
+          inStatic = false;
+        }
       }
     }
   }
 
-  // Check 4: Hardcoded hex or rgba color literals outside theme folder
-  if (!isThemeFolder && !isTest && !isAuditScript) {
+  // Rule 2: No hex or rgba literals outside src/theme (skip tests/fixtures)
+  if (!isThemeFolder && !isTestOrFixture && !isAuditScript) {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const codeOnly = line.split('//')[0].trim();
-      // Skip pure comments or SVG path d strings that contain hashes
       if (codeOnly.startsWith('*') || codeOnly.startsWith('/*')) continue;
 
       if (HEX_COLOR_REGEX.test(codeOnly) || RGBA_COLOR_REGEX.test(codeOnly)) {
         violations.push({
           file: relPath,
           line: i + 1,
-          rule: 'no-color-literals-outside-theme',
+          rule: 'no-color-literals-outside-theme (hex/rgba literal found outside src/theme)',
           snippet: codeOnly,
         });
       }
     }
   }
-}
 
-console.log('─────────────────────────────────────────────────────────────────────────────');
-console.log('🔍 Gymholik Theme Guard Rail Audit');
-console.log('─────────────────────────────────────────────────────────────────────────────');
-console.log(`Scanned ${files.length} TypeScript files.`);
+  // Rule 3: No raw palette imports outside src/theme
+  if (!isThemeFolder && !isAuditScript && !isTestOrFixture) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const codeOnly = line.split('//')[0].trim();
+      if (codeOnly.startsWith('*') || codeOnly.startsWith('/*')) continue;
 
-if (violations.length > 0) {
-  console.error(`\n❌ FAILED: Found ${violations.length} theme rule violation(s):\n`);
-  for (const v of violations) {
-    console.error(`  ${v.file}:${v.line} [${v.rule}]`);
-    console.error(`    ${v.snippet}\n`);
+      if (PALETTE_IMPORT_REGEX.test(codeOnly)) {
+        violations.push({
+          file: relPath,
+          line: i + 1,
+          rule: 'no-restricted-imports (raw palette imported outside src/theme)',
+          snippet: line.trim(),
+        });
+      }
+    }
   }
-  process.exit(1);
-} else {
-  console.log('✅ PASSED: 0 violations found. All theme guard rails satisfied!\n');
-  process.exit(0);
+
+  // Rule 4: No useColorScheme or Appearance outside the provider (ThemeContext.tsx)
+  if (!isThemeProvider && !isTestOrFixture && !isAuditScript) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      let codeOnly = line.split('//')[0].trim();
+      codeOnly = codeOnly.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').trim();
+      if (codeOnly.startsWith('*') || codeOnly.startsWith('/*')) continue;
+
+      if (/\bAppearance\./.test(codeOnly) || /\buseColorScheme\s*\(/.test(codeOnly)) {
+        violations.push({
+          file: relPath,
+          line: i + 1,
+          rule: 'centralized-appearance-rule (useColorScheme and Appearance are restricted to ThemeContext.tsx)',
+          snippet: line.trim(),
+        });
+      }
+    }
+  }
+
+  return violations;
 }
+
+function runAudit() {
+  const files = getAllFiles(ROOT);
+  const violations = [];
+
+  for (const filePath of files) {
+    const relPath = path.relative(ROOT, filePath);
+    const content = fs.readFileSync(filePath, 'utf8');
+    const fileViolations = auditCode(content, relPath);
+    violations.push(...fileViolations);
+  }
+
+  console.log('─────────────────────────────────────────────────────────────────────────────');
+  console.log('🔍 Gymholik Theme Guard Rail Audit');
+  console.log('─────────────────────────────────────────────────────────────────────────────');
+  console.log(`Scanned ${files.length} TypeScript files.`);
+
+  if (violations.length > 0) {
+    console.error(`\n❌ FAILED: Found ${violations.length} theme rule violation(s):\n`);
+    for (const v of violations) {
+      console.error(`  ${v.file}:${v.line} [${v.rule}]`);
+      console.error(`    ${v.snippet}\n`);
+    }
+    return { success: false, violations };
+  } else {
+    console.log('✅ PASSED: 0 violations found. All theme guard rails satisfied!\n');
+    return { success: true, violations: [] };
+  }
+}
+
+if (require.main === module) {
+  const result = runAudit();
+  process.exit(result.success ? 0 : 1);
+}
+
+module.exports = {
+  auditCode,
+  runAudit,
+};
