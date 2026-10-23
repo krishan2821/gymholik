@@ -364,9 +364,13 @@ apiClient.interceptors.response.use(
       url.includes('/api/auth/refresh');
 
     // Log the error to console in development only (excluding member/auth PII data)
-    // Suppress noisy console.error for expected 401 checks (/api/auth/me) and expected auth validation (/api/auth/verify-otp)
+    // Suppress noisy console.error for expected 401 checks (/api/auth/me, /api/auth/verify-otp, or token expirations handled by refresh)
     const isExpectedUnauthenticatedCheck =
-      status === 401 && (url.includes('/api/auth/me') || url.includes('/api/auth/verify-otp'));
+      status === 401 &&
+      (url.includes('/api/auth/me') ||
+        url.includes('/api/auth/verify-otp') ||
+        (!isAuthRoute && !originalRequest?._retry));
+
     if (__DEV__ && !isExpectedUnauthenticatedCheck) {
       console.error(
         `[API Error] Status: ${status ?? 'NO_RESPONSE'} | URL: ${url}`,
@@ -376,6 +380,10 @@ apiClient.interceptors.response.use(
           responseBody: isSensitiveUrl(url) ? '[REDACTED_SENSITIVE_DATA]' : body,
           message: axErr.message,
         }
+      );
+    } else if (__DEV__ && status === 401 && !url.includes('/api/auth/me')) {
+      console.warn(
+        `[API Auth Expired] Status: 401 | URL: ${url} (initiating token refresh or login redirect)`
       );
     }
 
