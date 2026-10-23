@@ -42,6 +42,8 @@ import {
   TrainerAssignment,
 } from '../../../../src/api/trainers';
 import { Screen } from '../../../../src/components/Screen';
+import { PageHeader } from '../../../../src/components/PageHeader';
+import { safeBack } from '../../../../src/utils/navigation';
 import { GlassCard } from '../../../../src/components/GlassCard';
 import { Avatar } from '../../../../src/components/Avatar';
 import { Badge } from '../../../../src/components/Badge';
@@ -51,7 +53,7 @@ import { EmptyState } from '../../../../src/components/EmptyState';
 import { ErrorState } from '../../../../src/components/ErrorState';
 import { useBreakpoint } from '../../../../src/hooks/useBreakpoint';
 import { TRAINERS, COMMON, ERRORS, VALIDATION } from '../../../../src/constants/strings';
-import { formatMoney } from '../../../../src/utils/formatters';
+import { formatMoney, formatDate } from '../../../../src/utils/formatters';
 
 const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/;
 
@@ -115,7 +117,8 @@ export default function TrainerDetailScreen() {
 
   if (role !== 'OWNER') {
     return (
-      <Screen safeTop={false}>
+      <Screen safeTop={true}>
+        <PageHeader title="Trainer Details" showBack onBack={() => safeBack('/(tabs)/more/trainers')} />
         <ErrorState message={ERRORS.PERMISSION_DENIED} onRetry={() => {}} />
       </Screen>
     );
@@ -131,7 +134,7 @@ export default function TrainerDetailScreen() {
 
   if (isLoading && !isRefetching) {
     return (
-      <Screen safeTop={false} style={styles.centered}>
+      <Screen safeTop={true} style={styles.centered}>
         <ActivityIndicator size="large" color={colors.primary} />
       </Screen>
     );
@@ -139,7 +142,8 @@ export default function TrainerDetailScreen() {
 
   if (isTrainerError || !trainer) {
     return (
-      <Screen safeTop={false}>
+      <Screen safeTop={true}>
+        <PageHeader title="Trainer Details" showBack onBack={() => safeBack('/(tabs)/more/trainers')} />
         <ErrorState message={TRAINERS.LOAD_ERROR} onRetry={handleRefetchAll} />
       </Screen>
     );
@@ -374,14 +378,7 @@ export default function TrainerDetailScreen() {
   );
 
   const renderAssignmentItem = ({ item }: { item: TrainerAssignment }) => {
-    let formattedStart = item.startDate || '';
-    try {
-      if (item.startDate) {
-        formattedStart = format(parseISO(item.startDate), 'dd MMM yyyy');
-      }
-    } catch {
-      // keep raw
-    }
+    const formattedStart = formatDate(item.startDate);
 
     return (
       <GlassCard style={styles.assignmentCard} contentStyle={styles.assignmentInner}>
@@ -431,7 +428,12 @@ export default function TrainerDetailScreen() {
   };
 
   return (
-    <Screen safeTop={false} contentContainerStyle={styles.container}>
+    <Screen safeTop={true} contentContainerStyle={styles.container}>
+      <PageHeader
+        title={trainer.name || 'Trainer Details'}
+        showBack
+        onBack={() => safeBack('/(tabs)/more/trainers')}
+      />
       {/* ── Top Header Card ────────────────────────────────────── */}
       <GlassCard style={styles.profileCard} contentStyle={styles.profileInner}>
         <View style={styles.avatarRow}>

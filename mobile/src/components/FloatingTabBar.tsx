@@ -85,6 +85,23 @@ export const FloatingTabBar: React.FC<FloatingTabBarProps> = ({
   const isAndroid = platformOverride ? platformOverride === 'android' : Platform.OS === 'android';
   const isIOS26 = isGlass;
 
+  const centerTabConfig = allowedTabs.find((t) => t.isRaisedCenter || t.name === 'attendance');
+  const centerRoute = centerTabConfig ? state.routes.find((r: any) => r.name === centerTabConfig.name) : null;
+  const isCenterFocused = currentTab?.name === centerTabConfig?.name;
+
+  const onCenterPress = () => {
+    if (!centerRoute) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const event = navigation.emit({
+      type: 'tabPress',
+      target: centerRoute.key,
+      canPreventDefault: true,
+    });
+    if (!isCenterFocused && !event.defaultPrevented) {
+      navigation.navigate(centerRoute.name);
+    }
+  };
+
   const renderContent = () => (
     <View style={styles.tabsRow}>
       {allowedTabs.map((tabConfig) => {
@@ -97,6 +114,17 @@ export const FloatingTabBar: React.FC<FloatingTabBarProps> = ({
         const Icon = TAB_ICONS[tabConfig.name] || Home;
         const label = descriptor?.options?.title || tabConfig.title;
 
+        // Center tab placeholder in the row keeps the 5-item grid balanced
+        if (isCenterTab) {
+          return (
+            <View
+              key={route.key}
+              style={[styles.tabItem, styles.centerPlaceholder]}
+              pointerEvents="none"
+            />
+          );
+        }
+
         const onPress = () => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           const event = navigation.emit({
@@ -108,58 +136,6 @@ export const FloatingTabBar: React.FC<FloatingTabBarProps> = ({
             navigation.navigate(route.name);
           }
         };
-
-        // Raised center Check-in button: glass on iOS 26, solid primary on others, NO label
-        if (isCenterTab) {
-          return (
-            <TouchableOpacity
-              key={route.key}
-              onPress={onPress}
-              activeOpacity={0.85}
-              style={[styles.tabItem, styles.centerTabItem]}
-              accessibilityRole="button"
-              accessibilityLabel="Check-in"
-              aria-label="Check-in"
-              accessibilityState={{ selected: isFocused }}
-              {...({
-                dataSet: { tabItem: 'center' },
-                title: 'Check-in',
-              } as any)}
-            >
-              <View
-                style={[
-                  styles.raisedCenterBtn,
-                  isIOS26
-                    ? {
-                        backgroundColor: colors.glassTint,
-                        borderColor: colors.glassBorder,
-                        borderWidth: 2,
-                        shadowColor: colors.shadow,
-                      }
-                    : {
-                        backgroundColor: colors.primary,
-                        borderColor: colors.bg,
-                        borderWidth: 4,
-                        shadowColor: colors.shadow,
-                      },
-                ]}
-              >
-                {isIOS26 && (
-                  <BlurView
-                    intensity={40}
-                    tint="dark"
-                    style={StyleSheet.absoluteFill}
-                  />
-                )}
-                <CalendarCheck
-                  color={isIOS26 ? colors.primary : colors.textOnPrimary}
-                  size={26}
-                  strokeWidth={2.4}
-                />
-              </View>
-            </TouchableOpacity>
-          );
-        }
 
         const badge = descriptor?.options?.tabBarBadge;
 
@@ -255,39 +231,84 @@ export const FloatingTabBar: React.FC<FloatingTabBarProps> = ({
       ]}
     >
       <View style={[styles.columnWrapper, { maxWidth: layout.maxWidth.column }]}>
-        {isIOS26 ? (
+        <View style={styles.barContainer}>
+          {/* 1. Clipped Glass / Solid Capsule Background */}
           <View
             style={[
-              styles.container,
-              {
-                backgroundColor: colors.glassTint,
-                borderColor: colors.glassBorder,
-                shadowColor: colors.shadow,
-              },
-            ]}
-          >
-            <BlurView
-              intensity={45}
-              tint="dark"
-              style={StyleSheet.absoluteFill}
-            />
-            {renderContent()}
-          </View>
-        ) : (
-          <View
-            style={[
-              styles.container,
-              {
-                backgroundColor: isAndroid ? colors.surfaceRaised : colors.surface,
-                borderColor: colors.border,
-                shadowColor: colors.shadow,
-              },
+              styles.capsuleBackground,
+              isIOS26
+                ? {
+                    backgroundColor: colors.glassTint,
+                    borderColor: colors.glassBorder,
+                    shadowColor: colors.shadow,
+                  }
+                : {
+                    backgroundColor: isAndroid ? colors.surfaceRaised : colors.surface,
+                    borderColor: colors.border,
+                    shadowColor: colors.shadow,
+                  },
               isAndroid && { elevation: 8 },
             ]}
           >
-            {renderContent()}
+            {isIOS26 && (
+              <BlurView
+                intensity={45}
+                tint="dark"
+                style={StyleSheet.absoluteFill}
+              />
+            )}
           </View>
-        )}
+
+          {/* 2. Tabs Row (Regular tabs + center placeholder) */}
+          {renderContent()}
+
+          {/* 3. Raised Centre Check-in Button as a Sibling (Never clipped by capsule) */}
+          {Boolean(centerRoute) && (
+            <View style={styles.centerButtonWrapper} pointerEvents="box-none">
+              <TouchableOpacity
+                onPress={onCenterPress}
+                activeOpacity={0.85}
+                style={[
+                  styles.raisedCenterBtn,
+                  isIOS26
+                    ? {
+                        backgroundColor: colors.glassTint,
+                        borderColor: colors.bg,
+                        borderWidth: 5,
+                        shadowColor: colors.shadow,
+                      }
+                    : {
+                        backgroundColor: colors.primary,
+                        borderColor: colors.bg,
+                        borderWidth: 5,
+                        shadowColor: colors.shadow,
+                      },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Check-in"
+                aria-label="Check-in"
+                accessibilityState={{ selected: isCenterFocused }}
+                {...({
+                  dataSet: { tabItem: 'center' },
+                  title: 'Check-in',
+                } as any)}
+              >
+                {isIOS26 && (
+                  <BlurView
+                    intensity={40}
+                    tint="dark"
+                    style={StyleSheet.absoluteFill}
+                  />
+                )}
+                <CalendarCheck
+                  color={isIOS26 ? colors.primary : colors.textOnPrimary}
+                  size={26}
+                  strokeWidth={2.4}
+                />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -306,6 +327,33 @@ const makeStyles = (theme: ThemeValue) =>
     width: '100%',
     paddingHorizontal: 16,
     alignItems: 'center',
+    overflow: 'visible',
+  },
+  barContainer: {
+    width: '100%',
+    height: 64,
+    position: 'relative',
+    overflow: 'visible',
+  },
+  capsuleBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 1,
+    overflow: 'hidden',
+    ...(Platform.OS === 'ios'
+      ? {
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.28,
+          shadowRadius: 14,
+        }
+      : {
+          elevation: 8,
+        }),
   },
   container: {
     height: 64,
@@ -384,6 +432,23 @@ const makeStyles = (theme: ThemeValue) =>
     marginTop: 3,
     backgroundColor: 'transparent',
   },
+  centerPlaceholder: {
+    flex: 1,
+    height: '100%',
+    backgroundColor: 'transparent',
+  },
+  centerButtonWrapper: {
+    position: 'absolute',
+    top: -28,
+    left: '50%',
+    marginLeft: -30,
+    width: 60,
+    height: 60,
+    zIndex: 101,
+    overflow: 'visible',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   centerTabItem: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -391,21 +456,20 @@ const makeStyles = (theme: ThemeValue) =>
     overflow: 'visible',
   },
   raisedCenterBtn: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -28,
     overflow: 'hidden',
     ...(Platform.OS === 'ios'
       ? {
           shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.3,
+          shadowOpacity: 0.35,
           shadowRadius: 8,
         }
       : {
-          elevation: 6,
+          elevation: 10,
         }),
   },
 });

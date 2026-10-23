@@ -146,7 +146,7 @@ export const PaymentDetailSheet: React.FC<PaymentDetailSheetProps> = ({
               <View style={styles.amountBanner}>
                 <Text style={styles.receiptNo}>Receipt #{detail.receiptNo}</Text>
                 <Text style={[styles.amountText, isReversal && styles.amountReversal]}>
-                  {isReversal ? '-' : '+'}{formatMoney(detail.amountPaise)}
+                  {isReversal ? '-' : '+'}{formatMoney(Math.abs(detail.amountPaise))}
                 </Text>
 
                 <View style={styles.badgeRow}>

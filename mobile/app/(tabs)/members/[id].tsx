@@ -83,7 +83,7 @@ function formatCheckInTime(time: any): string {
   if (!time) return 'Checked In';
   if (typeof time === 'string') {
     try {
-      return format(parseISO(time), 'hh:mm a');
+      return formatTime(time) || 'Checked In';
     } catch {
       return time;
     }
@@ -638,7 +638,7 @@ export default function MemberDetailScreen() {
                 const isReversal = payment.type === 'REVERSAL' || payment.amountPaise < 0;
                 let paidTime = payment.paidAt || payment.createdAt || '';
                 try {
-                  paidTime = format(parseISO(paidTime), 'dd MMM yyyy, hh:mm a');
+                  paidTime = `${formatDate(paidTime)}, ${formatTime(paidTime)}`;
                 } catch {}
 
                 return (
@@ -747,7 +747,7 @@ export default function MemberDetailScreen() {
               const canEdit = isTrainer ? note.trainerId === userId : true;
               let dateStr = '';
               try {
-                dateStr = format(parseISO(note.createdAt), 'dd MMM yyyy, hh:mm a');
+                dateStr = `${formatDate(note.createdAt)}, ${formatTime(note.createdAt)}`;
               } catch {}
               return (
                 <View key={note.id} style={styles.timelineNoteItem}>
@@ -813,7 +813,7 @@ export default function MemberDetailScreen() {
                   </Text>
                   {activeAssignment.startDate ? (
                     <Text style={styles.trainerSubText}>
-                      Since {format(parseISO(activeAssignment.startDate), 'dd MMM yyyy')}
+                      Since {formatDate(activeAssignment.startDate)}
                     </Text>
                   ) : null}
                   {activeAssignment.ptFeePaise ? (

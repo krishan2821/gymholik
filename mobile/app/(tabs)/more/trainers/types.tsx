@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { showConfirmDialog } from '../../../../src/components/ConfirmDialog';
-import { Tag, Plus, Edit2, Trash2, X, Check } from 'lucide-react-native';
+import { Tag, Plus, Edit2, PowerOff, RotateCcw, X } from 'lucide-react-native';
 import { useTheme, useStyles, ThemeValue } from '../../../../src/theme/ThemeContext';
 import { useAuthStore } from '../../../../src/store/useAuthStore';
 import {
@@ -20,9 +20,13 @@ import {
   useCreateTrainerType,
   useUpdateTrainerType,
   useDeactivateTrainerType,
+  useReactivateTrainerType,
   TrainerType,
 } from '../../../../src/api/trainers';
-import { Screen } from '../../../../src/components/Screen';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Screen, getScreenBottomPadding } from '../../../../src/components/Screen';
+import { PageHeader } from '../../../../src/components/PageHeader';
+import { safeBack } from '../../../../src/utils/navigation';
 import { GlassCard } from '../../../../src/components/GlassCard';
 import { Badge } from '../../../../src/components/Badge';
 import { Button } from '../../../../src/components/Button';
@@ -31,6 +35,7 @@ import { ErrorState } from '../../../../src/components/ErrorState';
 import { TRAINER_TYPES, COMMON, ERRORS } from '../../../../src/constants/strings';
 
 export default function TrainerTypesScreen() {
+  const insets = useSafeAreaInsets();
   const { role } = useAuthStore();
   const { colors } = useTheme();
   const styles = useStyles(makeStyles);
@@ -38,6 +43,7 @@ export default function TrainerTypesScreen() {
   const createType = useCreateTrainerType();
   const updateType = useUpdateTrainerType();
   const deactivateType = useDeactivateTrainerType();
+  const reactivateType = useReactivateTrainerType();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingType, setEditingType] = useState<TrainerType | null>(null);
@@ -45,7 +51,8 @@ export default function TrainerTypesScreen() {
 
   if (role !== 'OWNER') {
     return (
-      <Screen safeTop={false}>
+      <Screen safeTop={true}>
+        <PageHeader title={TRAINER_TYPES.SCREEN_TITLE} showBack onBack={() => safeBack('/(tabs)/more/trainers')} />
         <ErrorState message={ERRORS.PERMISSION_DENIED} onRetry={() => {}} />
       </Screen>
     );
@@ -53,7 +60,7 @@ export default function TrainerTypesScreen() {
 
   if (isLoading && !isRefetching) {
     return (
-      <Screen safeTop={false} style={styles.centered}>
+      <Screen safeTop={true} style={styles.centered}>
         <ActivityIndicator size="large" color={colors.primary} />
       </Screen>
     );
@@ -61,7 +68,8 @@ export default function TrainerTypesScreen() {
 
   if (isError) {
     return (
-      <Screen safeTop={false}>
+      <Screen safeTop={true}>
+        <PageHeader title={TRAINER_TYPES.SCREEN_TITLE} showBack onBack={() => safeBack('/(tabs)/more/trainers')} />
         <ErrorState message={TRAINER_TYPES.LOAD_ERROR} onRetry={() => refetch()} />
       </Screen>
     );
@@ -117,74 +125,118 @@ export default function TrainerTypesScreen() {
     });
   };
 
-  const isSaving = createType.isPending || updateType.isPending;
+  const handleReactivate = (item: TrainerType) => {
+    showConfirmDialog({
+      title: TRAINER_TYPES.REACTIVATE_CONFIRM_TITLE,
+      message: TRAINER_TYPES.REACTIVATE_CONFIRM_MSG(item.name),
+      confirmText: TRAINER_TYPES.REACTIVATE_BTN,
+      cancelText: COMMON.CANCEL,
+      onConfirm: async () => {
+        try {
+          await reactivateType.mutateAsync({ id: item.id, name: item.name });
+        } catch {
+          // toast shown in mutation
+        }
+      },
+    });
+  };
 
-  const renderItem = ({ item }: { item: TrainerType }) => (
-    <GlassCard style={styles.card} contentStyle={styles.cardContent}>
-      <View style={styles.itemLeft}>
-        <View style={styles.tagIconWrapper}>
-          <Tag size={18} color={colors.primary} />
-        </View>
-        <View style={styles.nameContainer}>
-          <Text style={styles.typeName}>{item.name}</Text>
-          <View style={{ marginTop: 4 }}>
-            <Badge
-              label={item.active ? 'Active' : 'Inactive'}
-              variant={item.active ? 'success' : 'neutral'}
-              size="sm"
-            />
+  const isSaving = createType.isPending || updateType.isPending;
+  const isActionPending = deactivateType.isPending || reactivateType.isPending;
+
+  const renderItem = ({ item }: { item: TrainerType }) => {
+    const isInactive = !item.active;
+    return (
+      <GlassCard
+        style={[styles.card, isInactive && styles.cardInactive]}
+        contentStyle={styles.cardContent}
+      >
+        <View style={styles.itemLeft}>
+          <View style={[styles.tagIconWrapper, isInactive && styles.tagIconInactive]}>
+            <Tag size={18} color={isInactive ? colors.textSecondary : colors.primary} />
+          </View>
+          <View style={styles.nameContainer}>
+            <Text style={[styles.typeName, isInactive && styles.typeNameInactive]}>
+              {item.name}
+            </Text>
+            {isInactive && (
+              <View style={{ marginTop: 4 }}>
+                <Badge label="Inactive" variant="neutral" size="sm" />
+              </View>
+            )}
           </View>
         </View>
-      </View>
 
-      <View style={styles.actionRow}>
-        <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={() => handleOpenEdit(item)}
-          accessibilityRole="button"
-          accessibilityLabel="Edit type"
-          disabled={deactivateType.isPending}
-        >
-          <Edit2 size={18} color={colors.text} />
-        </TouchableOpacity>
-        {item.active && (
+        <View style={styles.actionRow}>
           <TouchableOpacity
-            style={[styles.iconBtn, styles.deleteBtn]}
-            onPress={() => handleDeactivate(item)}
+            style={styles.iconBtn}
+            onPress={() => handleOpenEdit(item)}
             accessibilityRole="button"
-            accessibilityLabel="Deactivate type"
-            disabled={deactivateType.isPending}
+            accessibilityLabel="Edit type"
+            disabled={isActionPending}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           >
-            <Trash2 size={18} color={colors.danger} />
+            <Edit2 size={18} color={colors.text} />
           </TouchableOpacity>
-        )}
-      </View>
-    </GlassCard>
-  );
+          {item.active ? (
+            <TouchableOpacity
+              style={[styles.iconBtn, styles.deleteBtn]}
+              onPress={() => handleDeactivate(item)}
+              accessibilityRole="button"
+              accessibilityLabel="Deactivate type"
+              disabled={isActionPending}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <PowerOff size={18} color={colors.danger} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.iconBtn, styles.reactivateBtn]}
+              onPress={() => handleReactivate(item)}
+              accessibilityRole="button"
+              accessibilityLabel="Reactivate type"
+              disabled={isActionPending}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <RotateCcw size={18} color={colors.primary} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </GlassCard>
+    );
+  };
 
   return (
-    <Screen safeTop={false} contentContainerStyle={styles.container}>
-      <View style={styles.topBar}>
-        <Text style={styles.headerTitle}>{TRAINER_TYPES.SCREEN_TITLE}</Text>
-        <Button
-          title={TRAINER_TYPES.ADD_BTN}
-          icon={<Plus size={16} color={colors.textOnPrimary} />}
-          onPress={handleOpenAdd}
-          size="sm"
-        />
-      </View>
+    <Screen safeTop={true} safeBottom={false} contentContainerStyle={styles.container}>
+      <PageHeader
+        title={TRAINER_TYPES.SCREEN_TITLE}
+        showBack
+        onBack={() => safeBack('/(tabs)/more/trainers')}
+        rightAction={
+          <Button
+            title={TRAINER_TYPES.ADD_BTN}
+            onPress={handleOpenAdd}
+            size="sm"
+            fullWidth={false}
+            style={{ paddingHorizontal: 14 }}
+          />
+        }
+      />
 
       {(!types || types.length === 0) ? (
         <EmptyState
           icon={<Tag size={48} color={colors.primary} />}
           title={TRAINER_TYPES.EMPTY}
+          actionLabel="Add type"
+          onAction={handleOpenAdd}
         />
       ) : (
         <FlatList
           data={types}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: getScreenBottomPadding(insets.bottom) }]}
+          showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
@@ -256,29 +308,20 @@ export default function TrainerTypesScreen() {
 const makeStyles = (theme: ThemeValue) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.bg,
   },
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
   },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-  },
-  headerTitle: {
-    ...theme.typography.h2,
-    color: theme.colors.text,
-  },
   listContent: {
-    padding: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
     paddingBottom: 40,
   },
   card: {
     marginBottom: theme.spacing.sm,
+  },
+  cardInactive: {
+    opacity: 0.55,
   },
   cardContent: {
     flexDirection: 'row',
@@ -290,6 +333,8 @@ const makeStyles = (theme: ThemeValue) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    minWidth: 0,
+    marginRight: theme.spacing.sm,
   },
   tagIconWrapper: {
     width: 38,
@@ -299,21 +344,30 @@ const makeStyles = (theme: ThemeValue) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: theme.spacing.md,
+    flexShrink: 0,
+  },
+  tagIconInactive: {
+    backgroundColor: theme.colors.surface,
   },
   nameContainer: {
     flex: 1,
+    minWidth: 0,
   },
   typeName: {
     ...theme.typography.bodyMedium,
     color: theme.colors.text,
   },
+  typeNameInactive: {
+    color: theme.colors.textSecondary,
+  },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0,
   },
   iconBtn: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     borderRadius: theme.radius.md,
     backgroundColor: theme.colors.surfaceRaised,
     justifyContent: 'center',
@@ -322,6 +376,9 @@ const makeStyles = (theme: ThemeValue) => StyleSheet.create({
   },
   deleteBtn: {
     backgroundColor: theme.colors.chipDangerBg,
+  },
+  reactivateBtn: {
+    backgroundColor: theme.colors.surfaceRaised,
   },
   modalOverlay: {
     flex: 1,

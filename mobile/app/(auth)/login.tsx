@@ -93,7 +93,7 @@ function resolveBannerErrorMessage(apiErr: ApiError): string {
 }
 
 export default function OtpLoginScreen() {
-  const params = useLocalSearchParams<{ error?: string }>();
+  const params = useLocalSearchParams<{ error?: string; devLogin?: string }>();
   const setAuthData = useAuthStore((s) => s.setAuthData);
   const setRegistrationSession = useAuthStore((s) => s.setRegistrationSession);
   const clearRegistrationSession = useAuthStore((s) => s.clearRegistrationSession);
@@ -102,6 +102,36 @@ export default function OtpLoginScreen() {
   const { colors, fonts, radius, layout } = useTheme();
   const styles = useStyles(makeStyles);
   const resolvedMode = useAppearanceStore((s) => s.resolvedMode);
+
+  useEffect(() => {
+    if (__DEV__ && params.devLogin) {
+      const devPhone = String(params.devLogin);
+      setPhone(devPhone);
+      (async () => {
+        try {
+          await sendOtp(devPhone);
+          const response = await verifyOtp(devPhone, '123456');
+          const data = response.data;
+          if (data.accessToken && data.refreshToken && data.user) {
+            await setAuthData(
+              data.accessToken,
+              data.refreshToken,
+              data.user.role,
+              data.user.id,
+              data.user.gymId ?? '',
+              data.user.name,
+              devPhone,
+              data.user.gymName ?? null
+            );
+            const destination = getHomeRouteForRole(data.user.role);
+            router.replace(destination as any);
+          }
+        } catch (e) {
+          console.error('devLogin failed', e);
+        }
+      })();
+    }
+  }, [params.devLogin]);
   const bgAsset = getBgAsset(BRAND, resolvedMode);
   const isNarrowPhone = windowWidth < 340;
   const digitFontSize = isNarrowPhone ? 18 : 24;
@@ -568,7 +598,7 @@ export default function OtpLoginScreen() {
         >
           <View style={styles.otpHeaderRow}>
             <Text style={styles.otpSectionLabel}>{LOGIN.OTP_SECTION_LABEL}</Text>
-            {Boolean(__DEV__) && (
+            {shouldRenderDevOtp(__DEV__) && (
               <TouchableOpacity
                 onPress={() => {
                   handleOtpChange('123456');

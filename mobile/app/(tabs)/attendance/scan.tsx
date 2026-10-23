@@ -11,6 +11,7 @@ import { safeOpenSettings } from '../../../src/utils/safeLinking';
 import { X, Flashlight, AlertCircle, CheckCircle } from 'lucide-react-native';
 import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import { useCheckIn } from '../../../src/api/attendance';
+import { Screen } from '../../../src/components/Screen';
 import { Button } from '../../../src/components/Button';
 import { CheckInSuccessModal } from '../../../src/components/CheckInSuccessModal';
 import { formatMoney } from '../../../src/utils/formatters';
@@ -46,39 +47,45 @@ export default function ScanScreen() {
   }, []);
 
   if (!permission) {
-    return <View style={styles.container} />;
+    return (
+      <Screen safeTop={false} safeBottom={false} noPadding={true}>
+        <View style={styles.container} />
+      </Screen>
+    );
   }
 
   if (!permission.granted) {
     const isWeb = Platform.OS === 'web';
     return (
-      <View style={styles.permissionContainer}>
-        <Text style={styles.permissionTitle}>{SCANNER.CAMERA_TITLE}</Text>
-        <Text style={styles.permissionDesc}>
-          {isWeb
-            ? 'Camera access in web browsers requires browser permissions and a secure connection (HTTPS). Please allow camera access in your browser or mark attendance manually.'
-            : SCANNER.CAMERA_DESC}
-        </Text>
-        <View style={{ width: '100%', marginBottom: 12 }}>
-          <Button title={COMMON.GRANT_PERMISSION} onPress={requestPermission} size="md" />
+      <Screen safeTop={false} safeBottom={false} noPadding={true}>
+        <View style={styles.permissionContainer}>
+          <Text style={styles.permissionTitle}>{SCANNER.CAMERA_TITLE}</Text>
+          <Text style={styles.permissionDesc}>
+            {isWeb
+              ? 'Camera access in web browsers requires browser permissions and a secure connection (HTTPS). Please allow camera access in your browser or mark attendance manually.'
+              : SCANNER.CAMERA_DESC}
+          </Text>
+          <View style={{ width: '100%', marginBottom: 12 }}>
+            <Button title={COMMON.GRANT_PERMISSION} onPress={requestPermission} size="md" />
+          </View>
+          <View style={{ width: '100%', marginBottom: 12 }}>
+            <Button
+              title={COMMON.OPEN_SETTINGS}
+              variant="secondary"
+              onPress={() => safeOpenSettings()}
+              size="md"
+            />
+          </View>
+          <View style={{ width: '100%' }}>
+            <Button
+              title="Back to Attendance"
+              variant="secondary"
+              onPress={() => safeBack('/(tabs)/attendance')}
+              size="md"
+            />
+          </View>
         </View>
-        <View style={{ width: '100%', marginBottom: 12 }}>
-          <Button
-            title={COMMON.OPEN_SETTINGS}
-            variant="secondary"
-            onPress={() => safeOpenSettings()}
-            size="md"
-          />
-        </View>
-        <View style={{ width: '100%' }}>
-          <Button
-            title="Back to Attendance"
-            variant="secondary"
-            onPress={() => safeBack('/(tabs)/attendance')}
-            size="md"
-          />
-        </View>
-      </View>
+      </Screen>
     );
   }
 
@@ -139,7 +146,8 @@ export default function ScanScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <Screen safeTop={false} safeBottom={false} noPadding={true}>
+      <View style={styles.container}>
       <CameraView
         style={StyleSheet.absoluteFill}
         facing="back"
@@ -254,7 +262,8 @@ export default function ScanScreen() {
         </View>
       )}
     </View>
-  );
+  </Screen>
+);
 }
 
 

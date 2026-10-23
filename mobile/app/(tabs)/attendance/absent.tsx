@@ -12,12 +12,15 @@ import { Avatar } from '../../../src/components/Avatar';
 import { Chip } from '../../../src/components/Chip';
 import { ErrorState } from '../../../src/components/ErrorState';
 import { EmptyState } from '../../../src/components/EmptyState';
-import { isPhoneMasked } from '../../../src/components/MaskedPhone';
+import { MaskedPhone, isPhoneMasked } from '../../../src/components/MaskedPhone';
 import { ABSENT } from '../../../src/constants/strings';
+import { useAuthStore } from '../../../src/store/useAuthStore';
 
 export default function AbsentMembersScreen() {
   const { colors } = useTheme();
   const styles = useStyles(makeStyles);
+  const role = useAuthStore((s) => s.role);
+  const isTrainer = role === 'TRAINER';
   const rawInsets = useSafeAreaInsets();
   const insets = Platform.OS === 'web' ? { top: 0, right: 0, bottom: 0, left: 0 } : (rawInsets ?? { top: 0, right: 0, bottom: 0, left: 0 });
   const [daysFilter, setDaysFilter] = useState<number>(7);
@@ -42,17 +45,23 @@ export default function AbsentMembersScreen() {
     }
 
     const masked = isPhoneMasked(item.phone);
+    const canContact = !masked && !isTrainer;
 
     return (
       <GlassCard style={styles.card} contentStyle={styles.cardContent}>
         <Avatar name={item.memberName} size="md" status="expiring" />
 
         <View style={styles.info}>
-          <Text style={styles.name}>{item.memberName}</Text>
+          <Text style={styles.name} numberOfLines={1}>{item.memberName}</Text>
+          <MaskedPhone
+            phone={item.phone}
+            textStyle={{ fontSize: 13, color: colors.textSecondary }}
+            style={{ marginTop: 2 }}
+          />
           <Text style={styles.lastVisit}>{ABSENT.LAST_VISIT(lastVisitText)}</Text>
         </View>
 
-        {!masked && (
+        {canContact && (
           <View style={styles.actions}>
             <TouchableOpacity
               style={styles.actionBtn}

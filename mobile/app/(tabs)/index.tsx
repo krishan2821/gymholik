@@ -55,6 +55,7 @@ import { isPhoneMasked } from '../../src/components/MaskedPhone';
 import { AddMemberModal } from '../../src/components/AddMemberModal';
 import { CollectPaymentModal } from '../../src/components/CollectPaymentModal';
 import { useBreakpoint } from '../../src/hooks/useBreakpoint';
+import { useGreeting } from '../../src/hooks';
 import { DASHBOARD, COMPLETE_GYM_PROFILE_BANNER } from '../../src/constants/strings';
 import { formatMoney } from '../../src/utils/formatters';
 
@@ -189,15 +190,15 @@ function TrendBars7Days({
   const allZero = amounts.every((a) => a === 0);
   const maxVal = allZero ? 1 : Math.max(...amounts, 1);
   const TRACK_HEIGHT = 44;
-  const BASELINE_HEIGHT = 4;
+  const STUB_HEIGHT = 4;
 
   return (
     <View style={styles.trendContainer}>
       <View style={styles.trendBarsRow}>
         {daysList.map((item, idx) => {
           const barHeight = allZero || item.amount === 0
-            ? BASELINE_HEIGHT
-            : Math.max(BASELINE_HEIGHT, Math.round((item.amount / maxVal) * TRACK_HEIGHT));
+            ? STUB_HEIGHT
+            : Math.max(STUB_HEIGHT, Math.round((item.amount / maxVal) * TRACK_HEIGHT));
 
           return (
             <View key={idx} style={styles.trendCol}>
@@ -213,14 +214,16 @@ function TrendBars7Days({
                   ]}
                 />
               </View>
-              <Text
-                style={[
-                  styles.trendDayText,
-                  item.isToday && styles.trendDayTextToday,
-                ]}
-              >
-                {item.dayLabel}
-              </Text>
+              <View style={styles.trendLabelBox}>
+                <Text
+                  style={[
+                    styles.trendDayText,
+                    item.isToday && styles.trendDayTextToday,
+                  ]}
+                >
+                  {item.dayLabel}
+                </Text>
+              </View>
             </View>
           );
         })}
@@ -417,17 +420,11 @@ export default function DashboardScreen() {
     }, [refetch, isAuthenticated, gymId])
   );
 
-  // Time-of-day greeting
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) return 'Good morning';
-    if (hour >= 12 && hour < 17) return 'Good afternoon';
-    return 'Good evening';
-  };
+  // Time-of-day greeting (Device local hour, recomputed on focus/AppState/minute)
+  const greeting = useGreeting();
 
   const { data: currentUser } = useCurrentUser();
-  const displayName = currentUser?.name || gymSettings?.ownerName || (isOwner ? 'Owner' : 'Staff');
-  const gymName = currentUser?.gymName || gymSettings?.gymName || 'Gymholik Fitness';
+  const gymName = currentUser?.gymName || user?.gymName || gymSettings?.gymName || 'Gymholik Fitness';
   const gymType = currentUser?.gymType ?? user?.gymType ?? null;
 
   const handleNotificationPress = () => {
@@ -509,30 +506,38 @@ export default function DashboardScreen() {
     >
       {/* ── 1. Hero Header with Crop & Overlay ─────────────────────────── */}
       <View style={styles.heroHeader}>
-        <View style={styles.headerMain}>
-          <View style={styles.greetingRow}>
+        <View style={styles.headerLeftBlock}>
+          <Text
+            style={styles.greetingSecondary}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {greeting}
+          </Text>
+          {isLoading && !gymName ? (
+            <Skeleton width={180} height={26} borderRadius={radius.xs} style={{ marginTop: 2 }} />
+          ) : (
             <Text
-              style={styles.greetingText}
+              style={styles.gymNameTitle}
               numberOfLines={1}
               ellipsizeMode="tail"
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
             >
-              {getGreeting()}, {displayName}
+              {gymName}
             </Text>
-            <TouchableOpacity
-              onPress={handleNotificationPress}
-              style={styles.bellBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Notifications"
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Bell size={20} color={colors.text} />
-              {(data?.expiringSoon || 0) > 0 && <View style={styles.bellBadge} />}
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.gymNameText} numberOfLines={1} ellipsizeMode="tail">
-            {gymName}
-          </Text>
+          )}
         </View>
+        <TouchableOpacity
+          onPress={handleNotificationPress}
+          style={styles.bellBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Notifications"
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Bell size={20} color={colors.text} />
+          {(data?.expiringSoon || 0) > 0 && <View style={styles.bellBadge} />}
+        </TouchableOpacity>
       </View>
 
       {/* ── Complete Gym Profile Banner (OWNER only, when gymType is null) ─ */}
@@ -844,44 +849,44 @@ export default function DashboardScreen() {
               />
             </GlassCard>
           </PressableScale>
-
-          {/* Total Outstanding / Dues (Owner only) */}
-          {isOwner && (
-            <PressableScale
-              onPress={() => router.push({ pathname: '/(tabs)/payments', params: { tab: 'DUES' } })}
-              style={[styles.statCardFullWidth, isDesktop && styles.desktopStatCardCol]}
-              accessibilityLabel="Total outstanding dues"
-            >
-              <GlassCard
-                style={styles.statCard}
-                contentStyle={styles.statCardDueInner}
-              >
-                <View style={styles.statDueLeft}>
-                  <View style={[styles.statIconBox, { backgroundColor: colors.surfaceRaised }]}>
-                    <Wallet size={18} color={colors.textSecondary} />
-                  </View>
-                  <View style={{ marginLeft: 12 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={styles.statCardLabel}>Total Outstanding</Text>
-                      {(data?.totalDue || 0) > 0 && (
-                        <Badge label="Due" variant="due" size="sm" />
-                      )}
-                    </View>
-                    <CountUpNumber
-                      value={(data?.totalDue || 0) / 100}
-                      prefix="₹"
-                      style={styles.statCardValue}
-                    />
-                  </View>
-                </View>
-                <View style={styles.statDueRight}>
-                  <Text style={styles.statDueActionText}>View Dues</Text>
-                  <ChevronRight size={16} color={colors.primary} />
-                </View>
-              </GlassCard>
-            </PressableScale>
-          )}
         </View>
+
+        {/* Total Outstanding / Dues (Owner only) */}
+        {isOwner && (
+          <PressableScale
+            onPress={() => router.push({ pathname: '/(tabs)/payments', params: { tab: 'DUES' } })}
+            style={[styles.statCardFullWidth, { marginTop: spacing.md }]}
+            accessibilityLabel="Total outstanding dues"
+          >
+            <GlassCard
+              style={styles.statCard}
+              contentStyle={styles.statCardDueInner}
+            >
+              <View style={styles.statDueLeft}>
+                <View style={[styles.statIconBox, { backgroundColor: colors.surfaceRaised }]}>
+                  <Wallet size={18} color={colors.textSecondary} />
+                </View>
+                <View style={{ marginLeft: 12, flex: 1 }}>
+                  <Text style={styles.statCardLabel}>Total Outstanding</Text>
+                  <CountUpNumber
+                    value={(data?.totalDue || 0) / 100}
+                    prefix="₹"
+                    style={styles.statCardValue}
+                  />
+                  {(data?.totalDue || 0) > 0 && (
+                    <View style={{ marginTop: 4, alignSelf: 'flex-start' }}>
+                      <Badge label="Due" variant="due" size="sm" />
+                    </View>
+                  )}
+                </View>
+              </View>
+              <View style={styles.statDueRight}>
+                <Text style={styles.statDueActionText}>View Dues</Text>
+                <ChevronRight size={16} color={colors.primary} />
+              </View>
+            </GlassCard>
+          </PressableScale>
+        )}
       </Animated.View>
 
       {/* ── 5. Empty State for Zero Members with 3-Step Setup ───────────── */}
@@ -1244,29 +1249,29 @@ const makeStyles = (theme: ThemeValue) => {
 
   // 1. Hero Header
   heroHeader: {
-    marginBottom: theme.spacing.lg,
-    paddingTop: theme.spacing.xs,
-  },
-  headerMain: {
-    width: '100%',
-  },
-  greetingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: theme.spacing.md,
+    paddingTop: theme.spacing.xs,
+    width: '100%',
   },
-  greetingText: {
+  headerLeftBlock: {
     flex: 1,
-    marginRight: theme.spacing.sm,
+    marginRight: theme.spacing.md,
+    justifyContent: 'center',
+  },
+  greetingSecondary: {
+    fontFamily: theme.fonts.bodyRegular,
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 2,
+  },
+  gymNameTitle: {
     fontFamily: theme.fonts.headingBold,
     fontSize: 22,
     color: colors.text,
-    letterSpacing: 0.2,
-  },
-  gymNameText: {
-    ...theme.typography.caption,
-    color: colors.textSecondary,
-    marginTop: 2,
+    letterSpacing: -0.3,
   },
   bellBtn: {
     width: 44,
@@ -1277,7 +1282,7 @@ const makeStyles = (theme: ThemeValue) => {
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    ...theme.shadows.glow,
+    position: 'relative',
   },
   bellBadge: {
     position: 'absolute',
@@ -1400,11 +1405,16 @@ const makeStyles = (theme: ThemeValue) => {
     width: 10,
     borderRadius: 5,
   },
+  trendLabelBox: {
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 6,
+  },
   trendDayText: {
     fontFamily: theme.fonts.bodyRegular,
     fontSize: 10,
     color: colors.textSecondary,
-    marginTop: 6,
   },
   trendDayTextToday: {
     color: colors.primary,
@@ -1525,6 +1535,7 @@ const makeStyles = (theme: ThemeValue) => {
     borderColor: colors.danger,
   },
   statCardDueInner: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -1533,10 +1544,14 @@ const makeStyles = (theme: ThemeValue) => {
   statDueLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+    marginRight: 8,
   },
   statDueRight: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0,
     gap: 4,
     backgroundColor: colors.chipDangerBg,
     paddingHorizontal: 10,

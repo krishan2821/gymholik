@@ -41,7 +41,7 @@ import { usePlans } from '../../../src/api/plans';
 import { useGymProfile } from '../../../src/api/more';
 import { useAuthStore } from '../../../src/store/useAuthStore';
 import { MEMBERS, FIELDS } from '../../../src/constants/strings';
-import { formatMoney, isPhoneMasked } from '../../../src/utils/formatters';
+import { formatMoney, isPhoneMasked, formatDate } from '../../../src/utils/formatters';
 import { safeOpenURL } from '../../../src/utils/safeLinking';
 import { useBreakpoint } from '../../../src/hooks/useBreakpoint';
 
@@ -116,7 +116,7 @@ export default function AddMemberScreen() {
   if (selectedPlan && startDateStr) {
     try {
       const start = new Date(startDateStr);
-      expiryDate = format(addDays(start, selectedPlan.durationDays), 'dd MMM yyyy');
+      expiryDate = formatDate(addDays(start, selectedPlan.durationDays));
     } catch {}
   }
 

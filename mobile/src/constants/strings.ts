@@ -540,6 +540,10 @@ export const PLANS = {
   EMPTY: 'No plans yet. Add one to get started.',
   LOAD_ERROR: 'Failed to load plans.',
   SAVE_ERROR: 'Could not save the plan. Please try again.',
+  DEACTIVATE_BTN: 'Deactivate',
+  DEACTIVATE_CONFIRM_TITLE: 'Deactivate plan?',
+  DEACTIVATE_CONFIRM_MSG: (name: string) =>
+    `Are you sure you want to deactivate "${name}"? Existing memberships on this plan remain active.`,
   PLAN_DETAIL: (days: number, price: string) => `${days} days · ${price.startsWith('₹') ? price : `₹${price}`}`,
 } as const;
 
@@ -680,8 +684,8 @@ export const TRAINERS = {
 
 // ─── Trainer Types ────────────────────────────────────────────────────────────
 export const TRAINER_TYPES = {
-  SCREEN_TITLE: 'Trainer Types',
-  ADD_BTN: 'Add Type',
+  SCREEN_TITLE: 'Trainer types',
+  ADD_BTN: '+ Add',
   MODAL_ADD_TITLE: 'Add Trainer Type',
   MODAL_EDIT_TITLE: 'Edit Trainer Type',
   NAME_LABEL: 'Type Name',
@@ -691,7 +695,11 @@ export const TRAINER_TYPES = {
   DEACTIVATE_BTN: 'Deactivate',
   DEACTIVATE_CONFIRM_TITLE: 'Deactivate Type?',
   DEACTIVATE_CONFIRM_MSG: (name: string) =>
-    `Are you sure you want to deactivate "${name}"?`,
+    `Are you sure you want to deactivate "${name}"? Existing trainers keep their type, but it cannot be assigned to new trainers.`,
+  REACTIVATE_BTN: 'Reactivate',
+  REACTIVATE_CONFIRM_TITLE: 'Reactivate Type?',
+  REACTIVATE_CONFIRM_MSG: (name: string) =>
+    `Reactivate "${name}" so it can be assigned to trainers again?`,
   EMPTY: 'No trainer types found.',
   LOAD_ERROR: 'Failed to load trainer types.',
 } as const;

@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { safeBack } from '../../../src/utils/navigation';
+import { Screen } from '../../../src/components/Screen';
+import { PageHeader } from '../../../src/components/PageHeader';
 import {
-  ArrowLeft,
   Sparkles,
   Layers,
   Smartphone,
@@ -18,7 +19,7 @@ import {
   Sliders,
   CheckCircle,
 } from 'lucide-react-native';
-import { useTheme } from '../../../src/theme/ThemeContext';
+import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import { useAppearanceStore } from '../../../src/theme/useAppearance';
 import {
   Button,
@@ -39,8 +40,13 @@ import {
 import Toast from 'react-native-toast-message';
 
 export default function ComponentGalleryScreen() {
+  if (!__DEV__) {
+    return null;
+  }
+
   const router = useRouter();
   const { colors, fonts, radius, spacing } = useTheme();
+  const styles = useStyles(makeStyles);
   const setAppearanceSetting = useAppearanceStore((s) => s.setSetting);
   const resolvedMode = useAppearanceStore((s) => s.resolvedMode);
 
@@ -75,44 +81,27 @@ export default function ComponentGalleryScreen() {
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.bg }]}>
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.surface }]}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <ArrowLeft color={colors.text} size={22} />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.headerTitle, { fontFamily: fonts.headingBold, color: colors.text }]}>
-            Component Gallery
-          </Text>
-          <Text style={[styles.headerSubtitle, { fontFamily: fonts.bodyRegular, color: colors.textSecondary }]}>
-            Theme & Platform Adaptive System
-          </Text>
-        </View>
-        <TouchableOpacity
-          onPress={toggleThemeMode}
-          style={[styles.themePill, { backgroundColor: colors.surfaceRaised, borderColor: colors.border }]}
-          accessibilityRole="button"
-        >
-          <Text style={{ fontFamily: fonts.headingBold, fontSize: 12, color: colors.primary }}>
-            {resolvedMode.toUpperCase()}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Gallery Control Panel */}
-        <View style={[styles.controlPanel, { backgroundColor: colors.surfaceRaised, borderColor: colors.border, borderRadius: radius.card }]}>
-          <View style={styles.sectionTitleRow}>
+    <Screen safeTop={true} scrollable contentContainerStyle={styles.scrollContent}>
+      <PageHeader
+        title="Component Gallery"
+        subtitle="Theme & Platform Adaptive System"
+        showBack
+        onBack={() => safeBack('/(tabs)/more')}
+        rightAction={
+          <TouchableOpacity
+            onPress={toggleThemeMode}
+            style={[styles.themePill, { backgroundColor: colors.surfaceRaised, borderColor: colors.border }]}
+            accessibilityRole="button"
+          >
+            <Text style={{ fontFamily: fonts.headingBold, fontSize: 12, color: colors.primary }}>
+              {resolvedMode.toUpperCase()}
+            </Text>
+          </TouchableOpacity>
+        }
+      />
+      {/* Gallery Control Panel */}
+      <View style={[styles.controlPanel, { backgroundColor: colors.surfaceRaised, borderColor: colors.border, borderRadius: radius.card }]}>
+        <View style={styles.sectionTitleRow}>
             <Sliders size={18} color={colors.primary} />
             <Text style={[styles.sectionTitle, { fontFamily: fonts.headingBold, color: colors.text }]}>
               Platform Style Simulation
@@ -487,7 +476,6 @@ export default function ComponentGalleryScreen() {
             />
           </View>
         </View>
-      </ScrollView>
 
       {/* Filter Bottom Sheet */}
       <FilterBottomSheet
@@ -520,96 +508,82 @@ export default function ComponentGalleryScreen() {
         }}
         onCancel={() => setShowConfirm(false)}
       />
-    </View>
+    </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 54 : 16,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-  },
-  backBtn: {
-    padding: 8,
-    marginRight: 8,
-    minHeight: 44,
-    minWidth: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    lineHeight: 22,
-  },
-  headerSubtitle: {
-    fontSize: 12,
-  },
-  themePill: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 9999,
-    borderWidth: 1,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  controlPanel: {
-    padding: 16,
-    borderWidth: 1,
-    marginBottom: 20,
-  },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 15,
-  },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  switchLabel: {
-    fontSize: 14,
-  },
-  sectionBlock: {
-    marginBottom: 24,
-  },
-  sectionHeading: {
-    fontSize: 16,
-    marginBottom: 2,
-  },
-  sectionSub: {
-    fontSize: 12,
-    marginBottom: 12,
-  },
-  componentStack: {
-    gap: 10,
-  },
-  rowTwoCol: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  switchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 14,
-    borderWidth: 1,
-    marginTop: 4,
-  },
-});
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
+    root: {
+      flex: 1,
+    },
+    themePill: {
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: theme.radius.full,
+      borderWidth: 1,
+    },
+    scroll: {
+      flex: 1,
+    },
+    scrollContent: {
+      padding: theme.spacing.md,
+      paddingBottom: 40,
+    },
+    controlPanel: {
+      padding: theme.spacing.md,
+      borderWidth: 1,
+      marginBottom: 20,
+    },
+    sectionTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 12,
+    },
+    sectionTitle: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 15,
+      color: theme.colors.text,
+    },
+    switchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    switchLabel: {
+      fontFamily: theme.fonts.headingMedium,
+      fontSize: 14,
+      color: theme.colors.text,
+    },
+    sectionBlock: {
+      marginBottom: 24,
+    },
+    sectionHeading: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 16,
+      marginBottom: 2,
+      color: theme.colors.text,
+    },
+    sectionSub: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 12,
+      marginBottom: 12,
+      color: theme.colors.textSecondary,
+    },
+    componentStack: {
+      gap: 10,
+    },
+    rowTwoCol: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    switchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 14,
+      borderWidth: 1,
+      marginTop: 4,
+    },
+  });

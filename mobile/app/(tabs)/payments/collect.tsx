@@ -677,6 +677,14 @@ export default function CollectPaymentScreen() {
         style={styles.modalOverlay}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={() => {
+            if (selectedMemberId) setShowMemberPicker(false);
+            else safeBack('/(tabs)/payments');
+          }}
+        />
         <View style={styles.modalContent}>
           {/* Drag Handle */}
           <View style={styles.dragHandleWrap}>
@@ -685,16 +693,17 @@ export default function CollectPaymentScreen() {
 
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{COLLECT.SEARCH_TITLE}</Text>
-            {selectedMemberId && (
-              <TouchableOpacity
-                onPress={() => setShowMemberPicker(false)}
-                style={styles.iconBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Close"
-              >
-                <X color={colors.text} size={22} />
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              onPress={() => {
+                if (selectedMemberId) setShowMemberPicker(false);
+                else safeBack('/(tabs)/payments');
+              }}
+              style={styles.iconBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+            >
+              <X color={colors.text} size={22} />
+            </TouchableOpacity>
           </View>
 
           {/* Search Box */}
@@ -1488,7 +1497,7 @@ function formatNumericTyping(val: string): string {
 // STYLES
 // ─────────────────────────────────────────────────────────────────────────────
 const makeStyles = (theme: ThemeValue) => {
-  const { colors } = theme;
+  const { colors, fonts } = theme;
   return StyleSheet.create({
   mainContainer: {
     flex: 1,

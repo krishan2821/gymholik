@@ -70,5 +70,26 @@ Module._resolveFilename = function (request, parent, isMain, options) {
   if (request === 'expo-router') {
     return path.resolve(__dirname, 'mock-expo-router.js');
   }
+  if (request === 'react-native-qrcode-svg') {
+    return path.resolve(__dirname, 'mock-qrcode.js');
+  }
+  if (request === 'react-native-gifted-charts') {
+    return path.resolve(__dirname, 'mock-charts.js');
+  }
+  if (request === '@react-native-community/datetimepicker') {
+    return path.resolve(__dirname, 'mock-datetimepicker.js');
+  }
+  if (request === 'expo-camera') {
+    return path.resolve(__dirname, 'mock-camera.js');
+  }
+  if (request === 'expo-file-system' || request.startsWith('expo-file-system/')) {
+    return path.resolve(__dirname, 'mock-file-system.js');
+  }
+  if (request === 'expo-sharing') {
+    return path.resolve(__dirname, 'mock-sharing.js');
+  }
+  if (request === 'react-native-view-shot') {
+    return path.resolve(__dirname, 'mock-view-shot.js');
+  }
   return origResolve.call(this, request, parent, isMain, options);
 };

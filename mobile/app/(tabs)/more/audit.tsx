@@ -10,10 +10,13 @@ import {
 } from 'react-native';
 import { History, Shield, User, Clock, ArrowRight } from 'lucide-react-native';
 import { format, parseISO } from 'date-fns';
+import { formatDate, formatTime } from '../../../src/utils/formatters';
 import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import { useAuthStore } from '../../../src/store/useAuthStore';
 import { useAuditLogs, AuditLogItem } from '../../../src/api/audit';
 import { Screen } from '../../../src/components/Screen';
+import { PageHeader } from '../../../src/components/PageHeader';
+import { safeBack } from '../../../src/utils/navigation';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Badge } from '../../../src/components/Badge';
 import { EmptyState } from '../../../src/components/EmptyState';
@@ -33,7 +36,8 @@ export default function AuditLogScreen() {
 
   if (role !== 'OWNER') {
     return (
-      <Screen safeTop={false}>
+      <Screen safeTop={true}>
+        <PageHeader title={AUDIT_LOGS.SCREEN_TITLE} showBack onBack={() => safeBack('/(tabs)/more')} />
         <ErrorState message={ERRORS.PERMISSION_DENIED} onRetry={() => {}} />
       </Screen>
     );
@@ -41,7 +45,7 @@ export default function AuditLogScreen() {
 
   if (isLoading && !isRefetching) {
     return (
-      <Screen safeTop={false} style={styles.centered}>
+      <Screen safeTop={true} style={styles.centered}>
         <ActivityIndicator size="large" color={colors.primary} />
       </Screen>
     );
@@ -49,7 +53,8 @@ export default function AuditLogScreen() {
 
   if (isError) {
     return (
-      <Screen safeTop={false}>
+      <Screen safeTop={true}>
+        <PageHeader title={AUDIT_LOGS.SCREEN_TITLE} showBack onBack={() => safeBack('/(tabs)/more')} />
         <ErrorState message={AUDIT_LOGS.LOAD_ERROR} onRetry={() => refetch()} />
       </Screen>
     );
@@ -70,7 +75,7 @@ export default function AuditLogScreen() {
   const renderLogItem = ({ item }: { item: AuditLogItem }) => {
     let formattedDate = item.timestamp;
     try {
-      formattedDate = format(parseISO(item.timestamp), 'dd MMM yyyy, hh:mm a');
+      formattedDate = `${formatDate(item.timestamp)}, ${formatTime(item.timestamp)}`;
     } catch {
       // keep fallback
     }
@@ -111,7 +116,8 @@ export default function AuditLogScreen() {
   };
 
   return (
-    <Screen safeTop={false} contentContainerStyle={styles.container}>
+    <Screen safeTop={true} contentContainerStyle={styles.container}>
+      <PageHeader title={AUDIT_LOGS.SCREEN_TITLE} showBack onBack={() => safeBack('/(tabs)/more')} />
       {logs.length === 0 ? (
         <EmptyState
           icon={<History size={48} color={colors.primary} />}

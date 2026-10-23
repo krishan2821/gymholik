@@ -33,6 +33,8 @@ import {
   StaffMember,
 } from '../../../src/api/more';
 import { Screen } from '../../../src/components/Screen';
+import { PageHeader } from '../../../src/components/PageHeader';
+import { safeBack } from '../../../src/utils/navigation';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Input } from '../../../src/components/Input';
 import { Button } from '../../../src/components/Button';
@@ -377,7 +379,8 @@ export default function StaffScreen() {
   };
 
   return (
-    <Screen safeTop={false} contentContainerStyle={styles.container}>
+    <Screen safeTop={true} hasFab={true} contentContainerStyle={styles.container}>
+      <PageHeader title={STAFF.SCREEN_TITLE} showBack onBack={() => safeBack('/(tabs)/more')} />
       {isLoading && !isRefetching ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />

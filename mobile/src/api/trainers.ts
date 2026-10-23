@@ -206,8 +206,8 @@ export const useCreateTrainerType = () => {
 export const useUpdateTrainerType = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, name }: { id: string; name: string }) => {
-      const { data } = await apiClient.put(`/api/trainer-types/${id}`, { name });
+    mutationFn: async ({ id, name, active }: { id: string; name: string; active?: boolean }) => {
+      const { data } = await apiClient.put(`/api/trainer-types/${id}`, { name, active });
       return data.data;
     },
     onSuccess: () => {
@@ -220,6 +220,28 @@ export const useUpdateTrainerType = () => {
         type: 'error',
         text1: 'Update failed',
         text2: e.response?.data?.message || 'Could not update trainer type',
+      });
+    },
+  });
+};
+
+export const useReactivateTrainerType = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const { data } = await apiClient.put(`/api/trainer-types/${id}`, { name, active: true });
+      return data.data;
+    },
+    onSuccess: () => {
+      Toast.show({ type: 'success', text1: 'Trainer type reactivated' });
+      queryClient.invalidateQueries({ queryKey: ['trainer-types'] });
+      queryClient.invalidateQueries({ queryKey: ['trainers'] });
+    },
+    onError: (e: any) => {
+      Toast.show({
+        type: 'error',
+        text1: 'Reactivation failed',
+        text2: e.response?.data?.message || 'Could not reactivate trainer type',
       });
     },
   });

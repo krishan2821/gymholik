@@ -22,7 +22,7 @@ import {
 } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
-import { formatMoney } from '../../../src/utils/formatters';
+import { formatMoney, formatDate, formatTime } from '../../../src/utils/formatters';
 import { useMembers, Member } from '../../../src/api/members';
 import { useTodayAttendance, useCheckIn, AttendanceRecord } from '../../../src/api/attendance';
 import { Screen, getScreenBottomPadding } from '../../../src/components/Screen';
@@ -165,10 +165,7 @@ export default function AttendanceScreen() {
       </View>
       <View style={styles.todayTimeBadge}>
         <Text style={styles.todayTime}>
-          {new Date(item.checkInTime as any).toLocaleTimeString('en-IN', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
+          {formatTime(item.checkInTime)}
         </Text>
       </View>
     </GlassCard>
@@ -365,7 +362,7 @@ export default function AttendanceScreen() {
           <Text style={styles.listTitle}>
             {isToday
               ? "Today's Check-ins"
-              : selectedDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+              : formatDate(selectedDate)}
           </Text>
           <View style={styles.countBadge}>
             <Text style={styles.countText}>{sortedTodayList.length}</Text>

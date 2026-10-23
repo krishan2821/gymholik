@@ -31,6 +31,7 @@ import {
 import { useMembers } from '../../../../src/api/members';
 import { useGymSettings } from '../../../../src/api/more';
 import { Screen } from '../../../../src/components/Screen';
+import { PageHeader } from '../../../../src/components/PageHeader';
 import { GlassCard } from '../../../../src/components/GlassCard';
 import { Input } from '../../../../src/components/Input';
 import { Button } from '../../../../src/components/Button';
@@ -110,7 +111,8 @@ export default function AddTrainerScreen() {
 
   if (role !== 'OWNER') {
     return (
-      <Screen safeTop={false}>
+      <Screen safeTop={true}>
+        <PageHeader title={TRAINERS.ADD_TITLE} showBack onBack={() => safeBack('/(tabs)/more/trainers')} />
         <ErrorState message={ERRORS.PERMISSION_DENIED} onRetry={() => {}} />
       </Screen>
     );
@@ -244,11 +246,12 @@ export default function AddTrainerScreen() {
 
   return (
     <Screen
-      safeTop={false}
+      safeTop={true}
       scrollable
       keyboardAvoiding
       contentContainerStyle={styles.container}
     >
+      <PageHeader title={TRAINERS.ADD_TITLE} showBack onBack={() => safeBack('/(tabs)/more/trainers')} />
       <GlassCard style={styles.formCard} contentStyle={styles.formContent}>
         {/* ── Name ──────────────────────────────────────────────── */}
         <Input

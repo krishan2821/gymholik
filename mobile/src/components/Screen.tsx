@@ -11,7 +11,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../theme/ThemeContext';
+import { getTopScrimColors } from '../theme/theme';
 import { useAppearanceStore } from '../theme/useAppearance';
 import { BackgroundImage } from './BackgroundImage';
 import { AppContainer } from './AppContainer';
@@ -30,6 +32,8 @@ export interface ScreenProps {
   safeTop?: boolean;
   keyboardAvoiding?: boolean;
   contained?: boolean;
+  hasFab?: boolean;
+  noPadding?: boolean;
 }
 
 export const TAB_BAR_HEIGHT = 64;
@@ -51,6 +55,8 @@ export const Screen: React.FC<ScreenProps> = ({
   safeTop = true,
   keyboardAvoiding = false,
   contained = true,
+  hasFab = false,
+  noPadding = false,
 }) => {
   const { colors } = useTheme();
   const { isDesktop } = useBreakpoint();
@@ -61,19 +67,19 @@ export const Screen: React.FC<ScreenProps> = ({
       ? { top: 0, right: 0, bottom: 0, left: 0 }
       : rawInsets ?? { top: 0, right: 0, bottom: 0, left: 0 };
 
-  const topPad = safeTop ? insets.top + (isDesktop ? 16 : 12) : 0;
+  const topPad = safeTop ? insets.top + (isDesktop ? 16 : 8) : 0;
   const bottomPad = safeBottom
     ? isDesktop
       ? 32
-      : getScreenBottomPadding(insets.bottom)
+      : getScreenBottomPadding(insets.bottom, hasFab)
     : 0;
+  const horizontalPad = noPadding ? 0 : isDesktop ? 32 : 20;
 
   const desktopContainerStyle = isDesktop
     ? {
         maxWidth: 1100,
         width: '100%' as any,
         alignSelf: 'center' as const,
-        paddingHorizontal: 32,
       }
     : null;
 
@@ -83,7 +89,7 @@ export const Screen: React.FC<ScreenProps> = ({
     <ScrollView
       style={[{ flex: 1 }, style]}
       contentContainerStyle={[
-        { flexGrow: 1 },
+        { flexGrow: 1, paddingHorizontal: horizontalPad },
         desktopContainerStyle,
         contentContainerStyle,
         { paddingTop: topPad, paddingBottom: bottomPad },
@@ -106,7 +112,7 @@ export const Screen: React.FC<ScreenProps> = ({
   ) : (
     <View
       style={[
-        { flex: 1 },
+        { flex: 1, paddingHorizontal: horizontalPad },
         desktopContainerStyle,
         style,
         { paddingTop: topPad, paddingBottom: bottomPad },
@@ -120,14 +126,14 @@ export const Screen: React.FC<ScreenProps> = ({
     <>
       <StatusBar style={statusStyle} />
       {safeTop && insets.top > 0 && (
-        <View
+        <LinearGradient
+          colors={getTopScrimColors(colors.bg)}
           style={{
             position: 'absolute',
             top: 0,
             left: 0,
             right: 0,
-            height: insets.top,
-            backgroundColor: colors.bg,
+            height: insets.top + 24,
             zIndex: 100,
           }}
           pointerEvents="none"

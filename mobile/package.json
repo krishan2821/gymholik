@@ -59,7 +59,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "audit:theme": "node scripts/audit-theme.js",
-    "test": "npm run audit:theme && NODE_OPTIONS=\"--require ./scripts/test-setup.js\" tsx --tsconfig tsconfig.test.json --test src/**/*.test.ts"
+    "audit:headers": "node scripts/audit-headers.js",
+    "test": "npm run audit:theme && npm run audit:headers && NODE_OPTIONS=\"--require ./scripts/test-setup.js\" tsx --tsconfig tsconfig.test.json --test src/**/*.test.ts"
   },
   "private": true
 }

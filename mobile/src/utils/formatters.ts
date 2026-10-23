@@ -13,8 +13,10 @@ export function formatMoney(paise: number | string | undefined | null = 0): stri
     numPaise = Number(paise);
   }
   if (isNaN(numPaise)) numPaise = 0;
-  const rupees = Math.round(numPaise / 100);
-  return `₹${rupees.toLocaleString('en-IN')}`;
+  const isNegative = numPaise < 0;
+  const absPaise = Math.abs(numPaise);
+  const rupees = Math.round(absPaise / 100);
+  return `${isNegative ? '-' : ''}₹${rupees.toLocaleString('en-IN')}`;
 }
 
 export function formatRupees(rupees: number | string | undefined | null = 0): string {
@@ -26,8 +28,9 @@ export function formatRupees(rupees: number | string | undefined | null = 0): st
     val = Number(rupees);
   }
   if (isNaN(val)) val = 0;
-  const rounded = Math.round(val);
-  return `₹${rounded.toLocaleString('en-IN')}`;
+  const isNegative = val < 0;
+  const rounded = Math.round(Math.abs(val));
+  return `${isNegative ? '-' : ''}₹${rounded.toLocaleString('en-IN')}`;
 }
 
 const istDateFormatter = new Intl.DateTimeFormat('en-IN', {

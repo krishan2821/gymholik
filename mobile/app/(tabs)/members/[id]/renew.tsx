@@ -28,7 +28,7 @@ import { useGymProfile } from '../../../../src/api/more';
 import { useAuthStore } from '../../../../src/store/useAuthStore';
 import { addDays, format, isBefore, parseISO } from 'date-fns';
 import { RENEW, FIELDS, MEMBERS } from '../../../../src/constants/strings';
-import { formatMoney, isPhoneMasked } from '../../../../src/utils/formatters';
+import { formatMoney, isPhoneMasked, formatDate } from '../../../../src/utils/formatters';
 import { safeOpenURL } from '../../../../src/utils/safeLinking';
 
 const renewSchema = z.object({
@@ -150,7 +150,7 @@ export default function RenewMemberScreen() {
   let expiryDate = '';
   if (selectedPlan) {
     try {
-      expiryDate = format(addDays(startDate, selectedPlan.durationDays), 'dd MMM yyyy');
+      expiryDate = formatDate(addDays(startDate, selectedPlan.durationDays));
     } catch {}
   }
 
@@ -293,7 +293,7 @@ export default function RenewMemberScreen() {
         {selectedPlan && (
           <View style={styles.planSummary}>
             <Text style={styles.summaryText}>
-              {RENEW.PLAN_STARTS(format(startDate, 'dd MMM yyyy'))}
+              {RENEW.PLAN_STARTS(formatDate(startDate))}
             </Text>
             <Text style={styles.summaryText}>{RENEW.PLAN_EXPIRES(expiryDate)}</Text>
             <Text style={styles.summaryText}>

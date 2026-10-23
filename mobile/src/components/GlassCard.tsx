@@ -99,7 +99,7 @@ export const GlassCard: React.FC<GlassCardProps> = ({
         style,
       ]}
     >
-      <View style={[{ position: 'relative', zIndex: 1 }, contentStyle]}>
+      <View style={[{ position: 'relative', zIndex: 1, width: '100%' }, contentStyle]}>
         {children}
       </View>
     </ContainerComponent>

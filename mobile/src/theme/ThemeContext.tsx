@@ -212,7 +212,7 @@ export function useStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet.Named
   makeStyles: (theme: ThemeValue) => T
 ): T {
   const theme = useTheme();
-  return useMemo(() => makeStyles(theme), [theme.mode, theme.brand, makeStyles]);
+  return useMemo(() => makeStyles(theme), [theme.mode, theme.brand, theme.isDark, makeStyles]);
 }
 
 export { theme, colors } from './theme';

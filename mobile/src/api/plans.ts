@@ -3,7 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { components } from './types';
 
-export type Plan = Required<components['schemas']['PlanResponse']>;
+export type Plan = Required<components['schemas']['PlanResponse']> & {
+  active?: boolean;
+};
 export type PlanRequest = Required<components['schemas']['PlanRequest']>;
 
 export const fetchActivePlans = async (): Promise<Plan[]> => {
@@ -46,5 +48,18 @@ export const useUpdatePlan = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plans'] });
     }
+  });
+};
+
+export const useDeletePlan = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await apiClient.delete(`/api/plans/${id}`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plans'] });
+    },
   });
 };

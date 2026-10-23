@@ -23,6 +23,7 @@ import {
 } from '../../../../../src/api/trainers';
 import { useMembers } from '../../../../../src/api/members';
 import { Screen } from '../../../../../src/components/Screen';
+import { PageHeader } from '../../../../../src/components/PageHeader';
 import { GlassCard } from '../../../../../src/components/GlassCard';
 import { Avatar } from '../../../../../src/components/Avatar';
 import { Badge } from '../../../../../src/components/Badge';
@@ -64,7 +65,8 @@ export default function AssignMembersScreen() {
 
   if (role !== 'OWNER') {
     return (
-      <Screen safeTop={false}>
+      <Screen safeTop={true}>
+        <PageHeader title={ASSIGN_MEMBERS.SCREEN_TITLE} showBack onBack={() => safeBack(`/(tabs)/more/trainers/${id}`)} />
         <ErrorState message={ERRORS.PERMISSION_DENIED} onRetry={() => {}} />
       </Screen>
     );
@@ -137,7 +139,8 @@ export default function AssignMembersScreen() {
 
   if (isMembersError) {
     return (
-      <Screen safeTop={false}>
+      <Screen safeTop={true}>
+        <PageHeader title={ASSIGN_MEMBERS.SCREEN_TITLE} showBack onBack={() => safeBack(`/(tabs)/more/trainers/${id}`)} />
         <ErrorState message={ERRORS.GENERIC} onRetry={() => refetchMembers()} />
       </Screen>
     );
@@ -212,7 +215,12 @@ export default function AssignMembersScreen() {
   };
 
   return (
-    <Screen safeTop={false} keyboardAvoiding contentContainerStyle={styles.container}>
+    <Screen safeTop={true} keyboardAvoiding contentContainerStyle={styles.container}>
+      <PageHeader
+        title={ASSIGN_MEMBERS.SCREEN_TITLE}
+        showBack
+        onBack={() => safeBack(`/(tabs)/more/trainers/${id}`)}
+      />
       {/* ── Search Bar ─────────────────────────────────────────── */}
       <View style={styles.searchBox}>
         <Search size={18} color={colors.textSecondary} style={styles.searchIcon} />

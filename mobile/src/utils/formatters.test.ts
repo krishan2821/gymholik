@@ -19,6 +19,8 @@ describe('formatters & currency rules', () => {
       { paise: 1200000, expected: '₹12,000' },
       { paise: 12500000, expected: '₹1,25,000' },
       { paise: 100000000, expected: '₹10,00,000' },
+      { paise: -50000, expected: '-₹500' },
+      { paise: -12500000, expected: '-₹1,25,000' },
     ];
 
     for (const { paise, expected } of cases) {
@@ -36,6 +38,8 @@ describe('formatters & currency rules', () => {
       { rupees: 500, expected: '₹500' },
       { rupees: 4000, expected: '₹4,000' },
       { rupees: 125000, expected: '₹1,25,000' },
+      { rupees: -500, expected: '-₹500' },
+      { rupees: -4000, expected: '-₹4,000' },
     ];
 
     for (const { rupees, expected } of cases) {

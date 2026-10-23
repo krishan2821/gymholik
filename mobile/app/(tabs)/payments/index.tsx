@@ -334,7 +334,7 @@ export default function PaymentsScreen() {
   const renderPaymentRow = ({ item }: { item: PaymentItem }) => {
     const isReversal = item.type === 'REVERSAL' || (item as any).status === 'REVERSED';
     const amountSign = isReversal ? '-' : '+';
-    const formattedAmount = formatMoney(item.amountPaise);
+    const formattedAmount = formatMoney(Math.abs(item.amountPaise));
 
     const isMidnight = Boolean(
       item.paidAt &&

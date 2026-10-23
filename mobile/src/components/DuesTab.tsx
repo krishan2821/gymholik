@@ -119,7 +119,14 @@ export const DuesTab: React.FC<DuesTabProps> = ({
             </Text>
           </View>
           <View style={{ alignItems: 'flex-end', marginLeft: 8 }}>
-            <Text style={styles.dueAmount}>{formatMoney(item.duePaise)}</Text>
+            <Text
+              style={styles.dueAmount}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
+              {formatMoney(item.duePaise)}
+            </Text>
             {item.totalPaise > 0 && (
               <Text style={styles.totalSub}>of {formatMoney(item.totalPaise)}</Text>
             )}
@@ -322,6 +329,7 @@ const makeStyles = (theme: ThemeValue) => {
       fontFamily: theme.fonts.headingBold,
       fontSize: 15,
       color: colors.text,
+      flexShrink: 1,
     },
     planSub: {
       fontFamily: theme.fonts.bodyRegular,

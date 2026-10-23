@@ -12,7 +12,7 @@ import {
   Platform,
   Share,
 } from 'react-native';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { safeSetClipboardString } from '../../../src/utils/safeClipboard';
 import { safeNotificationAsync, NotificationFeedbackType } from '../../../src/utils/safeHaptics';
 import Toast from 'react-native-toast-message';
@@ -336,7 +336,6 @@ export default function GymProfileScreen() {
 
   return (
     <Screen scrollable contentContainerStyle={styles.container}>
-      <Stack.Screen options={{ title: GYM_PROFILE.SCREEN_TITLE, headerShown: false }} />
       <PageHeader
         title={GYM_PROFILE.SCREEN_TITLE}
         showBack
@@ -346,6 +345,7 @@ export default function GymProfileScreen() {
             title="Edit"
             size="sm"
             variant="secondary"
+            fullWidth={false}
             icon={<Edit3 size={15} color={colors.primary} />}
             onPress={handleOpenEdit}
           />
@@ -746,8 +746,7 @@ export default function GymProfileScreen() {
 const makeStyles = (theme: ThemeValue) =>
   StyleSheet.create({
   container: {
-    padding: theme.spacing.md,
-    paddingBottom: 110,
+    paddingBottom: 24,
   },
   centerContainer: {
     justifyContent: 'center',

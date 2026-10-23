@@ -35,7 +35,7 @@ import { PageHeader } from '../../../src/components/PageHeader';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Button } from '../../../src/components/Button';
 import { Badge } from '../../../src/components/Badge';
-import { formatMoney } from '../../../src/utils/formatters';
+import { formatMoney, formatDate } from '../../../src/utils/formatters';
 import { safeBack } from '../../../src/utils/navigation';
 import { ERRORS, COMMON } from '../../../src/constants/strings';
 
@@ -47,17 +47,7 @@ function formatDateISO(d: Date): string {
 }
 
 function formatDisplayDate(dateStr: string): string {
-  try {
-    const [y, m, d] = dateStr.split('-').map(Number);
-    const date = new Date(y, m - 1, d);
-    return date.toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return dateStr;
-  }
+  return formatDate(dateStr);
 }
 
 export default function DayCloseScreen() {
@@ -141,7 +131,8 @@ export default function DayCloseScreen() {
   const isToday = selectedDate === todayStr;
 
   return (
-    <Screen safeTop={false} scrollable keyboardAvoiding contentContainerStyle={styles.container}>
+    <Screen safeTop={true} scrollable keyboardAvoiding contentContainerStyle={styles.container}>
+      <PageHeader title="Day Close" showBack onBack={() => safeBack('/(tabs)/more')} />
       {/* ── Date Navigator ────────────────────────────────────────── */}
       <GlassCard style={styles.dateCard} contentStyle={styles.dateCardContent}>
         <View style={styles.dateNavRow}>

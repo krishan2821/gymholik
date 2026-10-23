@@ -15,20 +15,23 @@ import Toast from 'react-native-toast-message';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Plus, X, Edit2, Calendar, ShieldCheck } from 'lucide-react-native';
+import { Plus, X, Edit2, Calendar, PowerOff, RotateCcw } from 'lucide-react-native';
 import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import { useAuthStore } from '../../../src/store/useAuthStore';
-import { usePlans, useAddPlan, useUpdatePlan, Plan } from '../../../src/api/plans';
+import { usePlans, useAddPlan, useUpdatePlan, useDeletePlan, Plan } from '../../../src/api/plans';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorState } from '../../../src/components/ErrorState';
 import { EmptyState } from '../../../src/components/EmptyState';
-import { Screen } from '../../../src/components/Screen';
+import { Screen, getScreenBottomPadding } from '../../../src/components/Screen';
 import { GlassCard } from '../../../src/components/GlassCard';
+import { Badge } from '../../../src/components/Badge';
 import { Button } from '../../../src/components/Button';
-import { PLANS, ERRORS } from '../../../src/constants/strings';
+import { PLANS, ERRORS, COMMON } from '../../../src/constants/strings';
 import { useBreakpoint } from '../../../src/hooks/useBreakpoint';
 import { PageHeader } from '../../../src/components/PageHeader';
 import { formatMoney } from '../../../src/utils/formatters';
 import { safeBack } from '../../../src/utils/navigation';
+import { showConfirmDialog } from '../../../src/components/ConfirmDialog';
 
 const schema = z.object({
   name: z.string().min(2, 'Name is required'),
@@ -38,6 +41,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export default function PlansScreen() {
+  const insets = useSafeAreaInsets();
   const { role } = useAuthStore();
   const { isPhone } = useBreakpoint();
   const { colors } = useTheme();
@@ -48,6 +52,7 @@ export default function PlansScreen() {
   const { data: plans, isLoading, isError, refetch } = usePlans(false);
   const addPlan = useAddPlan();
   const updatePlan = useUpdatePlan();
+  const deletePlan = useDeletePlan();
 
   const {
     control,
@@ -60,7 +65,8 @@ export default function PlansScreen() {
 
   if (role !== 'OWNER') {
     return (
-      <Screen safeTop={false}>
+      <Screen safeTop={true}>
+        <PageHeader title={PLANS.SCREEN_TITLE} showBack onBack={() => safeBack('/(tabs)/more')} />
         <ErrorState message={ERRORS.PERMISSION_DENIED} onRetry={() => {}} />
       </Screen>
     );
@@ -68,7 +74,7 @@ export default function PlansScreen() {
 
   if (isLoading) {
     return (
-      <Screen safeTop={false} style={styles.centered}>
+      <Screen safeTop={true} style={styles.centered}>
         <ActivityIndicator size="large" color={colors.primary} />
       </Screen>
     );
@@ -76,7 +82,8 @@ export default function PlansScreen() {
 
   if (isError) {
     return (
-      <Screen safeTop={false}>
+      <Screen safeTop={true}>
+        <PageHeader title={PLANS.SCREEN_TITLE} showBack onBack={() => safeBack('/(tabs)/more')} />
         <ErrorState message={PLANS.LOAD_ERROR} onRetry={() => refetch()} />
       </Screen>
     );
@@ -98,6 +105,46 @@ export default function PlansScreen() {
     setShowModal(true);
   };
 
+  const handleDeactivatePlan = (plan: Plan) => {
+    showConfirmDialog({
+      title: PLANS.DEACTIVATE_CONFIRM_TITLE,
+      message: PLANS.DEACTIVATE_CONFIRM_MSG(plan.name),
+      confirmText: PLANS.DEACTIVATE_BTN,
+      cancelText: COMMON.CANCEL,
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          await deletePlan.mutateAsync(plan.id);
+        } catch {
+          // handled in mutation
+        }
+      },
+    });
+  };
+
+  const handleReactivatePlan = (plan: Plan) => {
+    showConfirmDialog({
+      title: 'Reactivate plan?',
+      message: `Reactivate "${plan.name}" so members can subscribe to it again?`,
+      confirmText: 'Reactivate',
+      cancelText: COMMON.CANCEL,
+      onConfirm: async () => {
+        try {
+          await updatePlan.mutateAsync({
+            id: plan.id,
+            payload: {
+              name: plan.name,
+              durationDays: plan.durationDays,
+              pricePaise: plan.pricePaise,
+            },
+          });
+        } catch {
+          // handled in mutation
+        }
+      },
+    });
+  };
+
   const onSubmit = async (data: FormData) => {
     const payload = {
       name: data.name,
@@ -117,59 +164,104 @@ export default function PlansScreen() {
     }
   };
 
-  const renderItem = ({ item }: { item: Plan }) => (
-    <GlassCard style={styles.card}>
-      <View style={styles.cardInfo}>
-        <Text style={styles.name}>{item.name}</Text>
-        <View style={styles.badgeRow}>
-          <View style={styles.durationBadge}>
-            <Calendar size={13} color={colors.primary} style={{ marginRight: 4 }} />
-            <Text style={styles.durationText}>{item.durationDays} Days</Text>
-          </View>
-          <Text style={styles.priceText}>{formatMoney(item.pricePaise)}</Text>
-        </View>
-      </View>
-      <TouchableOpacity
-        style={styles.editBtn}
-        onPress={() => openEditModal(item)}
-        accessibilityRole="button"
-        accessibilityLabel={`Edit ${item.name}`}
-        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+  const renderItem = ({ item }: { item: Plan }) => {
+    const isInactive = item.active === false;
+    return (
+      <GlassCard
+        style={[styles.card, isInactive && styles.cardInactive]}
+        contentStyle={styles.cardContent}
       >
-        <Edit2 color={colors.primary} size={18} />
-      </TouchableOpacity>
-    </GlassCard>
-  );
+        <View style={styles.cardLeft}>
+          <Text style={[styles.name, isInactive && styles.nameInactive]} numberOfLines={1} ellipsizeMode="tail">
+            {item.name}
+          </Text>
+          <View style={styles.chipsRow}>
+            <View style={styles.durationBadge}>
+              <Calendar size={13} color={colors.primary} style={{ marginRight: 4 }} />
+              <Text style={styles.durationText}>{item.durationDays} Days</Text>
+            </View>
+            {isInactive && (
+              <Badge label="Inactive" variant="neutral" size="sm" />
+            )}
+          </View>
+        </View>
+
+        <View style={styles.cardRight}>
+          <Text style={[styles.priceText, isInactive && styles.priceInactive]}>
+            {formatMoney(item.pricePaise)}
+          </Text>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => openEditModal(item)}
+            accessibilityRole="button"
+            accessibilityLabel={`Edit ${item.name}`}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          >
+            <Edit2 color={colors.text} size={18} />
+          </TouchableOpacity>
+          {item.active !== false ? (
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.deleteBtn]}
+              onPress={() => handleDeactivatePlan(item)}
+              accessibilityRole="button"
+              accessibilityLabel={`Deactivate ${item.name}`}
+              disabled={deletePlan.isPending}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <PowerOff size={18} color={colors.danger} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.reactivateBtn]}
+              onPress={() => handleReactivatePlan(item)}
+              accessibilityRole="button"
+              accessibilityLabel={`Reactivate ${item.name}`}
+              disabled={updatePlan.isPending}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <RotateCcw size={18} color={colors.primary} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </GlassCard>
+    );
+  };
+
+  const planCount = plans?.length || 0;
+  const subtitle = `${planCount} ${planCount === 1 ? 'plan' : 'plans'}`;
 
   return (
-    <Screen safeTop={false} style={styles.container}>
+    <Screen safeTop={true} safeBottom={false} style={styles.container}>
       <PageHeader
-        title="Membership Plans"
+        title="Membership plans"
+        subtitle={subtitle}
         showBack
         onBack={() => safeBack('/(tabs)/more')}
+        rightAction={
+          <Button
+            title="+ Add plan"
+            onPress={openAddModal}
+            variant="primary"
+            size="sm"
+            fullWidth={false}
+            style={{ paddingHorizontal: 14 }}
+          />
+        }
       />
-      <View style={styles.actionHeader}>
-        <View>
-          <Text style={styles.counterText}>
-            {plans?.length || 0} {plans?.length === 1 ? 'Plan' : 'Plans'} Available
-          </Text>
-        </View>
-        <Button
-          title={PLANS.ADD_BTN}
-          onPress={openAddModal}
-          variant="primary"
-          size="sm"
-          fullWidth={false}
-          icon={<Plus color={colors.textOnPrimary} size={16} />}
-        />
-      </View>
 
       <FlatList
         data={plans}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={<EmptyState message={PLANS.EMPTY} />}
+        contentContainerStyle={[styles.list, { paddingBottom: getScreenBottomPadding(insets.bottom) }]}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <EmptyState
+            message={PLANS.EMPTY}
+            actionLabel="+ Add plan"
+            onAction={openAddModal}
+          />
+        }
       />
 
       <Modal
@@ -277,44 +369,40 @@ const makeStyles = (theme: ThemeValue) =>
       justifyContent: 'center',
       alignItems: 'center',
     },
-    actionHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: theme.spacing.lg,
-      paddingTop: theme.spacing.md,
-      paddingBottom: theme.spacing.sm,
-    },
-    counterText: {
-      ...theme.typography.caption,
-      color: theme.colors.textSecondary,
-      fontFamily: theme.fonts.bodyRegular,
-    },
     list: {
-      padding: theme.spacing.lg,
+      paddingVertical: theme.spacing.sm,
       paddingBottom: 40,
     },
     card: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: theme.spacing.md,
-      padding: theme.spacing.lg,
+      marginBottom: theme.spacing.sm,
     },
-    cardInfo: {
+    cardInactive: {
+      opacity: 0.55,
+    },
+    cardContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 16,
+    },
+    cardLeft: {
       flex: 1,
+      minWidth: 0,
       marginRight: theme.spacing.md,
     },
     name: {
       fontFamily: theme.fonts.headingBold,
-      fontSize: 17,
+      fontSize: 16,
       color: theme.colors.text,
       marginBottom: 6,
     },
-    badgeRow: {
+    nameInactive: {
+      color: theme.colors.textSecondary,
+    },
+    chipsRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: theme.spacing.sm,
+      gap: theme.spacing.xs,
     },
     durationBadge: {
       flexDirection: 'row',
@@ -331,23 +419,36 @@ const makeStyles = (theme: ThemeValue) =>
       color: theme.colors.textSecondary,
       fontVariant: ['tabular-nums'],
     },
+    cardRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: theme.spacing.xs,
+      flexShrink: 0,
+    },
     priceText: {
       fontFamily: theme.fonts.headingBold,
-      fontSize: 16,
+      fontSize: 17,
       color: theme.colors.text,
       fontVariant: ['tabular-nums'],
+      marginRight: theme.spacing.xs,
     },
-    editBtn: {
+    priceInactive: {
+      color: theme.colors.textSecondary,
+    },
+    actionBtn: {
       width: 44,
       height: 44,
-      borderRadius: theme.radius.full,
+      borderRadius: theme.radius.md,
       backgroundColor: theme.colors.surfaceRaised,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
       alignItems: 'center',
       justifyContent: 'center',
     },
-
+    deleteBtn: {
+      backgroundColor: theme.colors.chipDangerBg,
+    },
+    reactivateBtn: {
+      backgroundColor: theme.colors.surfaceRaised,
+    },
     modalOverlay: {
       flex: 1,
       backgroundColor: theme.colors.scrim,

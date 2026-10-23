@@ -10,15 +10,18 @@ import { Avatar, AvatarStatus } from './Avatar';
 import { Badge, BadgeVariant } from './Badge';
 import { MaskedPhone, isPhoneMasked } from './MaskedPhone';
 import { formatMoney, formatDate } from '../utils/formatters';
-import { useTheme } from '../theme/ThemeContext';
+import { useTheme, useStyles, ThemeValue, ColorMode } from '../theme/ThemeContext';
 
-interface MemberCardProps {
+export interface MemberCardProps {
   member: Member;
   onPress: () => void;
+  mode?: ColorMode;
 }
 
-export const MemberCard = React.memo(({ member, onPress }: MemberCardProps) => {
-  const { colors, fonts, spacing, radius } = useTheme();
+export const MemberCard = React.memo(
+  ({ member, onPress, mode }: MemberCardProps) => {
+    const { colors, fonts, spacing, radius } = useTheme();
+    const styles = useStyles(makeStyles);
   const { name, phone, photoUrl, currentMembership } = member;
   const role = useAuthStore((state) => state.role);
   const isTrainer = role === 'TRAINER';
@@ -178,52 +181,67 @@ export const MemberCard = React.memo(({ member, onPress }: MemberCardProps) => {
       )}
     </GlassCard>
   );
-});
+  },
+  (prev, next) => {
+    return (
+      prev.member === next.member &&
+      prev.onPress === next.onPress &&
+      prev.mode === next.mode
+    );
+  }
+);
 
-const styles = StyleSheet.create({
-  card: {},
-  cardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cardMain: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatarWrapper: {},
-  infoContainer: {
-    flex: 1,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 2,
-  },
-  name: {
-    fontSize: 16,
-    flex: 1,
-    marginRight: 8,
-  },
-  dueBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderWidth: 1,
-    alignSelf: 'flex-start',
-    marginTop: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  waButton: {
-    minWidth: 44, // 44px tap target
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 9999,
-    borderWidth: 1,
-    marginLeft: 8,
-  },
-});
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
+    card: {},
+    cardRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    cardMain: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    avatarWrapper: {},
+    infoContainer: {
+      flex: 1,
+    },
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 2,
+    },
+    name: {
+      fontSize: 16,
+      fontFamily: theme.fonts.headingBold,
+      color: theme.colors.text,
+      flex: 1,
+      marginRight: 8,
+    },
+    dueBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderWidth: 1,
+      alignSelf: 'flex-start',
+      marginTop: 6,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderColor: theme.colors.border,
+      borderRadius: theme.radius.chip,
+    },
+    waButton: {
+      minWidth: 44, // 44px tap target
+      minHeight: 44,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderRadius: theme.radius.full,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.surfaceRaised,
+      marginLeft: 8,
+    },
+  });
 
 export default MemberCard;

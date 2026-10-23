@@ -31,6 +31,8 @@ import {
   Trainer,
 } from '../../../../src/api/trainers';
 import { Screen } from '../../../../src/components/Screen';
+import { PageHeader } from '../../../../src/components/PageHeader';
+import { safeBack } from '../../../../src/utils/navigation';
 import { GlassCard } from '../../../../src/components/GlassCard';
 import { Avatar } from '../../../../src/components/Avatar';
 import { Badge } from '../../../../src/components/Badge';
@@ -176,7 +178,8 @@ export default function TrainersScreen() {
   };
 
   return (
-    <Screen safeTop={false} contentContainerStyle={styles.container}>
+    <Screen safeTop={true} hasFab={true} contentContainerStyle={styles.container}>
+      <PageHeader title={TRAINERS.SCREEN_TITLE} showBack onBack={() => safeBack('/(tabs)/more')} />
       {/* ── Top Bar ────────────────────────────────────────────── */}
       <View style={styles.topActionsBar}>
         <View style={styles.filterContainer}>
@@ -399,9 +402,11 @@ const makeStyles = (theme: ThemeValue) => StyleSheet.create({
   manageTypesBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: theme.colors.surfaceRaised,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 6,
+    minHeight: 44,
     borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: theme.colors.borderLight,

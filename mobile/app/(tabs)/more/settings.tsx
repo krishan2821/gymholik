@@ -29,6 +29,8 @@ import {
   useUpdateCollectionInfo,
 } from '../../../src/api/more';
 import { Screen } from '../../../src/components/Screen';
+import { PageHeader } from '../../../src/components/PageHeader';
+import { safeBack } from '../../../src/utils/navigation';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Button } from '../../../src/components/Button';
 import { ErrorState } from '../../../src/components/ErrorState';
@@ -117,7 +119,8 @@ export default function SettingsScreen() {
 
   if (isError) {
     return (
-      <Screen safeTop={false}>
+      <Screen safeTop={true}>
+        <PageHeader title={SETTINGS.SCREEN_TITLE} showBack onBack={() => safeBack('/(tabs)/more')} />
         <ErrorState message={SETTINGS.LOAD_ERROR} onRetry={() => refetch()} />
       </Screen>
     );
@@ -156,11 +159,12 @@ export default function SettingsScreen() {
 
   return (
     <Screen
-      safeTop={false}
+      safeTop={true}
       scrollable
       keyboardAvoiding
       contentContainerStyle={styles.container}
     >
+      <PageHeader title={SETTINGS.SCREEN_TITLE} showBack onBack={() => safeBack('/(tabs)/more')} />
       <GlassCard style={styles.sectionCard}>
         <View style={styles.sectionHeaderRow}>
           <Building2 size={20} color={colors.primary} style={styles.headerIcon} />

@@ -221,4 +221,16 @@ export const theme = {
   layout,
 };
 
+/**
+ * Returns gradient colors for top status bar scrim:
+ * Screen background color at 0.95 opacity fading to 0 over inset + 24px.
+ */
+export function getTopScrimColors(color: string): [string, string] {
+  const hex = color.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16) || 0;
+  const g = parseInt(hex.substring(2, 4), 16) || 0;
+  const b = parseInt(hex.substring(4, 6), 16) || 0;
+  return [`rgba(${r}, ${g}, ${b}, 0.95)`, `rgba(${r}, ${g}, ${b}, 0)`];
+}
+
 export default theme;

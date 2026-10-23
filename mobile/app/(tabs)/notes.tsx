@@ -40,6 +40,7 @@ import {
   NoteType,
 } from '../../src/api/notes';
 import { Screen, TAB_BAR_HEIGHT, getScreenBottomPadding } from '../../src/components/Screen';
+import { PageHeader } from '../../src/components/PageHeader';
 import { GlassCard } from '../../src/components/GlassCard';
 import { Badge, BadgeVariant } from '../../src/components/Badge';
 import { Button } from '../../src/components/Button';
@@ -47,6 +48,8 @@ import { useBreakpoint } from '../../src/hooks/useBreakpoint';
 import { Avatar } from '../../src/components/Avatar';
 import { EmptyState } from '../../src/components/EmptyState';
 import { ErrorState } from '../../src/components/ErrorState';
+import { Chip } from '../../src/components/Chip';
+import { formatDate, formatTime } from '../../src/utils/formatters';
 
 const NOTE_TYPES: { type: NoteType; label: string; icon: any; variant: BadgeVariant }[] = [
   { type: 'WORKOUT', label: 'Workout', icon: Dumbbell, variant: 'neutral' },
@@ -251,9 +254,7 @@ export default function NotesScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── 1. Screen Header (Titled "Notes") ────────────────────── */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Notes</Text>
-        </View>
+        <PageHeader title="Notes" />
 
         {/* ── 2. Member Selector Bar ───────────────────────────────── */}
         <View style={styles.memberSelectorHeader}>
@@ -388,27 +389,20 @@ export default function NotesScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filterRow}
           >
-            <TouchableOpacity
-              style={[styles.filterChip, filterType === 'ALL' && styles.filterChipActive]}
+            <Chip
+              label={`All${notes.length > 0 ? ` (${notes.length})` : ''}`}
+              selected={filterType === 'ALL'}
               onPress={() => setFilterType('ALL')}
-            >
-              <Text style={[styles.filterChipText, filterType === 'ALL' && styles.filterChipTextActive]}>
-                All{notes.length > 0 ? ` (${notes.length})` : ''}
-              </Text>
-            </TouchableOpacity>
+            />
             {NOTE_TYPES.map((t) => {
               const count = notes.filter((n) => n.type === t.type).length;
-              const isActive = filterType === t.type;
               return (
-                <TouchableOpacity
+                <Chip
                   key={t.type}
-                  style={[styles.filterChip, isActive && styles.filterChipActive]}
+                  label={`${t.label}${count > 0 ? ` (${count})` : ''}`}
+                  selected={filterType === t.type}
                   onPress={() => setFilterType(t.type)}
-                >
-                  <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
-                    {t.label}{count > 0 ? ` (${count})` : ''}
-                  </Text>
-                </TouchableOpacity>
+                />
               );
             })}
           </ScrollView>
@@ -438,7 +432,7 @@ export default function NotesScreen() {
             const canEdit = isTrainer ? note.trainerId === userId : true;
             let createdDateStr = '';
             try {
-              createdDateStr = format(parseISO(note.createdAt), 'dd MMM yyyy, hh:mm a');
+              createdDateStr = `${formatDate(note.createdAt)}, ${formatTime(note.createdAt)}`;
             } catch {
               createdDateStr = '';
             }

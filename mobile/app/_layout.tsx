@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Slot, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
 import { StatusBar } from 'expo-status-bar';
@@ -109,7 +109,16 @@ function InnerLayout() {
         </View>
       ) : (
         <QueryClientProvider client={queryClient}>
-          <Slot />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: colors.bg },
+            }}
+          >
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          </Stack>
           <GlobalConfirmDialog />
           <Toast config={toastConfig} />
         </QueryClientProvider>

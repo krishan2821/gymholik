@@ -24,7 +24,7 @@ import {
   Monitor,
   Sparkles,
 } from 'lucide-react-native';
-import { useTheme } from '../../../src/theme/ThemeContext';
+import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import {
   useAppearanceStore,
   AppearanceSetting,
@@ -32,7 +32,6 @@ import {
 import { useAuthStore } from '../../../src/store/useAuthStore';
 import { useCurrentUser } from '../../../src/api/auth';
 import { Screen } from '../../../src/components/Screen';
-import { PageHeader } from '../../../src/components/PageHeader';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Badge } from '../../../src/components/Badge';
 import { MORE, COMMON } from '../../../src/constants/strings';
@@ -45,6 +44,7 @@ export default function MoreScreen() {
   const { data: currentUser } = useCurrentUser();
   const isOwner = (currentUser?.role || role) === 'OWNER';
   const { colors, fonts, spacing, radius } = useTheme();
+  const styles = useStyles(makeStyles);
   const appearanceSetting = useAppearanceStore((s) => s.setting);
   const setAppearanceSetting = useAppearanceStore((s) => s.setSetting);
 
@@ -83,14 +83,13 @@ export default function MoreScreen() {
         style={[
           styles.iconBox,
           {
-            backgroundColor: colors.surfaceRaised,
             borderColor: destructive ? colors.danger : colors.border,
           },
         ]}
       >
         <Icon color={destructive ? colors.danger : colors.primary} size={20} />
       </View>
-      <Text style={[styles.menuTitle, { fontFamily: fonts.bodyMedium, color: destructive ? colors.danger : colors.text }]}>
+      <Text style={[styles.menuTitle, destructive && styles.destructiveMenuTitle]}>
         {title}
       </Text>
       <ChevronRight color={colors.textSecondary} size={18} />
@@ -132,7 +131,6 @@ export default function MoreScreen() {
 
   return (
     <Screen scrollable contentContainerStyle={styles.scroll}>
-      <PageHeader title="More" />
       {/* ── Profile Card (Tappable to Edit Profile) ───────────────── */}
       <GlassCard style={styles.profileCard}>
         <TouchableOpacity
@@ -271,7 +269,7 @@ export default function MoreScreen() {
       )}
 
       {/* ── Appearance Section ────────────────────────────────────── */}
-      <Text style={[styles.sectionHeader, { color: colors.textSecondary, fontFamily: fonts.headingMedium }]}>
+      <Text style={styles.sectionHeader}>
         APPEARANCE
       </Text>
       <GlassCard style={styles.sectionCard}>
@@ -323,7 +321,7 @@ export default function MoreScreen() {
       {/* ── Developer Tools ───────────────────────────────────────── */}
       {__DEV__ && (
         <>
-          <Text style={[styles.sectionHeader, { color: colors.textSecondary, fontFamily: fonts.headingMedium }]}>
+          <Text style={styles.sectionHeader}>
             DEVELOPER TOOLS
           </Text>
           <GlassCard style={styles.sectionCard} contentStyle={styles.sectionContent}>
@@ -343,7 +341,7 @@ export default function MoreScreen() {
       >
         <MenuItem
           icon={LogOut}
-          title={MORE.MENU_LOGOUT}
+          title={MORE.LOGOUT_BTN}
           destructive
           onPress={handleLogout}
         />
@@ -354,160 +352,175 @@ export default function MoreScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: {
-    padding: 16,
-    paddingBottom: 110,
-  },
-  profileCard: {
-    marginBottom: 24,
-  },
-  profileContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 24,
-  },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-  },
-  profileInfo: {
-    marginLeft: 16,
-    flex: 1,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  nameText: {
-    fontSize: 20,
-    lineHeight: 26,
-    fontWeight: '700',
-    flex: 1,
-    marginRight: 6,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  phoneText: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  gymRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  gymIcon: {
-    marginRight: 5,
-  },
-  gymText: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  sectionHeader: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '600',
-    marginBottom: 4,
-    marginLeft: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  sectionCard: {
-    marginBottom: 24,
-  },
-  logoutCard: {
-    marginTop: 24,
-  },
-  sectionContent: {
-    paddingHorizontal: 16,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 56,
-  },
-  iconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  destructiveIconBox: {
-    // borderColor set inline
-  },
-  menuTitle: {
-    flex: 1,
-    fontSize: 15,
-    lineHeight: 22,
-    fontWeight: '500',
-    marginLeft: 16,
-  },
-  destructiveMenuTitle: {
-    // color set inline
-  },
-  divider: {
-    height: 1,
-  },
-  bottomSpacer: {
-    height: 40,
-  },
-  profileDivider: {
-    height: 1,
-    marginHorizontal: 24,
-  },
-  codeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-  },
-  codeInfo: {
-    flex: 1,
-  },
-  codeLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    marginBottom: 2,
-  },
-  codeValue: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    fontSize: 16,
-    letterSpacing: 1.5,
-    fontWeight: '700',
-  },
-  codeActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  codeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    minHeight: 44,
-    borderRadius: 9999,
-    borderWidth: 1,
-  },
-  codeBtnText: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '600',
-  },
-});
+const makeStyles = (theme: ThemeValue) =>
+  StyleSheet.create({
+    scroll: {
+      paddingBottom: 24,
+    },
+    profileCard: {
+      marginBottom: 24,
+    },
+    profileContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 24,
+    },
+    avatar: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: theme.colors.surfaceRaised,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1.5,
+      borderColor: theme.colors.border,
+    },
+    profileInfo: {
+      marginLeft: 16,
+      flex: 1,
+    },
+    nameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 4,
+    },
+    nameText: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 20,
+      lineHeight: 26,
+      color: theme.colors.text,
+      flex: 1,
+      marginRight: 6,
+    },
+    badgeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 6,
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    phoneText: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 13,
+      lineHeight: 18,
+      color: theme.colors.textSecondary,
+    },
+    gymRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 2,
+    },
+    gymIcon: {
+      marginRight: 5,
+    },
+    gymText: {
+      fontFamily: theme.fonts.bodyRegular,
+      fontSize: 13,
+      lineHeight: 18,
+      color: theme.colors.textSecondary,
+    },
+    sectionHeader: {
+      fontFamily: theme.fonts.headingMedium,
+      fontSize: 13,
+      lineHeight: 18,
+      color: theme.colors.textSecondary,
+      marginBottom: 4,
+      marginLeft: 4,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    sectionCard: {
+      marginBottom: 24,
+    },
+    logoutCard: {
+      marginTop: 24,
+    },
+    sectionContent: {
+      paddingHorizontal: 16,
+    },
+    menuItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      minHeight: 56,
+    },
+    iconBox: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: theme.colors.surfaceRaised,
+      borderColor: theme.colors.border,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    menuTitle: {
+      flex: 1,
+      fontFamily: theme.fonts.bodyMedium,
+      fontSize: 15,
+      lineHeight: 22,
+      color: theme.colors.text,
+      marginLeft: 16,
+    },
+    destructiveMenuTitle: {
+      color: theme.colors.danger,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: theme.colors.border,
+    },
+    bottomSpacer: {
+      height: 40,
+    },
+    profileDivider: {
+      height: 1,
+      backgroundColor: theme.colors.border,
+      marginHorizontal: 24,
+    },
+    codeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 24,
+      paddingVertical: 16,
+    },
+    codeInfo: {
+      flex: 1,
+    },
+    codeLabel: {
+      fontFamily: theme.fonts.headingBold,
+      fontSize: 10,
+      color: theme.colors.textSecondary,
+      letterSpacing: 0.8,
+      marginBottom: 2,
+    },
+    codeValue: {
+      fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+      fontSize: 16,
+      letterSpacing: 1.5,
+      fontWeight: '700',
+      color: theme.colors.text,
+    },
+    codeActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    codeBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 12,
+      minHeight: 44,
+      borderRadius: theme.radius.full,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.surfaceRaised,
+    },
+    codeBtnText: {
+      fontFamily: theme.fonts.headingMedium,
+      fontSize: 13,
+      lineHeight: 18,
+      color: theme.colors.text,
+    },
+  });

@@ -11,6 +11,7 @@ import {
 import * as Haptics from '../utils/safeHaptics';
 import { Check } from 'lucide-react-native';
 import { useTheme, useStyles, ThemeValue } from '../theme/ThemeContext';
+import { formatTime } from '../utils/formatters';
 
 interface CheckInSuccessModalProps {
   visible: boolean;
@@ -79,7 +80,7 @@ export const CheckInSuccessModal: React.FC<CheckInSuccessModalProps> = ({
   }, [visible, durationMs, onDismiss]);
 
   const now = new Date();
-  const currentTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const currentTime = formatTime(now);
 
   return (
     <Modal

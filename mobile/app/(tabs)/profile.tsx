@@ -7,6 +7,7 @@ import { useCurrentUser } from '../../src/api/auth';
 import { queryClient } from '../../src/api/queryClient';
 import { useTheme, useStyles, ThemeValue } from '../../src/theme/ThemeContext';
 import { Screen } from '../../src/components/Screen';
+import { PageHeader } from '../../src/components/PageHeader';
 import { GlassCard } from '../../src/components/GlassCard';
 import { Badge } from '../../src/components/Badge';
 import { showConfirmDialog } from '../../src/components/ConfirmDialog';
@@ -53,6 +54,7 @@ export default function TrainerProfileScreen() {
 
   return (
     <Screen scrollable contentContainerStyle={styles.scroll}>
+      <PageHeader title="Trainer profile" />
       {/* ── Profile Card (Name, Role, Gym Name) ──────────────────── */}
       <GlassCard style={styles.profileCard} contentStyle={styles.profileContent}>
         <View style={styles.avatar}>

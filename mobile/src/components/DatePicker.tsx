@@ -14,7 +14,7 @@ import DateTimePicker, {
 } from '@react-native-community/datetimepicker';
 import { Calendar, Clock, ChevronDown } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
-import { formatDate } from '../utils/formatters';
+import { formatDate, formatTime } from '../utils/formatters';
 import { safeSelectionAsync } from '../utils/safeHaptics';
 
 export interface DatePickerProps {
@@ -82,9 +82,9 @@ export const DatePicker: React.FC<DatePickerProps> = ({
 
   const formatDisplayValue = (d: Date): string => {
     if (mode === 'time') {
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return formatTime(d);
     }
-    return formatDate(d.toISOString());
+    return formatDate(d);
   };
 
   return (

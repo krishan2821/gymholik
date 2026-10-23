@@ -42,7 +42,7 @@ import { CollectPaymentModal } from '../../../src/components/CollectPaymentModal
 import { isPhoneMasked } from '../../../src/components/MaskedPhone';
 import { useBreakpoint } from '../../../src/hooks/useBreakpoint';
 import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
-import { formatMoney } from '../../../src/utils/formatters';
+import { formatMoney, formatDate } from '../../../src/utils/formatters';
 import { openPhone, openWhatsApp } from '../../../src/utils/safeLinking';
 import { MEMBERS } from '../../../src/constants/strings';
 
@@ -273,11 +273,7 @@ export default function MembersListScreen() {
                   const isSelected = selectedMemberId === member.id;
                   const currentPlan = member.currentMembership?.planName || 'No Plan';
                   const expiryDate = member.currentMembership?.expiryDate
-                    ? new Date(member.currentMembership.expiryDate).toLocaleDateString('en-IN', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                      })
+                    ? formatDate(member.currentMembership.expiryDate)
                     : '—';
                   const status = member.currentMembership?.status || 'INACTIVE';
                   const duePaise = member.currentMembership?.duePaise || 0;
@@ -455,11 +451,7 @@ export default function MembersListScreen() {
                     <View style={styles.detailInfoRow}>
                       <Text style={styles.detailLabel}>Expires</Text>
                       <Text style={styles.detailValue}>
-                        {new Date(selectedMember.currentMembership.expiryDate).toLocaleDateString('en-IN', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
+                        {formatDate(selectedMember.currentMembership.expiryDate)}
                       </Text>
                     </View>
                   )}

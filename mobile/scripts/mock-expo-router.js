@@ -10,6 +10,7 @@ module.exports = {
   useLocalSearchParams: () => ({}),
   useSegments: () => [],
   usePathname: () => '/',
+  useFocusEffect: (cb) => { React.useEffect(cb, []); },
   Link: ({ children, ...props }) => React.createElement('a', props, children),
   Stack: Object.assign(({ children }) => children, { Screen: () => null }),
   Tabs: Object.assign(({ children }) => children, { Screen: () => null }),

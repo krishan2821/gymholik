@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { safeBack } from '../../../src/utils/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,6 +16,7 @@ import { User, Phone, Building2, ShieldCheck, Check } from 'lucide-react-native'
 import { useTheme, useStyles, ThemeValue } from '../../../src/theme/ThemeContext';
 import { useCurrentUser, useUpdateCurrentUser } from '../../../src/api/auth';
 import { Screen } from '../../../src/components/Screen';
+import { PageHeader } from '../../../src/components/PageHeader';
 import { GlassCard } from '../../../src/components/GlassCard';
 import { Badge } from '../../../src/components/Badge';
 import { Button } from '../../../src/components/Button';
@@ -59,7 +60,7 @@ export default function EditProfileScreen() {
 
   if (isLoading) {
     return (
-      <Screen safeTop={false} style={styles.centered}>
+      <Screen safeTop={true} style={styles.centered}>
         <ActivityIndicator size="large" color={colors.primary} />
       </Screen>
     );
@@ -67,7 +68,12 @@ export default function EditProfileScreen() {
 
   if (isError || !currentUser) {
     return (
-      <Screen safeTop={false}>
+      <Screen safeTop={true}>
+        <PageHeader
+          title="Edit Profile"
+          showBack
+          onBack={() => safeBack('/(tabs)/more')}
+        />
         <ErrorState message="Failed to load profile" onRetry={() => refetch()} />
       </Screen>
     );
@@ -90,12 +96,16 @@ export default function EditProfileScreen() {
 
   return (
     <Screen
-      safeTop={false}
+      safeTop={true}
       scrollable
       keyboardAvoiding
       contentContainerStyle={styles.container}
     >
-      <Stack.Screen options={{ title: currentUser.name || 'Profile' }} />
+      <PageHeader
+        title="Edit Profile"
+        showBack
+        onBack={() => safeBack('/(tabs)/more')}
+      />
       {/* ── Role & Gym Context Card ───────────────────────────────── */}
       <GlassCard style={styles.infoCard} contentStyle={styles.infoContent}>
         <View style={styles.avatar}>
