@@ -8,12 +8,13 @@ import {
   ViewStyle,
   KeyboardAvoidingView,
   Platform,
+  StatusBar as NativeStatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../theme/ThemeContext';
-import { getTopScrimColors } from '../theme/theme';
+import { getTopScrimColors, getBottomScrimColors } from '../theme/theme';
 import { useAppearanceStore } from '../theme/useAppearance';
 import { BackgroundImage } from './BackgroundImage';
 import { AppContainer } from './AppContainer';
@@ -124,6 +125,11 @@ export const Screen: React.FC<ScreenProps> = ({
 
   const innerContent = (
     <>
+      <NativeStatusBar
+        barStyle={statusStyle === 'light' ? 'light-content' : 'dark-content'}
+        translucent
+        backgroundColor="transparent"
+      />
       <StatusBar style={statusStyle} />
       {safeTop && insets.top > 0 && (
         <LinearGradient
@@ -135,6 +141,20 @@ export const Screen: React.FC<ScreenProps> = ({
             right: 0,
             height: insets.top + 24,
             zIndex: 100,
+          }}
+          pointerEvents="none"
+        />
+      )}
+      {safeBottom && !isDesktop && (
+        <LinearGradient
+          colors={getBottomScrimColors(colors.bg)}
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: TAB_BAR_HEIGHT + insets.bottom + 16,
+            zIndex: 90,
           }}
           pointerEvents="none"
         />

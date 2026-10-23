@@ -3,7 +3,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator, TextInput, Platform } from 'react-native';
+import { View, ActivityIndicator, TextInput, Platform, StatusBar as NativeStatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import {
@@ -90,11 +90,23 @@ function InnerLayout() {
     }
   }, [isAuthenticated, isLoading, fontsLoaded, segments]);
 
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      NativeStatusBar.setTranslucent(true);
+      NativeStatusBar.setBackgroundColor('transparent');
+    }
+  }, []);
+
   const showSplash = !isHydrated || isLoading || !fontsLoaded;
   const statusStyle = isDark ? 'light' : 'dark';
 
   return (
     <SafeAreaProvider style={{ flex: 1, backgroundColor: colors.bg }}>
+      <NativeStatusBar
+        barStyle={statusStyle === 'light' ? 'light-content' : 'dark-content'}
+        translucent
+        backgroundColor="transparent"
+      />
       <StatusBar style={statusStyle} />
       {showSplash ? (
         <View

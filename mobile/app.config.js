@@ -38,6 +38,13 @@ module.exports = ({ config }) => {
       },
       predictiveBackGestureEnabled: false
     },
+    androidStatusBar: {
+      backgroundColor: '#00000000',
+      translucent: true,
+    },
+    androidNavigationBar: {
+      backgroundColor: '#00000000',
+    },
     web: {
       bundler: 'metro',
       favicon: './assets/favicon.png',

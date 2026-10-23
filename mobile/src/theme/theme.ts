@@ -7,11 +7,11 @@
  */
 
 import { BRAND, getPalette, getBgAsset, PALETTES, SemanticTokens } from './palette';
-import { fonts, typeScale, spacing, radius, elevation, layout } from './tokens';
+import { fonts, typeScale, spacing, radius, elevation, layout, tabBarTokens } from './tokens';
 
 export type { Brand, ColorMode, SemanticTokens } from './palette';
 export { BRAND, getPalette, getBgAsset, PALETTES };
-export { fonts, typeScale, spacing, radius, elevation, layout };
+export { fonts, typeScale, spacing, radius, elevation, layout, tabBarTokens };
 
 export function createThemeColors(palette: SemanticTokens) {
   return {
@@ -49,6 +49,7 @@ export interface ThemeValue {
   radius: typeof radius & { glass: number; xl: number };
   elevation: typeof elevation;
   layout: typeof layout;
+  tabBar: typeof tabBarTokens;
   brand: Brand;
   typography: {
     display: any;
@@ -93,6 +94,7 @@ export function buildTheme(mode: ColorMode, brand: Brand = BRAND): ThemeValue {
     },
     elevation,
     layout,
+    tabBar: tabBarTokens,
     brand,
     typography: {
       display: { ...typeScale.display, color: themeColors.text },
@@ -219,6 +221,7 @@ export const theme = {
     },
   },
   layout,
+  tabBar: tabBarTokens,
 };
 
 /**
@@ -231,6 +234,18 @@ export function getTopScrimColors(color: string): [string, string] {
   const g = parseInt(hex.substring(2, 4), 16) || 0;
   const b = parseInt(hex.substring(4, 6), 16) || 0;
   return [`rgba(${r}, ${g}, ${b}, 0.95)`, `rgba(${r}, ${g}, ${b}, 0)`];
+}
+
+/**
+ * Returns gradient colors for bottom status/tab bar scrim:
+ * Transparent fading to screen background color at 0.95 opacity.
+ */
+export function getBottomScrimColors(color: string): [string, string] {
+  const hex = color.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16) || 0;
+  const g = parseInt(hex.substring(2, 4), 16) || 0;
+  const b = parseInt(hex.substring(4, 6), 16) || 0;
+  return [`rgba(${r}, ${g}, ${b}, 0)`, `rgba(${r}, ${g}, ${b}, 0.95)`];
 }
 
 export default theme;

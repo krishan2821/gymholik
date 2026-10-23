@@ -204,3 +204,44 @@ export const layout = {
     tablet: 1024,
   },
 } as const;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Floating Tab Bar geometry & animation tokens
+// ─────────────────────────────────────────────────────────────────────────────
+export const tabBarTokens = {
+  height: 64,
+  radius: 32,
+  sideMargin: 16,
+  bottomOffsetExtra: 8,
+  // Center circle geometry
+  centerCircleFilledDiameter: 52,
+  centerCircleRingWidth: 4,
+  centerCircleTotalDiameter: 60, // 52 + 4 * 2
+  centerCircleProtrusion: 12,    // filled circle protrudes 12pt above bar top edge
+  centerCircleCenterY: 14,       // center is 14pt below bar's top edge
+  centerCircleTop: -16,          // outer ring top edge relative to bar top (14 - 30)
+  centerCircleFilledTop: -12,    // filled circle top edge relative to bar top (14 - 26)
+  centerCircleBottom: 44,        // outer ring bottom edge (14 + 30)
+  centerCircleHitArea: 56,       // minimum touch target diameter
+  // Active pill indicator
+  activePillHeight: 44,
+  activePillRadius: 22,
+  activePillMarginHorizontal: 4, // width = slotWidth - 8 (4pt on each side)
+  // Label and typography
+  labelFontSize: 11,
+  labelLineHeight: 14,
+  labelBaselineY: 52,
+  // Animation specifications
+  springConfig: {
+    damping: 16,
+    stiffness: 220,
+    mass: 0.8,
+  },
+  pressInScale: 0.92,
+  rippleMaxScale: 1.7,
+  rippleInitialOpacity: 0.35,
+  rippleDurationMs: 450,
+  entranceDurationMs: 350,
+  entranceTranslateY: 24,
+  androidRippleRadius: 28,
+} as const;

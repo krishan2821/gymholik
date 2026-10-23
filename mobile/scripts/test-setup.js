@@ -91,5 +91,8 @@ Module._resolveFilename = function (request, parent, isMain, options) {
   if (request === 'react-native-view-shot') {
     return path.resolve(__dirname, 'mock-view-shot.js');
   }
+  if (request === 'react-native-reanimated') {
+    return path.resolve(__dirname, 'mock-reanimated.js');
+  }
   return origResolve.call(this, request, parent, isMain, options);
 };
